@@ -1,9 +1,10 @@
-app_name = "dartwing_frappe"
-app_title = "Dartwing Frappe"
-app_publisher = "Dartwingers"
-app_description = "Dartwing backend API and business logic"
+app_name = "dartwing"
+app_title = "Dartwing"
+app_publisher = "Opensoft"
+app_description = "Dartwing backend API and family management"
 app_email = "dev@dartwingers.com"
-app_license = "mit"
+app_license = "MIT"
+app_version = "0.1.0"
 
 # Apps
 # ------------------
