@@ -1,0 +1,26 @@
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "dartwing"
+authors = [
+    {name = "Opensoft", email = "dev@dartwingers.com"}
+]
+description = "Dartwing backend API and family management"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    "frappe"
+]
+
+[project.urls]
+Homepage = "https://github.com/opensoft/frappe-app-dartwing"
+Repository = "https://github.com/opensoft/frappe-app-dartwing.git"
+
+[tool.bench.dev-dependencies]
+# Development dependencies can be added here
+
+[project.entry-points."frappe"]
+dartwing = "dartwing"
