@@ -1,0 +1,1 @@
+// Invoice client script placeholder

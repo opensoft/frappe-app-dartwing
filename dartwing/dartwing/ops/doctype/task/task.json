@@ -1,0 +1,8 @@
+{
+  "doctype": "DocType",
+  "name": "Task",
+  "module": "Ops",
+  "custom": 1,
+  "fields": [],
+  "permissions": []
+}

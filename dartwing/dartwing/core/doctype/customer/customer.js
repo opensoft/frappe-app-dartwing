@@ -1,0 +1,1 @@
+// Customer client script placeholder

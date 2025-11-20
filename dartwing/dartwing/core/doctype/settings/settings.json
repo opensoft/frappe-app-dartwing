@@ -1,0 +1,8 @@
+{
+  "doctype": "DocType",
+  "name": "Settings",
+  "module": "Core",
+  "custom": 1,
+  "fields": [],
+  "permissions": []
+}

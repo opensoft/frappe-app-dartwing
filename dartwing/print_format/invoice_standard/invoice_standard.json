@@ -1,0 +1,9 @@
+{
+  "align_labels_left": 1,
+  "doc_type": "Sales Invoice",
+  "format_data": [],
+  "html": "invoice_standard",
+  "name": "Invoice Standard",
+  "print_format_builder": 0,
+  "raw_printing": 0
+}

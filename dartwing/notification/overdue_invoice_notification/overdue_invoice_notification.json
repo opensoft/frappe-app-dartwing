@@ -1,0 +1,10 @@
+{
+  "document_type": "Sales Invoice",
+  "enabled": 0,
+  "event": "Days After Due Date",
+  "message": "Invoice is overdue.",
+  "name": "Overdue Invoice Notification",
+  "recipients": [],
+  "sender": "Administrator",
+  "subject": "Overdue Invoice"
+}

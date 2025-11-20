@@ -1,0 +1,7 @@
+recursive-include dartwing *.py *.json *.html *.js *.css *.svg
+recursive-include public *
+recursive-include templates *
+recursive-include www *
+recursive-include fixtures *
+recursive-include locale *
+include README.md
