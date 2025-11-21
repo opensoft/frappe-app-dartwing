@@ -4,3 +4,6 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+dartwing.patches.v1_0.add_status_to_task
+dartwing.patches.v1_0.migrate_customer_names
+dartwing.patches.v1_1.rename_invoice_field

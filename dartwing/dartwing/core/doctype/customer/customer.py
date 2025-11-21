@@ -1,0 +1,8 @@
+"""Customer placeholder DocType."""
+
+import frappe
+from frappe.model.document import Document
+
+
+class Customer(Document):
+    pass
