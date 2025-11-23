@@ -1,4 +1,3 @@
-Dartwing
-Core
-Ops
-Billing
+Dartwing Core
+Dartwing Ops
+Dartwing Billing
