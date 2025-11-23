@@ -1,7 +1,7 @@
 {
   "doctype": "DocType",
-  "name": "Task",
-  "module": "Ops",
+  "name": "Invoice",
+  "module": "Dartwing Billing",
   "custom": 1,
   "fields": [],
   "permissions": []

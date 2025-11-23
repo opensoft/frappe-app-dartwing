@@ -1,7 +1,7 @@
 {
   "doctype": "DocType",
-  "name": "Customer",
-  "module": "Core",
+  "name": "Settings",
+  "module": "Dartwing Core",
   "custom": 1,
   "fields": [],
   "permissions": []
