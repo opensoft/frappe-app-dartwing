@@ -1,0 +1,154 @@
+This Product Requirements Document (PRD) outlines the features for a comprehensive digital fax application, integrating advanced security, AI-driven automation, and a robust document annotation toolkit.
+The primary goal is to transform the digital fax service from a simple machine replacement into an automated workflow and communications engine while mitigating security threats like spoofing,,.
+--------------------------------------------------------------------------------
+1. Objectives
+1. Workflow Automation: Automate the classification and routing of incoming faxes with high accuracy, minimizing manual sorting.
+2. Document Management: Provide users with intuitive in-app tools to instantly annotate, sign, and stamp received faxes, enabling them to return the modified document via email or fax with zero friction.
+3. Security & Compliance (Inbound): Maximize security and routing efficiency by systematically validating the sender of every incoming fax using a three-tier system, minimizing spam and malicious traffic.
+4. Security & Compliance (Outbound): Implement strong authentication layers, including a Confirmation Loop for Email-to-Fax, to prevent unauthorized transmission and customer spoofing,.
+--------------------------------------------------------------------------------
+2. Module A: AI-Powered Intelligent Fax Routing
+This module governs how the system processes and routes incoming documents based on content analysis and predefined rules.
+A.1 AI-Driven Content Requirements
+Component
+Function
+Routing Output / Action
+OCR/ICR
+Converts the fax image (including poor quality or handwritten text) into machine-readable, searchable text.
+Provides raw text content.
+NLP (Classification)
+Analyzes the text content for themes, entities, and intent.
+Assigns a Category (e.g., Sales Inquiry, Accounting/Invoice, Customer Complaint, Contract Review).
+Entity Extraction
+Extracts specific data points from the content.
+Extracts Key Data (e.g., Recipient Name, Customer ID, Policy Number, Invoice Amount, Sender Company Name).
+AI Routing Logic
+Uses the extracted category and entities to match the fax against staff/customer profiles.
+Assigns a Staff/Case Owner, routing the document considering the staff member's current workload.
+A.2 Hard Route Rules (IF/THEN Logic)
+The system must allow administrators to define powerful non-AI routing criteria to enhance the rule set,:
+Rule Type
+Description
+Area Code/Prefix
+Route based on a geographic region or exchange (e.g., (212)xxx-xxxx to the New York Sales Team inbox).
+DID Routing
+Route based on the specific Direct Inward Dialing (DID) number the fax was received on (e.g., a specific Accounting DID).
+CSID/CNID Match
+Route based on the Caller Station ID (CSID) or Caller Name ID (CNID) string transmitted by the sender's machine.
+Recipient Name/To Field
+Route based on a specific name mentioned in the fax header's "To" field (e.g., "Attention: Dr. Jones").
+Time of Day/Day of Week
+Route faxes received outside standard business hours (e.g., 5 PM – 8 AM or weekends).
+Page Count/Size
+Route faxes based on length; faxes over 25 pages may be routed to a Cloud Archive first.
+A.3 Advanced Routing Actions
+Routing actions can involve complex integrations:
+• Data Extraction & Webhook: Use OCR/AI to extract structured data (JSON/XML) and send it via a Webhook to a target system to trigger an RPA Bot (Robotic Process Automation) for data entry into CRM or ERP.
+• Task Creation: Automatically create a ticket or task in a project management system (e.g., Jira, Asana) upon receipt of a certain fax category (e.g., Complaint creates a High-Priority ticket).
+• Priority Tagging: Assign an urgency level that follows the document into its destination (e.g., tagging faxes with keywords like "STAT" or "Urgent" as Critical).
+A.4 AI Success Metrics (Acceptance Criteria)
+• AC-AI-01: The AI must achieve 90% accuracy in correctly classifying faxes into pre-defined categories after the initial training period.
+• AC-AI-02: When routing to a specific employee, the AI must provide a confidence score (e.g., 95% certainty) and default to a Human Review Queue if the score is below a threshold (e.g., 70%).
+--------------------------------------------------------------------------------
+3. Module B: Digital Document Annotation & Signature Toolkit
+This module provides the features necessary to support the "Receive, Act, and Return" workflow.
+B.1 Electronic Signature Functionality
+• Signature Creation: Users must be able to create and save signatures using three methods: Typing (rendering name in a cursive font), Drawing (using a mouse, stylus, or finger), and Uploading (with a background cleanup tool).
+• Placement & Editing: The signature must be movable, resizable, and rotatable using drag-and-drop functionality.
+• Audit Trail Inclusion: Once applied, the system must digitally embed metadata (user ID, timestamp) into the document image adjacent to the signature.
+B.2 Custom Stamping Feature
+• SR-01 (Stamp Library): Users must be able to create a library of pre-designed stamps for one-click application, customizable by Text (e.g., PAID, CONFIDENTIAL), Date (automatic insertion), and Style (font, border shape, color, and transparency).
+• SR-02 (Signature Combination): Ability to combine a user's signature with a dynamic stamp (e.g., placing the signature inside a custom "Approved by [User]" stamp border).
+• SR-03 (Metadata Stamping): Ability to automatically pull and stamp fax metadata onto the document (e.g., placing a stamp that reads: "Received via Fax [Date] [Time]").
+B.3 Return Workflow
+After annotation, the user must have seamless options to handle the document:
+• Return via Fax: A One-Click Send button must automatically initiate a new fax transmission using the Sender's original fax number as the recipient. The newly signed/stamped PDF replaces the original fax content.
+• Return via Email: The system creates a new email, attaches the signed PDF, and uses the Sender's original email address as the recipient. The user must be given a text box to edit the email subject and body before sending.
+• Internal Filing: A "Save Finalized Copy" button triggers the Rule-Based Routing logic (Module A) to file the document in the correct customer portal or cloud storage folder.
+B.4 Annotation Non-Functional Requirements (NFR)
+• NF-TS-01 (Legal Binding): The service must confirm that the e-signature feature complies with relevant e-signature laws (e.g., UETA and ESIGN Act in the US).
+• NF-TS-02 (Immutability): Once a signed or stamped document is saved, the system must not allow the user to undo or re-edit the applied annotations, requiring the creation of a new version to preserve the integrity of the original action.
+--------------------------------------------------------------------------------
+4. Module C: Three-Tier Fax Validation System (Inbound Security)
+This system provides a multi-layered defense against known threats, suspicious traffic, and unknown senders.
+C.1 Tier 1: Hard Rules (Whitelist/Blacklist)
+• Whitelist (FR-WL-01): Any fax from a whitelisted number must bypass AI classification and be routed directly to its final destination. The console must support wildcard entries and be manageable via an Admin Console.
+• Blacklist (FR-BL-01): Any fax from an internally blacklisted number must be immediately rejected and deleted without processing or storage.
+    ◦ DB Integration (FR-BL-02): The system must integrate via API with an external Spam/Fraud Database and update the Blacklist hourly.
+    ◦ Customer Block (FR-BL-03): Individual users must be able to add a sender number to their Personal Blacklist.
+C.2 Tier 2: AI Validation & Classification
+If a sender number is not found on the Whitelist or Blacklist, it proceeds to AI validation.
+• Spam/Legitimacy Confidence Score: The AI assigns a score based on:
+    ◦ Content Analysis: Keywords (e.g., "discount," "loan offer") and lack of standard business entities.
+    ◦ Metadata Check: Time of transmission (bulk faxes often arrive overnight) and source type.
+    ◦ Prior History: Cross-reference against past, failed, or challenged transmissions in the system.
+• Routing based on Score:
+    ◦ 0% to 30% Spam Score: Route immediately via standard Rule-Based Routing.
+    ◦ 31% to 80% Spam Score: Trigger the Questionnaire Challenge (Tier 3).
+    ◦ 81% to 100% Spam Score: Treat as Blacklist; Reject and Delete the fax without notification to the sender.
+C.3 Tier 3: Questionnaire Challenge (Sender Verification)
+When the AI flags a fax as suspicious (31%-80% score):
+• Action (FR-QC-01): The system must immediately execute a Fax-Back Challenge by sending an automated, single-page fax back to the sender’s number.
+• Content (FR-QC-02): The fax must contain a brief Questionnaire (e.g., Company Name, Reason for Fax, Contact Email) and a unique, time-sensitive Validation Code.
+• Success Condition: The system receives a fax back from the exact same sender number that includes the Validation Code and filled-out questionnaire fields. The sender is marked "Validated" and the original held fax is immediately released and delivered.
+• Failure Condition: If the system does not receive a reply within the set time limit (e.g., 24 hours), the held fax is deleted.
+C.4 Validation NFRs
+• NF-VL-01 (Queue Management): The system must have a dedicated, visible "Held Faxes Queue" dashboard for administrators to manually review and release/delete faxes currently undergoing the Challenge process,.
+• NF-VL-02 (Latency): The entire Tier 1 and Tier 2 AI classification process must be completed in under 5 seconds.
+--------------------------------------------------------------------------------
+5. Module D: Outgoing Fax Security and Anti-Spoofing
+This module details defenses against malicious actors faking the Caller ID or gaining unauthorized access to customer accounts.
+D.1 Sender Authentication Strategies
+• Multi-Factor Authentication (MFA): Require users to provide two or more verification factors to access the account and the fax sending feature.
+• Strict Originator Source Locking (Email-to-Fax): Allow fax sending only from the pre-registered, verified email addresses associated with that customer's account, rejecting requests from unverified email addresses.
+• API Key and Digital Signature Verification (Programmatic Sending): Each API request must include a unique API Key or Bearer Token for authentication and ideally a digital signature (using cryptographic hashing) to prevent tampering.
+• Rate Limiting and Anomaly Detection: Set a maximum number of faxes that can be sent per hour from a single account, and flag suspicious activities like geographic anomalies (e.g., login from NY followed by transmission from a different continent).
+D.2 Confirmation Loop for Email-to-Fax
+This second layer of authentication prevents unauthorized transmission via the Email-to-Fax gateway,.
+• Trigger: The loop must be triggered when any user attempts to send a fax via the Email-to-Fax method, unless the sending email address is already whitelisted (e.g., due to MFA enabled on their account).
+• Workflow Steps:
+    1. Hold Request: System receives the email-to-fax request and holds it.
+    2. Generate Preview & Code: System generates a PDF preview of the fax and creates a unique, single-use, time-sensitive Confirmation Code (minimum 6-character alphanumeric code, valid for 10 minutes maximum),.
+    3. Send Confirmation: Confirmation Message is sent to the customer’s pre-registered, trusted channel (Email or SMS).
+    4. User Confirmation: User must confirm within the time limit by clicking a link in the email, replying to the email with the code, or replying to the SMS with the code.
+    5. Final Transmission: If verified, the fax is immediately transmitted. If incorrect or expired, the system sends a failure notification.
+• Confirmation NFRs:
+    ◦ Time-to-Send (NF-CONF-01): The entire process must be completed in under 2 minutes upon successful confirmation.
+    ◦ Audit Trail (NF-CONF-03): The system must log the entire confirmation process, including Initial Sender IP, Confirmation Code Sent Time, Confirmation Received Time, and Confirmation Channel Used (Email/SMS).
+D.3 General Audit and Logging Requirements
+• Immutable Logs: Maintain a detailed, non-editable audit trail of every fax send request, including the authenticated User ID, the source IP address, the exact time, and the delivery status,.
+• Internal CSID: The system must inject an internal, verifiable identifier into the fax header that can only be generated by the platform.
+--------------------------------------------------------------------------------
+6. Module E: Application Interface Screens (UI/UX)
+The following screens are required to support the functional and security requirements.
+Screen Name
+Purpose & Key Elements
+Linked Feature Integration
+A. Dashboard / Inbox
+Central Hub showing real-time activity and queues.
+Shows counts for New Faxes, Held Faxes (Tier 3), Sent/Failed, and recent activity.
+D. Fax Viewer & Editor
+Dedicated screen for reviewing and acting on received faxes.
+Includes the Annotation Toolkit (Signature, Stamp, Text, Highlight); Action Buttons: "Return Fax", "Forward via Email", "Archive", "Download"; Displays the AI-assigned Category.
+F. Routing Rules Console
+Admin area for defining rules and AI thresholds.
+Rule Builder ("IF [Condition] THEN [Action]"); Slider to set the AI Confidence Threshold (e.g., 70% confidence for routing),; DID Management.
+G. Sender Validation Console
+Central hub for managing incoming security settings.
+Whitelist/Blacklist Management (Input fields for adding/deleting numbers),,; Display of the external Spam/Fraud DB Integration Status,; Questionnaire Editor (Tool to customize the fax-back challenge content),.
+H. Held Faxes Queue
+Review area for faxes awaiting human intervention or sender reply.
+Displays Status and time remaining for the challenge; Manual Action buttons: "Force Release," "Force Block," or "View Questionnaire Reply".
+I. Signature & Stamp Console
+User/Admin area to manage saved annotations.
+Signature Upload/Draw tools; Stamp Designer (WYSIWYG editor for custom text, date, and image stamps),; Access Control (assigning which users can access specific official stamps).
+J. User Management
+Adding, editing, and managing user accounts.
+Role-Based Access Control (RBAC); MFA Setup configuration,.
+K. API & Integration Setup
+Tools for connecting the fax service to external systems.
+API Key Generation,; Webhook Configuration (Setting up target URLs for outbound data and notifications),; Cloud Storage Setup (Authentication with Dropbox/Drive/OneDrive).
+C. Sent Faxes History
+Searchable log of sent faxes.
+Clear Delivery Status; Link to view the transmission receipt (Audit Trail); One-Click Resend for failed faxes.
+NotebookLM can be inaccurate; please double check its responses.
