@@ -20,6 +20,8 @@ _A Flutter + Frappe Low-Code Application Framework_
 8. Security Architecture
 9. Implementation Roadmap
 10. Technical Specifications
+11. Advanced Features & Operations
+12. Developer Ecosystem
 
 - Appendix A: Doctype JSON Reference
 - Appendix B: Flutter Package Dependencies
@@ -144,49 +146,36 @@ The framework consists of these primary components:
 
 ## 3. Core Data Model
 
-### 3.1 Universal Organization Doctype
+### 3.1 Hybrid Organization Model (Thin Reference + Concrete Types)
 
-The Organization doctype is the cornerstone of Dartwing. A single record that adapts to represent any type of human group—from a 4-person household to a multi-jurisdiction holding company.
+Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while maintaining the benefits of a unified `Organization` entity.
 
-| Org Type  | System Becomes          | Native Support For                                        |
-| --------- | ----------------------- | --------------------------------------------------------- |
-| Family    | Private family unit     | Parents, children, spouses, guardians, shared equipment   |
-| Company   | Full legal entity       | C-Corp, LLC, WFOE, officers, directors, beneficial owners |
-| Nonprofit | Tax-exempt organization | 501(c)(3/4), board, donors, volunteers                    |
-| Club      | Membership organization | Membership tiers, dues, events, elected officers          |
+1.  **Organization (Thin Reference):** A lightweight shell that holds shared identity (Name, Logo, Status) and acts as the target for all foreign keys (Invoices, Tasks, Notes).
+2.  **Concrete Types:** Separate 1:1 linked doctypes (`Family`, `Company`, `Club`, `Nonprofit`) that hold domain-specific data and validation logic.
 
-### 3.2 Supporting Doctypes
+| Doctype          | Role                    | Fields                                                      |
+| :--------------- | :---------------------- | :---------------------------------------------------------- |
+| **Organization** | Polymorphic Identity    | `name`, `org_type`, `logo`, `linked_doctype`, `linked_name` |
+| **Family**       | Concrete Implementation | `nickname`, `residence`, `parental_controls`                |
+| **Company**      | Concrete Implementation | `tax_id`, `entity_type`, `jurisdiction`                     |
+| **Club**         | Concrete Implementation | `membership_tiers`, `dues`, `amenities`                     |
 
-The following doctypes support the Organization model:
+### 3.2 Implementation Pattern (Bidirectional Linking)
 
-- **Person:** Individual human identity with contact info, preferences
-- **Org Member:** Links Person to Organization with role assignment
-- **Role Template:** Defines roles per org_type (Parent, CEO, Member, etc.)
-- **Family Relationship:** Parent/Child/Spouse relationships (Family org_type)
-- **Employment Record:** Employment history (Company org_type)
-- **Equipment:** Assets owned by org, assigned to persons
-- **Address:** Physical/mailing addresses linked to orgs/persons
+To ensure data integrity, we use Frappe server-side hooks to maintain the relationship:
 
-### 3.3 Conditional Field Visibility
+- **Creation:** When an `Organization` is created, a hook automatically creates the corresponding Concrete Doctype (e.g., `Family`) and links them.
+- **Linking:** The `Organization` record stores the `linked_doctype` and `linked_name` for easy retrieval.
+- **Validation:** Concrete doctypes (e.g., `Payroll Run`) link directly to `Company` to enforce type safety. Generic doctypes (e.g., `Task`) link to `Organization` for polymorphism.
 
-Frappe's `depends_on` feature enables clean UI by showing/hiding fields based on org_type. Legal entity fields (registered agent, jurisdiction, beneficial owners) are hidden for Family/Club types while remaining fully functional for Company/Nonprofit types.
-
-### 3.4 Organization Doctype JSON
+### 3.3 Organization Doctype JSON (Thin Shell)
 
 ```json
 {
   "doctype": "Organization",
   "name": "Organization",
   "module": "Dartwing Core",
-  "custom": 0,
-  "issingle": 0,
-  "istable": 0,
   "fields": [
-    {
-      "fieldname": "section_basic",
-      "fieldtype": "Section Break",
-      "label": "Basic Information"
-    },
     {
       "fieldname": "org_name",
       "label": "Organization Name",
@@ -201,7 +190,6 @@ Frappe's `depends_on` feature enables clean UI by showing/hiding fields based on
       "options": "Family\nCompany\nNonprofit\nClub/Association"
     },
     { "fieldname": "logo", "label": "Logo", "fieldtype": "Attach Image" },
-    { "fieldname": "column_break_1", "fieldtype": "Column Break" },
     {
       "fieldname": "status",
       "label": "Status",
@@ -210,75 +198,41 @@ Frappe's `depends_on` feature enables clean UI by showing/hiding fields based on
       "options": "Active\nInactive\nDissolved"
     },
     {
-      "fieldname": "tax_id",
-      "label": "Tax ID / EIN / Unified Social Credit Code",
+      "fieldname": "section_link",
+      "fieldtype": "Section Break",
+      "label": "Concrete Implementation"
+    },
+    {
+      "fieldname": "linked_doctype",
+      "label": "Linked Doctype",
       "fieldtype": "Data",
-      "depends_on": "eval:['Company','Nonprofit'].includes(doc.org_type)"
+      "read_only": 1
     },
+    {
+      "fieldname": "linked_name",
+      "label": "Linked Name",
+      "fieldtype": "Data",
+      "read_only": 1
+    }
+  ]
+}
+```
 
-    {
-      "fieldname": "section_legal",
-      "fieldtype": "Section Break",
-      "label": "Legal Entity Details",
-      "depends_on": "eval:doc.org_type=='Company' || doc.org_type=='Nonprofit'"
-    },
-    {
-      "fieldname": "legal_name",
-      "label": "Legal Entity Name",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "entity_type",
-      "label": "Entity Type",
-      "fieldtype": "Select",
-      "options": "\nC-Corp\nS-Corp\nLLC\nLimited Partnership (LP)\nGeneral Partnership\nLLP\nWFOE (China)\nNonprofit Corporation\nBenefit Corporation\nCooperative"
-    },
-    {
-      "fieldname": "jurisdiction_country",
-      "label": "Country of Formation",
-      "fieldtype": "Link",
-      "options": "Country"
-    },
-    {
-      "fieldname": "jurisdiction_state",
-      "label": "State / Province",
-      "fieldtype": "Data"
-    },
-    {
-      "fieldname": "formation_date",
-      "label": "Date of Formation / Incorporation",
-      "fieldtype": "Date"
-    },
-    {
-      "fieldname": "governing_law",
-      "label": "Governing Law",
-      "fieldtype": "Data"
-    },
-    { "fieldname": "column_break_legal", "fieldtype": "Column Break" },
-    {
-      "fieldname": "registered_address",
-      "label": "Registered Address",
-      "fieldtype": "Link",
-      "options": "Address"
-    },
-    {
-      "fieldname": "physical_address",
-      "label": "Principal / Physical Address",
-      "fieldtype": "Link",
-      "options": "Address"
-    },
-    {
-      "fieldname": "registered_agent",
-      "label": "Registered Agent",
-      "fieldtype": "Link",
-      "options": "Person"
-    },
+### 3.4 Concrete Doctype JSONs
 
+#### Family (Concrete)
+
+```json
+{
+  "doctype": "Family",
+  "module": "Dartwing Family",
+  "fields": [
     {
-      "fieldname": "section_family",
-      "fieldtype": "Section Break",
-      "label": "Family Details",
-      "depends_on": "eval:doc.org_type=='Family'"
+      "fieldname": "organization",
+      "label": "Organization Ref",
+      "fieldtype": "Link",
+      "options": "Organization",
+      "read_only": 1
     },
     {
       "fieldname": "family_nickname",
@@ -290,26 +244,59 @@ Frappe's `depends_on` feature enables clean UI by showing/hiding fields based on
       "label": "Primary Residence",
       "fieldtype": "Link",
       "options": "Address"
-    },
+    }
+  ]
+}
+```
 
+#### Company (Concrete)
+
+```json
+{
+  "doctype": "Company",
+  "module": "Dartwing Company",
+  "fields": [
     {
-      "fieldname": "section_nonprofit",
-      "fieldtype": "Section Break",
-      "label": "Nonprofit Details",
-      "depends_on": "eval:doc.org_type=='Nonprofit'"
+      "fieldname": "organization",
+      "label": "Organization Ref",
+      "fieldtype": "Link",
+      "options": "Organization",
+      "read_only": 1
     },
     {
-      "fieldname": "tax_exempt_status",
-      "label": "Tax-Exempt Status",
+      "fieldname": "tax_id",
+      "label": "Tax ID / EIN",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "entity_type",
+      "label": "Entity Type",
       "fieldtype": "Select",
-      "options": "\n501(c)(3)\n501(c)(4)\n501(c)(6)\n501(c)(7)\nOther"
+      "options": "C-Corp\nLLC\n..."
     },
-
     {
-      "fieldname": "section_club",
-      "fieldtype": "Section Break",
-      "label": "Club / Association",
-      "depends_on": "eval:doc.org_type=='Club/Association'"
+      "fieldname": "jurisdiction_country",
+      "label": "Jurisdiction",
+      "fieldtype": "Link",
+      "options": "Country"
+    }
+  ]
+}
+```
+
+#### Club (Concrete)
+
+```json
+{
+  "doctype": "Club",
+  "module": "Dartwing Associations",
+  "fields": [
+    {
+      "fieldname": "organization",
+      "label": "Organization Ref",
+      "fieldtype": "Link",
+      "options": "Organization",
+      "read_only": 1
     },
     {
       "fieldname": "membership_tiers",
@@ -317,16 +304,6 @@ Frappe's `depends_on` feature enables clean UI by showing/hiding fields based on
       "fieldtype": "Table",
       "options": "Organization Membership Tier"
     }
-  ],
-  "permissions": [
-    {
-      "role": "System Manager",
-      "read": 1,
-      "write": 1,
-      "create": 1,
-      "delete": 1
-    },
-    { "role": "Organization Admin", "read": 1, "write": 1, "create": 1 }
   ]
 }
 ```
@@ -771,6 +748,8 @@ A key architectural decision is the separation of personal and business identiti
 
 ---
 
+---
+
 ## 6. AI Persona Architecture
 
 ### 6.1 Persona Types
@@ -790,20 +769,26 @@ Each Organization has an associated Knowledge Vault containing documents, FAQs, 
 
 AI personas can execute registered tools—API calls, database queries, workflow triggers—based on user requests. Tools are registered per-organization and subject to role-based permissions.
 
+### 6.4 Voice & Interaction Layer
+
+- **Voice-First Interface:** Native Flutter voice capabilities allow users to interact via natural language (e.g., "Add a meeting with John tomorrow").
+- **Local LLM Support:** Privacy-focused option for Family orgs to run smaller LLMs (e.g., Llama 3 8B) on local hardware/edge devices.
+- **Meeting Assistant:** Automated transcription and summarization of meetings with action item extraction into the `Task` doctype.
+
 ---
 
 ## 7. Modular Application Architecture
 
 ### 7.1 Core Modules
 
-| Module          | Description                                                         |
-| --------------- | ------------------------------------------------------------------- |
-| dartwing_core   | Organization, Person, Org Member, Role Template, Equipment doctypes |
-| dartwing_hr     | Employment Record, Skills, Departments, Payroll integration         |
-| dartwing_family | Family Relationship, shared calendars, allowance tracking           |
-| dartwing_comms  | Virtual phone numbers, SMS/Voice, Fax management                    |
-| dartwing_ai     | AI Personas, Knowledge Vault, Tool Registry, LLM integration        |
-| dartwing_fax    | HIPAA-compliant fax handling, patient mapping, audit logs           |
+| Module          | Description                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| dartwing_core   | Organization, Person, Org Member, Role Template, Equipment doctypes                                        |
+| dartwing_hr     | Employment Record, Skills, Departments, Payroll integration                                                |
+| dartwing_family | Family Relationship, shared calendars, allowance tracking, Chore Gamification, Meal Planning, Family Vault |
+| dartwing_comms  | Virtual phone numbers, SMS/Voice, Fax management, Unified Inbox, Smart Routing, Broadcast System           |
+| dartwing_ai     | AI Personas, Knowledge Vault, Tool Registry, LLM integration                                               |
+| dartwing_fax    | HIPAA-compliant fax handling, patient mapping, audit logs                                                  |
 
 ### 7.2 Module Loading
 
@@ -900,6 +885,24 @@ Permissions cascade from Organization → Role Template → Org Member. Frappe's
 - **Offline Capability:** Full read access, queued write operations
 - **Sync Latency:** < 500ms for real-time updates
 - **Concurrent Users:** Support 10,000+ concurrent connections per instance
+
+---
+
+## 11. Advanced Features & Operations
+
+### 11.1 Business & Operations
+
+- **Geofencing & Location Tracking:**
+  - _Business:_ Auto-clock-in/out, asset tracking.
+  - _Family:_ Child arrival/departure alerts (school/home).
+- **Visual Workflow Builder:** Flutter-based drag-and-drop UI for designing approval processes and automations.
+- **White-Labeling:** Tenant-specific branding (Logo, Colors) dynamically applied to the Flutter app.
+
+### 11.2 Developer Ecosystem
+
+- **Plugin Marketplace:** Platform for third-party developers to build and sell modules.
+- **Webhooks & Zapier:** First-class support for outgoing webhooks and integration with external low-code tools.
+- **Data Sovereignty:** One-click "Export All My Data" (JSON/CSV) feature.
 
 ---
 
