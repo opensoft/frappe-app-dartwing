@@ -90,7 +90,7 @@ One framework. Every platform. Any organization type. Dartwing eliminates the ne
 
 ### 1.2 Key Differentiators
 
-- **Universal Organization Model:** Single doctype handles families, companies, nonprofits, and clubs
+- **Universal Organization Model:** Hybrid architecture with unified identity layer and type-specific concrete implementations
 - **Cross-Platform Native:** Flutter provides true native performance on iOS, Android, Web, and Desktop
 - **AI-First Design:** Built-in AI personas for sales, support, and automation
 - **Low-Code Development:** Frappe's doctype system enables rapid app building
@@ -121,6 +121,8 @@ Dartwing serves three distinct client types, all communicating through the **sam
 | **Flutter Apps**        | Flutter (Mobile, Desktop, Web)         | REST API (`/api/resource/`, `/api/method/`) + Socket.IO |
 | **External Websites**   | Any framework (React, Vue, vanilla JS) | REST API (same endpoints)                               |
 | **Frappe Builder Site** | Frappe Builder                         | `frappe.call()` → REST API internally                   |
+
+[See `docs/dartwing_core/socket_io_scaling_spec.md` for Socket.IO horizontal scaling architecture with Redis pub/sub adapter.]
 
 **API-First Principle:** All business logic MUST be exposed via `@frappe.whitelist()` decorated Python methods. This ensures:
 
@@ -159,6 +161,26 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
 | **Family**       | Concrete Implementation | `nickname`, `residence`, `parental_controls`                |
 | **Company**      | Concrete Implementation | `tax_id`, `entity_type`, `jurisdiction`                     |
 | **Club**         | Concrete Implementation | `membership_tiers`, `dues`, `amenities`                     |
+| **Nonprofit**    | Concrete Implementation | `tax_exempt_status`, `board_members`, `mission`             |
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Organization                             │
+│  ┌───────────┬──────────┬────────┬─────────────────────────┐    │
+│  │ org_name  │ org_type │ status │ linked_doctype/name     │    │
+│  └───────────┴──────────┴────────┴─────────────────────────┘    │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │ 1:1 Link (maintained by hooks)
+          ┌─────────────────┼─────────────────┬─────────────────┐
+          ▼                 ▼                 ▼                 ▼
+     ┌─────────┐      ┌──────────┐      ┌─────────┐      ┌───────────┐
+     │ Family  │      │ Company  │      │  Club   │      │ Nonprofit │
+     ├─────────┤      ├──────────┤      ├─────────┤      ├───────────┤
+     │nickname │      │ tax_id   │      │ tiers[] │      │ 501c_type │
+     │residence│      │ officers │      │ dues    │      │ board[]   │
+     │         │      │ partners │      │         │      │ mission   │
+     └─────────┘      └──────────┘      └─────────┘      └───────────┘
+```
 
 ### 3.2 Implementation Pattern (Bidirectional Linking)
 
@@ -175,7 +197,16 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
   "doctype": "Organization",
   "name": "Organization",
   "module": "Dartwing Core",
+  "autoname": "naming_series:",
   "fields": [
+    {
+      "fieldname": "naming_series",
+      "label": "Series",
+      "fieldtype": "Select",
+      "options": "ORG-.YYYY.-",
+      "default": "ORG-.YYYY.-",
+      "hidden": 1
+    },
     {
       "fieldname": "org_name",
       "label": "Organization Name",
@@ -187,6 +218,7 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
       "label": "Organization Type",
       "fieldtype": "Select",
       "reqd": 1,
+      "set_only_once": 1,
       "options": "Family\nCompany\nNonprofit\nClub/Association"
     },
     { "fieldname": "logo", "label": "Logo", "fieldtype": "Attach Image" },
@@ -226,12 +258,19 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 {
   "doctype": "Family",
   "module": "Dartwing Family",
+  "autoname": "FAM-.#####",
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Dartwing User", "read": 1, "write": 1, "if_owner": 0}
+  ],
+  "user_permission_dependant_doctype": "Organization",
   "fields": [
     {
       "fieldname": "organization",
       "label": "Organization Ref",
       "fieldtype": "Link",
       "options": "Organization",
+      "reqd": 1,
       "read_only": 1
     },
     {
@@ -244,6 +283,22 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
       "label": "Primary Residence",
       "fieldtype": "Link",
       "options": "Address"
+    },
+    {
+      "fieldname": "section_parental",
+      "fieldtype": "Section Break",
+      "label": "Parental Controls"
+    },
+    {
+      "fieldname": "parental_controls_enabled",
+      "label": "Enable Parental Controls",
+      "fieldtype": "Check"
+    },
+    {
+      "fieldname": "screen_time_limit_minutes",
+      "label": "Daily Screen Time Limit (minutes)",
+      "fieldtype": "Int",
+      "depends_on": "eval:doc.parental_controls_enabled"
     }
   ]
 }
@@ -255,30 +310,104 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 {
   "doctype": "Company",
   "module": "Dartwing Company",
+  "autoname": "CO-.#####",
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Dartwing User", "read": 1, "write": 1, "if_owner": 0}
+  ],
+  "user_permission_dependant_doctype": "Organization",
   "fields": [
     {
       "fieldname": "organization",
       "label": "Organization Ref",
       "fieldtype": "Link",
       "options": "Organization",
+      "reqd": 1,
       "read_only": 1
     },
     {
+      "fieldname": "section_legal",
+      "fieldtype": "Section Break",
+      "label": "Legal Entity Information"
+    },
+    {
+      "fieldname": "legal_name",
+      "label": "Legal Entity Name",
+      "fieldtype": "Data"
+    },
+    {
       "fieldname": "tax_id",
-      "label": "Tax ID / EIN",
+      "label": "Tax ID / EIN / Unified Social Credit Code",
       "fieldtype": "Data"
     },
     {
       "fieldname": "entity_type",
       "label": "Entity Type",
       "fieldtype": "Select",
-      "options": "C-Corp\nLLC\n..."
+      "options": "\nC-Corp\nS-Corp\nLLC\nLimited Partnership (LP)\nGeneral Partnership\nLLP\nWFOE (China)\nBenefit Corporation\nCooperative"
     },
+    { "fieldname": "column_break_legal", "fieldtype": "Column Break" },
     {
       "fieldname": "jurisdiction_country",
-      "label": "Jurisdiction",
+      "label": "Country of Formation",
       "fieldtype": "Link",
       "options": "Country"
+    },
+    {
+      "fieldname": "jurisdiction_state",
+      "label": "State / Province",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "formation_date",
+      "label": "Date of Formation",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "section_addresses",
+      "fieldtype": "Section Break",
+      "label": "Addresses"
+    },
+    {
+      "fieldname": "registered_address",
+      "label": "Registered Address",
+      "fieldtype": "Link",
+      "options": "Address"
+    },
+    {
+      "fieldname": "physical_address",
+      "label": "Principal / Physical Address",
+      "fieldtype": "Link",
+      "options": "Address"
+    },
+    {
+      "fieldname": "registered_agent",
+      "label": "Registered Agent",
+      "fieldtype": "Link",
+      "options": "Person"
+    },
+    {
+      "fieldname": "section_officers",
+      "fieldtype": "Section Break",
+      "label": "Officers & Directors"
+    },
+    {
+      "fieldname": "officers",
+      "label": "Officers & Directors",
+      "fieldtype": "Table",
+      "options": "Organization Officer"
+    },
+    {
+      "fieldname": "section_ownership",
+      "fieldtype": "Section Break",
+      "label": "Ownership / Members / Partners",
+      "depends_on": "eval:['LLC','Limited Partnership (LP)','LLP','General Partnership'].includes(doc.entity_type)"
+    },
+    {
+      "fieldname": "members_partners",
+      "label": "Members / Partners",
+      "fieldtype": "Table",
+      "options": "Organization Member Partner"
     }
   ]
 }
@@ -290,19 +419,140 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 {
   "doctype": "Club",
   "module": "Dartwing Associations",
+  "autoname": "CLB-.#####",
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Dartwing User", "read": 1, "write": 1, "if_owner": 0}
+  ],
+  "user_permission_dependant_doctype": "Organization",
   "fields": [
     {
       "fieldname": "organization",
       "label": "Organization Ref",
       "fieldtype": "Link",
       "options": "Organization",
+      "reqd": 1,
       "read_only": 1
+    },
+    {
+      "fieldname": "section_membership",
+      "fieldtype": "Section Break",
+      "label": "Membership Configuration"
     },
     {
       "fieldname": "membership_tiers",
       "label": "Membership Tiers",
       "fieldtype": "Table",
       "options": "Organization Membership Tier"
+    },
+    {
+      "fieldname": "default_dues_amount",
+      "label": "Default Annual Dues",
+      "fieldtype": "Currency"
+    },
+    {
+      "fieldname": "section_amenities",
+      "fieldtype": "Section Break",
+      "label": "Amenities & Facilities"
+    },
+    {
+      "fieldname": "amenities",
+      "label": "Amenities",
+      "fieldtype": "Small Text"
+    },
+    {
+      "fieldname": "clubhouse_address",
+      "label": "Clubhouse Address",
+      "fieldtype": "Link",
+      "options": "Address"
+    }
+  ]
+}
+```
+
+#### Nonprofit (Concrete)
+
+```json
+{
+  "doctype": "Nonprofit",
+  "module": "Dartwing Nonprofit",
+  "autoname": "NPO-.#####",
+  "permissions": [
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "Dartwing User", "read": 1, "write": 1, "if_owner": 0}
+  ],
+  "user_permission_dependant_doctype": "Organization",
+  "fields": [
+    {
+      "fieldname": "organization",
+      "label": "Organization Ref",
+      "fieldtype": "Link",
+      "options": "Organization",
+      "reqd": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_taxexempt",
+      "fieldtype": "Section Break",
+      "label": "Tax-Exempt Status"
+    },
+    {
+      "fieldname": "tax_exempt_status",
+      "label": "Tax-Exempt Status",
+      "fieldtype": "Select",
+      "options": "\n501(c)(3)\n501(c)(4)\n501(c)(6)\n501(c)(7)\nOther"
+    },
+    {
+      "fieldname": "ein",
+      "label": "EIN",
+      "fieldtype": "Data"
+    },
+    {
+      "fieldname": "determination_date",
+      "label": "IRS Determination Date",
+      "fieldtype": "Date"
+    },
+    {
+      "fieldname": "column_break_tax", "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "fiscal_year_end",
+      "label": "Fiscal Year End",
+      "fieldtype": "Select",
+      "options": "January\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+    },
+    {
+      "fieldname": "mission_statement",
+      "label": "Mission Statement",
+      "fieldtype": "Text"
+    },
+    {
+      "fieldname": "section_board",
+      "fieldtype": "Section Break",
+      "label": "Board of Directors"
+    },
+    {
+      "fieldname": "board_members",
+      "label": "Board Members",
+      "fieldtype": "Table",
+      "options": "Organization Officer"
+    },
+    {
+      "fieldname": "section_addresses",
+      "fieldtype": "Section Break",
+      "label": "Addresses"
+    },
+    {
+      "fieldname": "registered_address",
+      "label": "Registered Address",
+      "fieldtype": "Link",
+      "options": "Address"
+    },
+    {
+      "fieldname": "mailing_address",
+      "label": "Mailing Address",
+      "fieldtype": "Link",
+      "options": "Address"
     }
   ]
 }
@@ -387,7 +637,180 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.6 Role Template Doctype
+### 3.6 Server-Side Hooks Implementation
+
+The hybrid model requires server-side hooks to maintain the bidirectional relationship between `Organization` and its concrete types.
+
+[See also: `docs/dartwing_core/org_integrity_guardrails.md` for immutability + reconciliation details.]
+
+#### hooks.py Configuration
+
+```python
+# dartwing_core/hooks.py
+
+doc_events = {
+    "Organization": {
+        "after_insert": "dartwing_core.doctype.organization.organization.create_concrete_type",
+        "on_trash": "dartwing_core.doctype.organization.organization.delete_concrete_type"
+    }
+}
+```
+
+#### Organization Controller
+
+```python
+# dartwing_core/doctype/organization/organization.py
+
+import frappe
+from frappe.model.document import Document
+
+# Maps org_type Select value to concrete Doctype name
+ORG_TYPE_MAP = {
+    "Family": "Family",
+    "Company": "Company",
+    "Nonprofit": "Nonprofit",
+    "Club/Association": "Club"
+}
+
+class Organization(Document):
+    def validate(self):
+        if self.org_type and self.org_type not in ORG_TYPE_MAP:
+            frappe.throw(f"Invalid org_type: {self.org_type}")
+
+        # Prevent org_type change after creation (defense in depth with set_only_once)
+        if not self.is_new() and self.has_value_changed("org_type"):
+            frappe.throw(_("Organization type cannot be changed after creation"))
+
+def create_concrete_type(doc, method):
+    """
+    Hook: after_insert
+    Creates the corresponding concrete type record and links it back.
+    """
+    concrete_doctype = ORG_TYPE_MAP.get(doc.org_type)
+    if not concrete_doctype:
+        frappe.throw(f"Unknown org_type: {doc.org_type}")
+
+    # Create the concrete type with back-reference
+    concrete = frappe.new_doc(concrete_doctype)
+    concrete.organization = doc.name
+    concrete.flags.ignore_permissions = True
+    concrete.insert()
+
+    # Update Organization with forward reference (without triggering hooks)
+    doc.db_set("linked_doctype", concrete_doctype, update_modified=False)
+    doc.db_set("linked_name", concrete.name, update_modified=False)
+
+def delete_concrete_type(doc, method):
+    """
+    Hook: on_trash
+    Cascades delete to the concrete type record.
+    """
+    if doc.linked_doctype and doc.linked_name:
+        if frappe.db.exists(doc.linked_doctype, doc.linked_name):
+            frappe.delete_doc(
+                doc.linked_doctype,
+                doc.linked_name,
+                force=True,
+                ignore_permissions=True
+            )
+
+@frappe.whitelist()
+def get_concrete_doc(organization: str) -> dict:
+    """
+    API helper to fetch the concrete type document in one call.
+
+    Usage (JavaScript):
+        frappe.call({
+            method: 'dartwing_core.doctype.organization.organization.get_concrete_doc',
+            args: { organization: 'ORG-2025-00001' }
+        })
+
+    Usage (Python):
+        from dartwing_core.doctype.organization.organization import get_concrete_doc
+        family_doc = get_concrete_doc('ORG-2025-00001')
+    """
+    org = frappe.get_doc("Organization", organization)
+    if not org.linked_doctype or not org.linked_name:
+        return None
+    return frappe.get_doc(org.linked_doctype, org.linked_name).as_dict()
+
+@frappe.whitelist()
+def get_organization_with_details(organization: str) -> dict:
+    """
+    Returns Organization merged with its concrete type fields.
+    Useful for Flutter/API consumers who want a single payload.
+    """
+    org = frappe.get_doc("Organization", organization)
+    result = org.as_dict()
+
+    if org.linked_doctype and org.linked_name:
+        concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
+        result["concrete_type"] = concrete.as_dict()
+
+    return result
+```
+
+#### Concrete Type Base Mixin
+
+```python
+# dartwing_core/mixins/organization_mixin.py
+
+import frappe
+
+class OrganizationMixin:
+    """
+    Shared functionality for all concrete organization types.
+    Inherit this in Family, Company, Club, Nonprofit controllers.
+    """
+
+    @property
+    def org_name(self):
+        """Fetch org_name from parent Organization."""
+        return frappe.db.get_value("Organization", self.organization, "org_name")
+
+    @property
+    def logo(self):
+        """Fetch logo from parent Organization."""
+        return frappe.db.get_value("Organization", self.organization, "logo")
+
+    @property
+    def org_status(self):
+        """Fetch status from parent Organization."""
+        return frappe.db.get_value("Organization", self.organization, "status")
+
+    def get_organization_doc(self):
+        """Return the full parent Organization document."""
+        return frappe.get_doc("Organization", self.organization)
+
+    def update_org_name(self, new_name: str):
+        """Update org_name on the parent Organization."""
+        frappe.db.set_value("Organization", self.organization, "org_name", new_name)
+```
+
+#### Example: Family Controller Using Mixin
+
+```python
+# dartwing_family/doctype/family/family.py
+
+from frappe.model.document import Document
+from dartwing_core.mixins.organization_mixin import OrganizationMixin
+
+class Family(Document, OrganizationMixin):
+    def validate(self):
+        # Family-specific validation
+        if self.screen_time_limit_minutes and self.screen_time_limit_minutes < 0:
+            frappe.throw("Screen time limit cannot be negative")
+
+    def get_family_members(self):
+        """Return all Org Members for this family's organization."""
+        return frappe.get_all(
+            "Org Member",
+            filters={"organization": self.organization, "status": "Active"},
+            fields=["person", "role", "start_date"]
+        )
+```
+
+### 3.7 Role Template Doctype
 
 ```json
 {
@@ -423,7 +846,8 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.7 Org Member Doctype
+### 3.8 Org Member Doctype
+[See `docs/dartwing_core/person_doctype_contract.md` for Person identity/linkage and invite flow requirements.]
 
 ```json
 {
@@ -469,32 +893,34 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
   "links": [
     {
       "link_doctype": "Family Relationship",
-      "link_fieldname": "organization",
+      "link_fieldname": "family",
       "group": "Family"
     },
     {
       "link_doctype": "Employment Record",
-      "link_fieldname": "organization",
+      "link_fieldname": "company",
       "group": "Company"
     }
   ]
 }
 ```
 
-### 3.8 Family Relationship Doctype
+### 3.9 Family Relationship Doctype
 
 ```json
 {
   "doctype": "Family Relationship",
   "istable": 0,
-  "module": "Dartwing Core",
+  "module": "Dartwing Family",
+  "autoname": "hash",
   "fields": [
     {
-      "fieldname": "organization",
+      "fieldname": "family",
       "label": "Family",
       "fieldtype": "Link",
-      "options": "Organization",
-      "reqd": 1
+      "options": "Family",
+      "reqd": 1,
+      "description": "Links to concrete Family type (enforces type safety)"
     },
     {
       "fieldname": "person_a",
@@ -521,13 +947,22 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.9 Employment Record Doctype
+### 3.10 Employment Record Doctype
 
 ```json
 {
   "doctype": "Employment Record",
-  "module": "Dartwing Core",
+  "module": "Dartwing HR",
+  "autoname": "naming_series:",
   "fields": [
+    {
+      "fieldname": "naming_series",
+      "label": "Series",
+      "fieldtype": "Select",
+      "options": "EMP-.YYYY.-",
+      "default": "EMP-.YYYY.-",
+      "hidden": 1
+    },
     {
       "fieldname": "employee",
       "label": "Employee",
@@ -536,11 +971,12 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
       "reqd": 1
     },
     {
-      "fieldname": "organization",
+      "fieldname": "company",
       "label": "Company",
       "fieldtype": "Link",
-      "options": "Organization",
-      "reqd": 1
+      "options": "Company",
+      "reqd": 1,
+      "description": "Links to concrete Company type (enforces type safety)"
     },
     {
       "fieldname": "department",
@@ -575,7 +1011,7 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.10 Equipment Doctype
+### 3.11 Equipment Doctype
 
 ```json
 {
@@ -629,7 +1065,7 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.11 Employee Skill (Child Table)
+### 3.12 Employee Skill (Child Table)
 
 ```json
 {
@@ -647,7 +1083,7 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.12 Equipment Document (Child Table)
+### 3.13 Equipment Document (Child Table)
 
 ```json
 {
@@ -660,7 +1096,7 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-### 3.13 Equipment Maintenance (Child Table)
+### 3.14 Equipment Maintenance (Child Table)
 
 ```json
 {
@@ -746,6 +1182,12 @@ A key architectural decision is the separation of personal and business identiti
 - TOTP authenticator apps
 - Biometric (Face ID, fingerprint) for mobile
 
+### 5.4 Integration Token Management
+
+External integrations (Twilio, Stripe, Google, etc.) require secure credential storage and proactive token refresh.
+
+[See `docs/dartwing_core/integration_token_management_spec.md` for OAuth2 token lifecycle, encryption strategy, and proactive refresh scheduler.]
+
 ---
 
 ---
@@ -808,6 +1250,142 @@ Modules are loaded dynamically based on organization type and subscription tier.
 ### 8.2 Role-Based Access Control
 
 Permissions cascade from Organization → Role Template → Org Member. Frappe's built-in permission system is extended with custom permission rules for complex multi-org scenarios.
+
+#### 8.2.1 Hybrid Model Permissions Strategy
+
+The hybrid Organization model requires careful permission handling to ensure users can only access their own organizations and concrete types.
+
+**Permission Flow:**
+```
+User → Org Member → Organization → Concrete Type (Family/Company/Club/Nonprofit)
+```
+
+**Implementation:**
+
+1. **Document-Level Permissions on Organization:**
+```python
+# When user becomes Org Member, add user_permission
+def on_org_member_insert(doc, method):
+    frappe.get_doc({
+        "doctype": "User Permission",
+        "user": frappe.db.get_value("Person", doc.person, "user"),
+        "allow": "Organization",
+        "for_value": doc.organization,
+        "apply_to_all_doctypes": 0,
+        "applicable_for": "Organization"
+    }).insert(ignore_permissions=True)
+```
+
+2. **Concrete Type Permissions (Auto-Inherited):**
+
+Each concrete type inherits access via its `organization` Link field. Add this permission rule to each concrete doctype:
+
+```json
+// In Family, Company, Club, Nonprofit doctype JSON
+"permissions": [
+    {
+        "role": "System Manager",
+        "read": 1, "write": 1, "create": 1, "delete": 1
+    },
+    {
+        "role": "Dartwing User",
+        "read": 1, "write": 1,
+        "if_owner": 0
+    }
+],
+"restrict_to_domain": "",
+"user_permission_dependant_doctype": "Organization"
+```
+
+3. **Permission Query Hook (for list views):**
+
+```python
+# dartwing_core/permissions.py
+
+def get_permission_query_conditions(user):
+    """
+    Called by Frappe to filter list queries.
+    Returns SQL WHERE clause fragment.
+    """
+    if "System Manager" in frappe.get_roles(user):
+        return ""
+
+    # Get all organizations this user has access to
+    orgs = frappe.get_all(
+        "User Permission",
+        filters={"user": user, "allow": "Organization"},
+        pluck="for_value"
+    )
+
+    if not orgs:
+        return "1=0"  # No access
+
+    org_list = ", ".join(f"'{o}'" for o in orgs)
+    return f"`tabOrganization`.`name` IN ({org_list})"
+
+def has_permission(doc, ptype, user):
+    """
+    Called for single document permission checks.
+    """
+    if "System Manager" in frappe.get_roles(user):
+        return True
+
+    return frappe.db.exists(
+        "User Permission",
+        {"user": user, "allow": "Organization", "for_value": doc.name}
+    )
+```
+
+4. **Concrete Type Permission Hooks:**
+
+```python
+# dartwing_family/permissions.py
+
+def get_permission_query_conditions_family(user):
+    """Filter Family list by user's accessible Organizations."""
+    if "System Manager" in frappe.get_roles(user):
+        return ""
+
+    orgs = frappe.get_all(
+        "User Permission",
+        filters={"user": user, "allow": "Organization"},
+        pluck="for_value"
+    )
+
+    if not orgs:
+        return "1=0"
+
+    org_list = ", ".join(f"'{o}'" for o in orgs)
+    return f"`tabFamily`.`organization` IN ({org_list})"
+```
+
+5. **Register Permission Hooks:**
+
+```python
+# dartwing_core/hooks.py
+
+permission_query_conditions = {
+    "Organization": "dartwing_core.permissions.get_permission_query_conditions",
+    "Family": "dartwing_family.permissions.get_permission_query_conditions_family",
+    "Company": "dartwing_company.permissions.get_permission_query_conditions_company",
+    "Club": "dartwing_associations.permissions.get_permission_query_conditions_club",
+    "Nonprofit": "dartwing_nonprofit.permissions.get_permission_query_conditions_nonprofit",
+}
+
+has_permission = {
+    "Organization": "dartwing_core.permissions.has_permission",
+}
+```
+
+#### 8.2.2 Role Hierarchy
+
+| Frappe Role | Access Level | Description |
+|-------------|--------------|-------------|
+| System Manager | Full | Platform administrators |
+| Dartwing Admin | Multi-Org | Can manage multiple organizations |
+| Organization Admin | Single-Org | Full access to one organization |
+| Dartwing User | Member | Standard member access |
+| Dartwing Guest | Read-Only | Limited read access (e.g., family member without account) |
 
 ### 8.3 Compliance Support
 
@@ -886,9 +1464,19 @@ Permissions cascade from Organization → Role Template → Org Member. Frappe's
 - **Sync Latency:** < 500ms for real-time updates
 - **Concurrent Users:** Support 10,000+ concurrent connections per instance
 
+### 10.4 Observability
+
+Production systems require comprehensive metrics, structured logging, and alerting.
+
+[See `docs/dartwing_core/observability_spec.md` for Prometheus metrics, structured logging format, and alert definitions.]
+
 ---
 
 ## 11. Advanced Features & Operations
+
+[Offline/real-time sync behavior is detailed in `docs/dartwing_core/offline_real_time_sync_spec.md`.]
+
+[Background job queue isolation and retry strategies are detailed in `docs/dartwing_core/background_job_isolation_spec.md`.]
 
 ### 11.1 Business & Operations
 
@@ -908,21 +1496,36 @@ Permissions cascade from Organization → Role Template → Org Member. Frappe's
 
 ## Appendix A: Doctype JSON Reference
 
-Complete Frappe JSON definitions for core doctypes are maintained in the dartwing_core repository. Key doctypes include:
+Complete Frappe JSON definitions are organized by module:
 
-- Organization
-- Person
-- Org Member
-- Role Template
-- Family Relationship
-- Employment Record
-- Equipment
-- Equipment Document (child table)
-- Equipment Maintenance (child table)
-- Organization Officer (child table)
-- Organization Member Partner (child table)
-- Organization Membership Tier (child table)
-- Employee Skill (child table)
+### Core Module (dartwing_core)
+| Doctype | Type | Description |
+|---------|------|-------------|
+| Organization | Parent | Thin reference shell for polymorphic identity |
+| Person | Parent | Individual human identity |
+| Org Member | Parent | Links Person to Organization with role |
+| Role Template | Parent | Role definitions per org_type |
+| Equipment | Parent | Assets owned by organizations |
+| Equipment Document | Child Table | Attached documents for Equipment |
+| Equipment Maintenance | Child Table | Maintenance schedules for Equipment |
+| Organization Officer | Child Table | Officers/Directors (used by Company, Nonprofit) |
+| Organization Member Partner | Child Table | LLC/Partnership ownership (used by Company) |
+| Employee Skill | Child Table | Skills for Employment Record |
+
+### Concrete Organization Types
+| Doctype | Module | Naming Series |
+|---------|--------|---------------|
+| Family | dartwing_family | FAM-.##### |
+| Company | dartwing_company | CO-.##### |
+| Club | dartwing_associations | CLB-.##### |
+| Nonprofit | dartwing_nonprofit | NPO-.##### |
+
+### Type-Specific Doctypes
+| Doctype | Module | Links To |
+|---------|--------|----------|
+| Family Relationship | dartwing_family | Family (concrete) |
+| Employment Record | dartwing_hr | Company (concrete) |
+| Organization Membership Tier | dartwing_associations | Club (child table) |
 
 ---
 

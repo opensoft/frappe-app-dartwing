@@ -28,7 +28,8 @@ dartwing/
 │
 ├── api/                     # REST API endpoints
 │   ├── __init__.py
-│   └── family.py            # Family management API
+│   ├── v1.py                # Family management API
+│   └── utils.py             # API helpers
 │
 ├── config/                  # App configuration
 │   └── __init__.py
@@ -74,7 +75,8 @@ dartwing/
 Contains REST API endpoints exposed via Frappe's whitelisted methods. These are accessible at `/api/method/dartwing.api.<module>.<function>`.
 
 **Current files:**
-- `family.py`: Family/Organization management CRUD API
+- `v1.py`: Family management CRUD API (families and members)
+- `utils.py`: API helper functions (ok/fail response helpers)
 
 **Usage:** Add new API modules here as separate Python files.
 

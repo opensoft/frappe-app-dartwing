@@ -1,9 +1,21 @@
 # PRD – Dartwing Family
 
-**Smart Home & Family Life Operating System**  
-**Product:** Dartwing Consumer  
-**Version:** 1.0 (2026)  
-**Status:** MVP complete – Beta live with 1,200 families
+**Smart Home & Family Life Operating System**
+**Product:** Dartwing Consumer
+**Version:** 1.0 (2026)
+
+---
+
+> **Document Type:** TARGET VISION
+>
+> This document describes the **aspirational end-state** for Dartwing Family, not the current implementation. For actual implementation progress, see:
+> - [Implementation Status](./implementation_status.md) - What's built vs. planned
+> - [Implementation Plan](./critique/dartwing_family_arch_plan.md) - Phased development roadmap
+> - [Architecture Issues](./critique/dartwing_family_arch_issues.md) - Known gaps and risks
+>
+> **Current Implementation:** ~20% of Phase 1 complete (Foundation layer)
+
+---
 
 ## Executive Summary
 

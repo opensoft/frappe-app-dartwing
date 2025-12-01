@@ -16,6 +16,22 @@
 
 ---
 
+> **Document Type:** TARGET VISION / REQUIREMENTS
+>
+> This PRD describes the **complete feature set** for Dartwing Family v1.0. Most features are not yet implemented.
+>
+> **Current Status:**
+> - Phase 1 (Foundation) ~20% complete
+> - 3 of 45+ planned DocTypes implemented
+> - Core infrastructure in place, features pending
+>
+> **See Also:**
+> - [Implementation Status](./implementation_status.md) - Detailed progress tracking
+> - [Implementation Plan](./critique/dartwing_family_arch_plan.md) - 4-phase roadmap
+> - [Architecture Issues](./critique/dartwing_family_arch_issues.md) - Risks and mitigations
+
+---
+
 ## Executive Summary
 
 Dartwing Family transforms the Dartwing platform into a comprehensive family management system that replaces 15+ separate apps with one unified, AI-native, privacy-first experience. When an organization is created with `org_type = "Family"`, the entire UI, feature set, and AI personality shift to support the unique needs of modern families.

@@ -2,56 +2,75 @@
 
 ## Overview
 
-Dartwing is a Family/Organization Management System built on the Frappe Framework. It provides RESTful API endpoints to manage family and organizational entities.
+Dartwing is a Family/Organization Management System built on the Frappe Framework. It provides RESTful API endpoints to manage family entities and members.
 
 ## Current Implementation
 
-**Status**: v0.1.0 - Early Development  
-**Module**: Family Manager  
+**Status**: v0.1.0 - Early Development
+**Module**: Dartwing Core
 **Framework**: Frappe
 
 ### What's Implemented
 
-✅ **Family Organization CRUD API** - Full create, read, update, delete operations  
-✅ **Search & Filtering** - Query families by name or description  
-✅ **Statistics** - Aggregate data about families  
+✅ **Family CRUD API** - Full create, read, update, delete operations
+✅ **Family Member Management** - Add, update, delete members within families
+✅ **Search & Filtering** - Query families by name or description
+✅ **Statistics** - Aggregate data about families
 
 ### What's Planned (Not Yet Implemented)
 
-❌ ERPNext Integration (accounting)  
-❌ Frappe Health Integration (healthcare)  
-❌ Frappe Drive Integration (document management)  
+❌ Organization linking (multi-tenant isolation)
+❌ Permission-based access control
+❌ Real-time sync endpoints
+❌ ERPNext Integration (accounting)
+❌ Frappe Health Integration (healthcare)
+❌ Frappe Drive Integration (document management)
 
 ## Data Model
 
 ### Family DocType
 
-Manages family and organizational entities.
+Manages family entities.
 
 **Fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `organization_name` | Data | Yes | Unique name of the organization |
-| `organization_type` | Select | Yes | Type: Family, Business, Non-Profit, Other |
+| `family_name` | Data | Yes | Unique name of the family |
+| `slug` | Data | Auto | URL-friendly identifier (auto-generated) |
 | `description` | Text | No | Optional description |
+| `tags` | Data | No | Optional tags |
+| `contact_email` | Data | No | Contact email address |
+| `contact_phone` | Data | No | Contact phone number |
 | `status` | Select | Yes | Status: Active, Inactive, Archived |
 | `created_date` | Date | Auto | Auto-populated creation date |
+| `members` | Table | No | Child table of Family Members |
+
+### Family Member (Child Table)
+
+Members within a family.
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `full_name` | Data | Yes | Full name of the member |
+| `relationship` | Select | No | Parent, Child, Spouse, Sibling, Other |
+| `email` | Data | No | Email address |
+| `phone` | Data | No | Phone number |
+| `date_of_birth` | Date | No | Date of birth |
+| `status` | Select | No | Active, Inactive |
+| `notes` | Small Text | No | Additional notes |
 
 **Permissions:**
 - System Manager: Full access
-- All: Full access
-
-**Features:**
-- Auto-naming by organization_name field
-- Rename allowed
-- Change tracking enabled
+- Family Manager: Full access
 
 ## API Endpoints
 
 All endpoints are accessible via HTTP POST to:
 ```
-POST /api/method/dartwing.api.family.<method_name>
+POST /api/method/dartwing.api.v1.<method_name>
 ```
 
 ### Authentication
@@ -60,55 +79,53 @@ All endpoints require Frappe authentication (API key/secret or session).
 
 ---
 
+## Family Endpoints
+
 ### 1. Create Family
 
-**Endpoint:** `dartwing.api.family.create_family`
+**Endpoint:** `dartwing.api.v1.create_family`
 
-**Description:** Create a new family/organization.
+**Description:** Create a new family with optional members.
 
 **Parameters:**
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `organization_name` | string | Yes | - | Name of the organization |
-| `organization_type` | string | No | "Family" | Type: Family, Business, Non-Profit, Other |
+| `family_name` | string | Yes | - | Name of the family |
 | `description` | string | No | null | Optional description |
 | `status` | string | No | "Active" | Status: Active, Inactive, Archived |
+| `members` | array | No | [] | Array of member objects |
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Family organization created successfully",
+  "message": "Family created successfully",
   "data": {
     "name": "Smith Family",
-    "organization_name": "Smith Family",
-    "organization_type": "Family",
-    "description": "The Smith family organization",
+    "family_name": "Smith Family",
+    "slug": "smith-family",
+    "description": "The Smith family",
     "status": "Active",
-    "created_date": "2025-01-17"
+    "created_date": "2025-01-17",
+    "members": []
   }
 }
 ```
-
-**Errors:**
-- Organization name is required
-- Family organization already exists
-- Failed to create family organization
 
 ---
 
 ### 2. Get Family
 
-**Endpoint:** `dartwing.api.family.get_family`
+**Endpoint:** `dartwing.api.v1.get_family`
 
-**Description:** Retrieve a specific family/organization by name.
+**Description:** Retrieve a specific family by name.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | Yes | Name of the family organization |
+| `name` | string | Yes | Name of the family |
 
 **Response:**
 ```json
@@ -116,24 +133,21 @@ All endpoints require Frappe authentication (API key/secret or session).
   "success": true,
   "data": {
     "name": "Smith Family",
-    "organization_name": "Smith Family",
-    "organization_type": "Family",
-    "description": "The Smith family organization",
+    "family_name": "Smith Family",
+    "slug": "smith-family",
+    "description": "The Smith family",
     "status": "Active",
-    "created_date": "2025-01-17"
+    "created_date": "2025-01-17",
+    "members": [...]
   }
 }
 ```
-
-**Errors:**
-- Family name is required
-- Family organization not found
 
 ---
 
 ### 3. Get All Families
 
-**Endpoint:** `dartwing.api.family.get_all_families`
+**Endpoint:** `dartwing.api.v1.get_all_families`
 
 **Description:** List all families with optional filtering and pagination.
 
@@ -141,15 +155,14 @@ All endpoints require Frappe authentication (API key/secret or session).
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `filters` | dict/JSON | No | {} | Filter criteria (e.g., `{"status": "Active"}`) |
+| `filters` | dict/JSON | No | {} | Filter criteria |
 | `fields` | list/JSON | No | Default fields | Fields to return |
 | `limit_start` | int | No | 0 | Pagination offset |
-| `limit_page_length` | int | No | 20 | Number of records per page |
+| `limit_page_length` | int | No | 20 | Records per page |
 
 **Default Fields:**
 - `name`
-- `organization_name`
-- `organization_type`
+- `family_name`
 - `status`
 - `created_date`
 
@@ -161,106 +174,59 @@ All endpoints require Frappe authentication (API key/secret or session).
   "data": [
     {
       "name": "Smith Family",
-      "organization_name": "Smith Family",
-      "organization_type": "Family",
+      "family_name": "Smith Family",
       "status": "Active",
       "created_date": "2025-01-17"
-    },
-    {
-      "name": "Acme Corp",
-      "organization_name": "Acme Corp",
-      "organization_type": "Business",
-      "status": "Active",
-      "created_date": "2025-01-16"
     }
   ]
 }
-```
-
-**Example Filters:**
-```json
-// Active families only
-{"status": "Active"}
-
-// Business organizations
-{"organization_type": "Business"}
-
-// Multiple conditions
-{"status": "Active", "organization_type": "Family"}
 ```
 
 ---
 
 ### 4. Update Family
 
-**Endpoint:** `dartwing.api.family.update_family`
+**Endpoint:** `dartwing.api.v1.update_family`
 
-**Description:** Update an existing family/organization.
+**Description:** Update an existing family.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | Yes | Name of the family organization |
-| `organization_type` | string | No | Updated type |
+| `name` | string | Yes | Name of the family |
+| `family_name` | string | No | Updated name |
 | `description` | string | No | Updated description |
 | `status` | string | No | Updated status |
-
-**Note:** The `organization_name` field cannot be updated via this endpoint (use Frappe's rename feature).
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Family organization updated successfully",
-  "data": {
-    "name": "Smith Family",
-    "organization_name": "Smith Family",
-    "organization_type": "Family",
-    "description": "Updated description",
-    "status": "Inactive",
-    "created_date": "2025-01-17"
-  }
-}
-```
-
-**Errors:**
-- Family name is required
-- Family organization not found
-- Failed to update family organization
+| `members` | array | No | Updated members array |
 
 ---
 
 ### 5. Delete Family
 
-**Endpoint:** `dartwing.api.family.delete_family`
+**Endpoint:** `dartwing.api.v1.delete_family`
 
-**Description:** Delete a family/organization.
+**Description:** Delete a family.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | Yes | Name of the family organization |
+| `name` | string | Yes | Name of the family |
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Family organization deleted successfully"
+  "message": "Family deleted successfully"
 }
 ```
-
-**Errors:**
-- Family name is required
-- Family organization not found
-- Failed to delete family organization
 
 ---
 
 ### 6. Search Families
 
-**Endpoint:** `dartwing.api.family.search_families`
+**Endpoint:** `dartwing.api.v1.search_families`
 
 **Description:** Search for families by name or description.
 
@@ -271,36 +237,13 @@ All endpoints require Frappe authentication (API key/secret or session).
 | `query` | string | Yes | - | Search term |
 | `limit` | int | No | 20 | Maximum results |
 
-**Response:**
-```json
-{
-  "success": true,
-  "count": 1,
-  "data": [
-    {
-      "name": "Smith Family",
-      "organization_name": "Smith Family",
-      "organization_type": "Family",
-      "status": "Active",
-      "description": "The Smith family organization"
-    }
-  ]
-}
-```
-
-**Errors:**
-- Search query is required
-- Failed to search family organizations
-
 ---
 
 ### 7. Get Family Statistics
 
-**Endpoint:** `dartwing.api.family.get_family_stats`
+**Endpoint:** `dartwing.api.v1.get_family_stats`
 
 **Description:** Get aggregate statistics about all families.
-
-**Parameters:** None
 
 **Response:**
 ```json
@@ -312,18 +255,92 @@ All endpoints require Frappe authentication (API key/secret or session).
       "active": 12,
       "inactive": 2,
       "archived": 1
-    },
-    "by_type": {
-      "Family": 8,
-      "Business": 5,
-      "Non-Profit": 2
     }
   }
 }
 ```
 
-**Errors:**
-- Failed to get family statistics
+---
+
+## Family Member Endpoints
+
+### 8. Add Family Member
+
+**Endpoint:** `dartwing.api.v1.add_family_member`
+
+**Description:** Add a member to a family.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `family` | string | Yes | Family name |
+| `full_name` | string | Yes | Member's full name |
+| `relationship` | string | No | Parent, Child, Spouse, Sibling, Other |
+| `email` | string | No | Email address |
+| `phone` | string | No | Phone number |
+| `date_of_birth` | date | No | Date of birth |
+| `status` | string | No | Active, Inactive |
+| `notes` | string | No | Additional notes |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Member added",
+  "data": {
+    "name": "abc123xyz",
+    "full_name": "John Smith",
+    "relationship": "Parent",
+    "email": "john@example.com"
+  }
+}
+```
+
+---
+
+### 9. Update Family Member
+
+**Endpoint:** `dartwing.api.v1.update_family_member`
+
+**Description:** Update a family member by child table name.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `family` | string | Yes | Family name |
+| `member_name` | string | Yes | Child table row name |
+| `full_name` | string | No | Updated name |
+| `relationship` | string | No | Updated relationship |
+| `email` | string | No | Updated email |
+| `phone` | string | No | Updated phone |
+| `date_of_birth` | date | No | Updated DOB |
+| `status` | string | No | Updated status |
+| `notes` | string | No | Updated notes |
+
+---
+
+### 10. Delete Family Member
+
+**Endpoint:** `dartwing.api.v1.delete_family_member`
+
+**Description:** Remove a member from a family.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `family` | string | Yes | Family name |
+| `member_name` | string | Yes | Child table row name |
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Member deleted"
+}
+```
 
 ---
 
@@ -333,74 +350,75 @@ All endpoints require Frappe authentication (API key/secret or session).
 
 ```bash
 # Create a family
-curl -X POST https://your-site.com/api/method/dartwing.api.family.create_family \
+curl -X POST https://your-site.com/api/method/dartwing.api.v1.create_family \
   -H "Authorization: token your-api-key:your-api-secret" \
   -H "Content-Type: application/json" \
   -d '{
-    "organization_name": "Johnson Family",
-    "organization_type": "Family",
-    "description": "Johnson family organization",
+    "family_name": "Johnson Family",
+    "description": "Johnson family",
     "status": "Active"
   }'
 
+# Add a member
+curl -X POST https://your-site.com/api/method/dartwing.api.v1.add_family_member \
+  -H "Authorization: token your-api-key:your-api-secret" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "family": "Johnson Family",
+    "full_name": "John Johnson",
+    "relationship": "Parent",
+    "email": "john@example.com"
+  }'
+
 # Get all families
-curl -X POST https://your-site.com/api/method/dartwing.api.family.get_all_families \
+curl -X POST https://your-site.com/api/method/dartwing.api.v1.get_all_families \
   -H "Authorization: token your-api-key:your-api-secret" \
   -H "Content-Type: application/json" \
   -d '{
     "filters": {"status": "Active"},
     "limit_page_length": 10
   }'
-
-# Search families
-curl -X POST https://your-site.com/api/method/dartwing.api.family.search_families \
-  -H "Authorization: token your-api-key:your-api-secret" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Johnson",
-    "limit": 5
-  }'
 ```
 
-### Using Python (frappe.client)
+### Using Python
 
 ```python
 import frappe
 
 # Create a family
 result = frappe.call(
-    "dartwing.api.family.create_family",
-    organization_name="Johnson Family",
-    organization_type="Family",
-    description="Johnson family organization",
+    "dartwing.api.v1.create_family",
+    family_name="Johnson Family",
+    description="Johnson family",
     status="Active"
+)
+
+# Add a member
+member = frappe.call(
+    "dartwing.api.v1.add_family_member",
+    family="Johnson Family",
+    full_name="John Johnson",
+    relationship="Parent",
+    email="john@example.com"
 )
 
 # Get all families
 families = frappe.call(
-    "dartwing.api.family.get_all_families",
+    "dartwing.api.v1.get_all_families",
     filters={"status": "Active"},
     limit_page_length=10
 )
-
-# Search families
-results = frappe.call(
-    "dartwing.api.family.search_families",
-    query="Johnson",
-    limit=5
-)
 ```
 
-### Using JavaScript (Frappe Frontend)
+### Using JavaScript
 
 ```javascript
 // Create a family
 frappe.call({
-    method: 'dartwing.api.family.create_family',
+    method: 'dartwing.api.v1.create_family',
     args: {
-        organization_name: 'Johnson Family',
-        organization_type: 'Family',
-        description: 'Johnson family organization',
+        family_name: 'Johnson Family',
+        description: 'Johnson family',
         status: 'Active'
     },
     callback: function(r) {
@@ -410,16 +428,17 @@ frappe.call({
     }
 });
 
-// Get all families
+// Add a member
 frappe.call({
-    method: 'dartwing.api.family.get_all_families',
+    method: 'dartwing.api.v1.add_family_member',
     args: {
-        filters: JSON.stringify({status: 'Active'}),
-        limit_page_length: 10
+        family: 'Johnson Family',
+        full_name: 'John Johnson',
+        relationship: 'Parent'
     },
     callback: function(r) {
         if (r.message.success) {
-            console.log('Families:', r.message.data);
+            console.log('Added:', r.message.data);
         }
     }
 });
@@ -427,7 +446,7 @@ frappe.call({
 
 ## Error Handling
 
-All endpoints follow a consistent error handling pattern:
+All endpoints follow a consistent pattern:
 
 **Success Response:**
 ```json
@@ -439,7 +458,7 @@ All endpoints follow a consistent error handling pattern:
 ```
 
 **Error Response:**
-Frappe will throw an exception that returns:
+Frappe throws exceptions that return:
 ```json
 {
   "exc_type": "ValidationError",
@@ -452,9 +471,7 @@ Common error types:
 - `DoesNotExistError` - Requested resource not found
 - `DuplicateEntryError` - Unique constraint violation
 
-## Development
-
-### Module Structure
+## Module Structure
 
 ```
 dartwing/
@@ -464,35 +481,16 @@ dartwing/
 ├── patches.txt                 # Database patches
 ├── api/
 │   ├── __init__.py
-│   └── family.py              # Family API endpoints
-├── config/
-│   └── __init__.py
-├── doctype/
-│   └── family/
-│       ├── __init__.py
-│       ├── family.json        # DocType definition
-│       └── family.py          # Document controller
-└── public/                    # Static assets (empty)
-```
-
-### Testing
-
-Test the API using Frappe's test framework or manually via:
-
-```bash
-# Using bench console
-bench --site your-site.localhost console
-
-# Then in Python console
-frappe.call('dartwing.api.family.create_family', 
-            organization_name='Test Family')
+│   ├── v1.py                   # Family API endpoints (current)
+│   └── utils.py                # API helpers
+├── dartwing_core/
+│   └── doctype/
+│       ├── family/             # Family DocType
+│       └── family_member/      # Family Member child table
+└── fixtures/
+    └── role.json               # Role fixtures
 ```
 
 ## License
 
 Apache 2.0 - See [LICENSE](./LICENSE) for details.
-
-## Support
-
-- GitHub: [opensoft/frappe-app-dartwing](https://github.com/opensoft/frappe-app-dartwing)
-- Issues: [GitHub Issues](https://github.com/opensoft/frappe-app-dartwing/issues)

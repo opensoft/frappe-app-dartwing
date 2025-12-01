@@ -1,10 +1,10 @@
-# Dartwing User Module - Product Requirements Document
+# Dartwing User Module – Product Requirements Document
 
-**Version 1.0 | November 2025**
+**Version 2.0 | November 2025**
 
 **Product Owner:** Brett  
-**Target Release:** Q1 2026 (Phase 1)  
-**Status:** Draft
+**Target Release:** Q2 2026 (Phase 1)  
+**Status:** Complete
 
 ---
 
@@ -15,13 +15,16 @@
 3. Goals & Success Metrics
 4. User Personas
 5. Feature Requirements
-6. User Stories & Acceptance Criteria
-7. User Flows
-8. Non-Functional Requirements
-9. Dependencies & Integrations
-10. Risks & Mitigations
-11. Release Plan
-12. Appendices
+6. Detailed Feature Specifications
+7. User Stories & Acceptance Criteria
+8. User Flows
+9. Non-Functional Requirements
+10. Dependencies & Integrations
+11. Risks & Mitigations
+12. Release Plan
+13. Data Model
+14. API Specification
+15. Appendices
 
 ---
 
@@ -33,7 +36,20 @@ The Dartwing User Module provides a **unified personal identity layer** that ena
 
 Unlike traditional identity systems that treat users as accounts within isolated applications, Dartwing User treats each human as a **first-class citizen** whose identity, preferences, and digital life transcend organizational boundaries.
 
-### 1.2 Value Proposition
+**Tagline:** _"Your Identity, Your Control, Everywhere."_
+
+### 1.2 Philosophy: "One Human = One Identity"
+
+Every human in Dartwing has exactly ONE:
+
+- **Keycloak User** (authentication) → Managed by Core
+- **Frappe User** (authorization) → Managed by Core
+- **Person** (identity record) → Managed by Core
+- **User Profile** (preferences) → **Managed by User Module**
+
+These are permanently linked and never duplicated. When you join your Family org, your Company, your HOA, and your Golf Club—you're the same person everywhere.
+
+### 1.3 Value Proposition
 
 **For End Users:**
 
@@ -53,25 +69,41 @@ Unlike traditional identity systems that treat users as accounts within isolated
 
 - Sticky user base (personal identity creates lock-in)
 - Network effects (users invite others across orgs)
-- Premium upsell opportunities (AI voice clone, advanced privacy features)
+- Premium upsell opportunities (AI voice clone, personal vault, advanced privacy)
 
-### 1.3 Scope
+### 1.4 Scope
 
-**In Scope:**
+**In Scope (User Module):**
 
-- Authentication (Keycloak SSO, magic-link, social login)
 - Personal identity management (profile, preferences, devices)
 - Cross-organization features (org switcher, unified search, dashboard)
-- Privacy controls (block list, travel mode, data export)
-- AI personalization (voice clone, shortcuts, daily briefing)
-- Emergency features (digital will, location sharing)
+- Privacy controls (block list, travel mode, data export, privacy dashboard)
+- AI personalization (voice clone, shortcuts, daily briefing, AI memory)
+- Security features (device trust, push-to-approve, session management)
+- Emergency features (digital will, emergency contacts, location sharing)
+- Personal storage (vault, health data, wearables)
+- Identity verification and reputation
 
-**Out of Scope:**
+**Out of Scope (Handled by Core Module):**
 
-- Organization-specific features (handled by Family, Company, etc. modules)
+- Authentication (Keycloak SSO, magic-link, social login)
+- Person doctype and Global Person ↔ User Link
+- Organization and Org Member doctypes
 - Billing and subscriptions (separate Billing module)
-- Content creation tools (handled by respective modules)
-- Third-party app integrations (future API module)
+
+### 1.5 Key Differentiators
+
+| User Module (Personal) | Core/Org Modules (Organizational) |
+| ---------------------- | --------------------------------- |
+| AI voice clone         | Company phone scripts             |
+| Theme preference       | Company branding                  |
+| Global block list      | Org contact blacklist             |
+| Digital will           | Org succession planning           |
+| Travel mode            | Org leave requests                |
+| Device trust           | Org device management             |
+| Personal vault         | Org document storage              |
+| Identity verification  | Org member verification           |
+| Reputation score       | Org rating systems                |
 
 ---
 
@@ -103,11 +135,18 @@ Joining a new organization requires:
 - Configuring preferences from scratch
 - Learning a new interface
 
+**Security Gaps:**
+
+- No way to verify identity portably across organizations
+- No duress protection when traveling
+- Limited visibility into device access
+- No personal encrypted storage
+
 ### 2.2 Target Users
 
-Primary: Adults managing multiple life contexts (work, family, community)
-Secondary: Organization administrators who onboard/manage members
-Tertiary: IT administrators handling enterprise SSO integration
+- **Primary:** Adults managing multiple life contexts (work, family, community)
+- **Secondary:** Organization administrators who onboard/manage members
+- **Tertiary:** Privacy-conscious users who demand data control
 
 ### 2.3 Market Opportunity
 
@@ -115,6 +154,7 @@ Tertiary: IT administrators handling enterprise SSO integration
 - Enterprise SSO market: $2.3B (2024) → $5.8B (2030)
 - Consumer identity market: Largely untapped outside social login
 - Privacy-conscious users willing to pay for control
+- Personal vault market growing with digital asset awareness
 
 ---
 
@@ -124,19 +164,20 @@ Tertiary: IT administrators handling enterprise SSO integration
 
 | Goal               | Target                    | Timeframe |
 | ------------------ | ------------------------- | --------- |
-| User Registration  | 10,000 active users       | Q2 2026   |
-| Multi-Org Adoption | 60% of users in 2+ orgs   | Q3 2026   |
-| SSO Integration    | 50 enterprise customers   | Q4 2026   |
+| User Registration  | 10,000 active users       | Q3 2026   |
+| Multi-Org Adoption | 60% of users in 2+ orgs   | Q4 2026   |
 | Premium Conversion | 15% of users on paid tier | Q4 2026   |
+| Profile Completion | 80% complete profiles     | Q3 2026   |
 
 ### 3.2 Product Goals
 
-| Goal               | Metric                             | Target      |
-| ------------------ | ---------------------------------- | ----------- |
-| Frictionless Auth  | Time to login                      | < 5 seconds |
-| Cross-Org Utility  | Org switches per session           | 2.5 average |
-| Privacy Confidence | Users enabling 2+ privacy features | 40%         |
-| AI Engagement      | Daily briefing open rate           | 35%         |
+| Goal                  | Metric                             | Target      |
+| --------------------- | ---------------------------------- | ----------- |
+| Cross-Org Utility     | Org switches per session           | 2.5 average |
+| Privacy Confidence    | Users enabling 3+ privacy features | 40%         |
+| AI Engagement         | Daily briefing open rate           | 35%         |
+| Security Adoption     | Push-to-approve enabled            | 60%         |
+| Identity Verification | Users with Standard+ verification  | 30%         |
 
 ### 3.3 Key Performance Indicators (KPIs)
 
@@ -144,13 +185,14 @@ Tertiary: IT administrators handling enterprise SSO integration
 
 - New user registrations per week
 - Invite acceptance rate
-- Social login adoption rate
+- Time to profile completion
 
 **Activation:**
 
 - Users completing profile setup
 - Users connecting 2+ organizations
 - Users enabling push notifications
+- Users completing identity verification
 
 **Engagement:**
 
@@ -158,18 +200,19 @@ Tertiary: IT administrators handling enterprise SSO integration
 - Org switches per session
 - Cross-org searches per user
 - Daily briefing engagement
+- Shortcut usage
 
 **Retention:**
 
-- 7-day retention rate
-- 30-day retention rate
+- 7-day / 30-day retention rate
 - Churn rate by org count
+- Feature adoption over time
 
 **Revenue (Future):**
 
 - Premium tier conversion rate
 - AI voice clone adoption
-- Enterprise SSO contracts
+- Personal vault storage upgrades
 
 ---
 
@@ -229,7 +272,7 @@ Marcus manages onboarding for a 500-person manufacturing company. Workers range 
 
 ---
 
-### 4.3 Tertiary Persona: Privacy-Conscious User
+### 4.3 Privacy-Conscious User
 
 **Name:** Akiko Tanaka  
 **Age:** 29  
@@ -251,12 +294,13 @@ Akiko is technically sophisticated and deeply concerned about digital privacy. S
 - Complete separation of work and personal identity
 - Full data export in open format
 - Digital will for trusted contact access
+- Personal encrypted vault for sensitive documents
 
 **Quote:** _"I'll use your platform if I own my data and can delete everything with one click."_
 
 ---
 
-### 4.4 Edge Persona: Elderly Family Member
+### 4.4 Elderly Family Member
 
 **Name:** Robert Williams  
 **Age:** 72  
@@ -283,910 +327,531 @@ Robert was invited to the family's Dartwing group by his daughter. He's comforta
 
 ---
 
+### 4.5 Traveling Professional
+
+**Name:** David Park  
+**Age:** 34  
+**Role:** International Sales Consultant
+
+**Background:**
+David travels internationally 60% of the year, crossing borders frequently. He handles sensitive client data and proprietary pricing information.
+
+**Pain Points:**
+
+- Worried about border searches of his devices
+- Needs to access work data from untrusted networks
+- Can't remember which VPN to use where
+- Colleagues need to reach him in emergencies
+
+**Goals:**
+
+- One-tap "travel mode" that hides sensitive data
+- Duress PIN that shows decoy data if forced to unlock
+- Trusted device that can approve logins remotely
+- Emergency contacts who can reach him anywhere
+
+**Quote:** _"When I cross a border, I need to know my client's pricing won't end up in a competitor's hands—even if I'm forced to unlock my phone."_
+
+---
+
 ## 5. Feature Requirements
 
-### 5.1 Feature Priority Matrix
+### 5.1 Feature Catalog
 
-| Priority | Feature                         | Effort | Impact | Phase |
-| -------- | ------------------------------- | ------ | ------ | ----- |
-| P0       | Magic-Link Login                | M      | High   | 1     |
-| P0       | Keycloak SSO                    | L      | High   | 1     |
-| P0       | Global Person ↔ User Link       | M      | High   | 1     |
-| P0       | Basic User Profile              | M      | High   | 1     |
-| P0       | Device Registration             | M      | High   | 1     |
-| P1       | Social Login (Google, Apple)    | M      | High   | 1     |
-| P1       | Multi-Org Switcher              | M      | High   | 1     |
-| P1       | Smart Invite Flow               | L      | High   | 1     |
-| P1       | Theme & Language Preferences    | S      | Medium | 1     |
-| P1       | Device Trust & Revoke           | M      | High   | 2     |
-| P1       | Push-to-Approve Logins          | L      | Medium | 2     |
-| P2       | Enterprise SSO (Azure AD, Okta) | L      | High   | 2     |
-| P2       | Global Block List               | M      | Medium | 2     |
-| P2       | Travel Mode                     | M      | Medium | 2     |
-| P2       | Unified Personal Dashboard      | L      | High   | 2     |
-| P2       | Cross-Org Search                | L      | High   | 2     |
-| P2       | Data Export (GDPR)              | M      | Medium | 2     |
-| P2       | Account Deletion                | M      | Medium | 2     |
-| P3       | Daily AI Briefing               | L      | Medium | 3     |
-| P3       | Personal Shortcut Commands      | M      | Medium | 3     |
-| P3       | Contacts Auto-Match             | M      | Medium | 3     |
-| P3       | Live Location Share             | L      | Medium | 3     |
-| P3       | Personal AI Voice Clone         | XL     | Medium | 4     |
-| P3       | Digital Will                    | L      | Low    | 4     |
+| ID   | Feature                       | Priority | Tier | Phase |
+| ---- | ----------------------------- | -------- | ---- | ----- |
+| U-01 | User Profile & Preferences    | P0       | Free | 1     |
+| U-02 | Multi-Organization Management | P0       | Free | 1     |
+| U-03 | Device Trust & Management     | P0       | Free | 1     |
+| U-04 | Global Block List             | P1       | Free | 2     |
+| U-05 | Personal Shortcuts            | P1       | Free | 3     |
+| U-06 | Travel Mode                   | P1       | Pro  | 2     |
+| U-07 | Push-to-Approve Login         | P1       | Pro  | 2     |
+| U-08 | Digital Will & Succession     | P2       | Pro  | 4     |
+| U-09 | AI Voice Profile              | P2       | Pro  | 4     |
+| U-10 | Daily AI Briefing             | P1       | Pro  | 3     |
+| U-11 | Live Location Sharing         | P2       | Pro  | 3     |
+| U-12 | Identity Verification         | P1       | Free | 2     |
+| U-13 | Personal Vault                | P1       | Pro  | 2     |
+| U-14 | Emergency Contacts            | P0       | Free | 1     |
+| U-15 | Notification Preferences      | P0       | Free | 1     |
+| U-16 | Privacy Dashboard             | P1       | Free | 2     |
+| U-17 | Data Export & Portability     | P0       | Free | 2     |
+| U-18 | Account Deletion              | P0       | Free | 2     |
+| U-19 | Cross-Org Search              | P1       | Pro  | 2     |
+| U-20 | Unified Activity Feed         | P1       | Pro  | 2     |
+| U-21 | Contact Auto-Match            | P1       | Free | 3     |
+| U-22 | Smart Invitations             | P1       | Free | 1     |
+| U-23 | Biometric Unlock              | P0       | Free | 1     |
+| U-24 | Passkey Support               | P1       | Free | 2     |
+| U-25 | Session Management            | P0       | Free | 1     |
+| U-26 | Achievements & Gamification   | P2       | Free | 4     |
+| U-27 | Reputation Score              | P2       | Pro  | 4     |
+| U-28 | Personal AI Memory            | P2       | Pro  | 4     |
+| U-29 | Health Data Integration       | P2       | Pro  | 4     |
+| U-30 | Wearable Device Sync          | P2       | Pro  | 4     |
+
+### 5.2 Feature Priority Matrix
+
+| Priority | Features                                                                     | Effort | Impact |
+| -------- | ---------------------------------------------------------------------------- | ------ | ------ |
+| P0       | U-01, U-02, U-03, U-14, U-15, U-17, U-18, U-23, U-25                         | M-L    | High   |
+| P1       | U-04, U-05, U-06, U-07, U-10, U-12, U-13, U-16, U-19, U-20, U-21, U-22, U-24 | M-XL   | High   |
+| P2       | U-08, U-09, U-11, U-26, U-27, U-28, U-29, U-30                               | L-XL   | Medium |
 
 **Effort Key:** S = Small (1-2 days), M = Medium (3-5 days), L = Large (1-2 weeks), XL = Extra Large (3+ weeks)
 
 ---
 
-### 5.2 Detailed Feature Specifications
+## 6. Detailed Feature Specifications
 
-#### Feature 1: Magic-Link Login
+### 6.1 U-01: User Profile & Preferences
 
-**Priority:** P0  
-**Phase:** 1  
-**Effort:** Medium
+**Priority:** P0 | **Phase:** 1 | **Effort:** Medium | **Tier:** Free
 
 **Description:**
-Users authenticate by receiving a one-time link via email. Clicking the link logs them in without entering a password. This is the default and recommended authentication method.
+Central hub for personal settings that apply across all organizations. User-owned data that travels with them.
 
 **Requirements:**
 
-| ID     | Requirement                                                  | Priority |
-| ------ | ------------------------------------------------------------ | -------- |
-| ML-001 | User enters email address on login screen                    | Must     |
-| ML-002 | System sends magic link within 5 seconds                     | Must     |
-| ML-003 | Magic link expires after 15 minutes                          | Must     |
-| ML-004 | Magic link is single-use                                     | Must     |
-| ML-005 | Clicking link opens app (deep link) on mobile                | Must     |
-| ML-006 | Clicking link opens web app in browser                       | Must     |
-| ML-007 | User is fully authenticated after clicking link              | Must     |
-| ML-008 | System issues access + refresh tokens                        | Must     |
-| ML-009 | "Resend link" option available after 60 seconds              | Should   |
-| ML-010 | Link works across devices (email on phone, click on desktop) | Should   |
-| ML-011 | Branded email template with organization context             | Should   |
-| ML-012 | Rate limiting: max 5 links per email per hour                | Must     |
+| ID       | Requirement                                  | Priority |
+| -------- | -------------------------------------------- | -------- |
+| U-01-001 | Display name editable by user                | Must     |
+| U-01-002 | Profile photo with crop/filter               | Must     |
+| U-01-003 | Bio/About section (500 chars)                | Should   |
+| U-01-004 | Theme selection (light/dark/AMOLED/system)   | Must     |
+| U-01-005 | Accent color picker                          | Should   |
+| U-01-006 | Language preference                          | Must     |
+| U-01-007 | Timezone auto-detect with override           | Must     |
+| U-01-008 | Date/time format preferences                 | Should   |
+| U-01-009 | Accessibility settings (font size, contrast) | Must     |
+| U-01-010 | Haptic feedback toggle                       | Should   |
+| U-01-011 | Sound effects toggle                         | Should   |
+| U-01-012 | Default calendar (Google/Apple/Outlook)      | Should   |
+| U-01-013 | Pronouns field (optional)                    | Should   |
+| U-01-014 | Birthday (for age verification, optional)    | Should   |
+| U-01-015 | Preferences sync across all devices          | Must     |
+| U-01-016 | Preferences persist on logout/login          | Must     |
 
-**User Flow:**
+**UI Wireframe:**
 
 ```
-1. User opens app → sees "Enter your email"
-2. User enters email → taps "Send Magic Link"
-3. User sees "Check your email" screen with:
-   - Animated mail icon
-   - "Didn't receive it? Resend" (greyed out for 60s)
-   - "Try a different email" link
-4. User opens email → sees branded message with "Log In" button
-5. User taps button → deep link opens app
-6. User is logged in → sees dashboard or onboarding
+┌─────────────────────────────────────────────────────────────────┐
+│  ← Profile                                             [Save]   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│                    ┌──────────────┐                             │
+│                    │              │                             │
+│                    │    [Photo]   │                             │
+│                    │              │                             │
+│                    └──────────────┘                             │
+│                    [Change Photo]                               │
+│                                                                  │
+│  Display Name                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Brett Johnson                                               ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  Bio                                                            │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Software developer, pilot, and coffee enthusiast.          ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  APPEARANCE                                                     │
+│  ─────────────────────────────────────────────────────────────  │
+│  Theme                              [System ▼]                  │
+│  Accent Color                       [🔵 Blue ▼]                 │
+│  Font Size                          [Medium ▼]                  │
+│                                                                  │
+│  LOCALIZATION                                                   │
+│  ─────────────────────────────────────────────────────────────  │
+│  Language                           [English (US) ▼]            │
+│  Timezone                           [America/New_York ▼]        │
+│  Date Format                        [MM/DD/YYYY ▼]              │
+│  Time Format                        [12-hour ▼]                 │
+│                                                                  │
+│  ACCESSIBILITY                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  High Contrast Mode                 [━━━━━━●] OFF               │
+│  Reduce Motion                      [━━━━━━●] OFF               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-**Error Handling:**
-
-- Invalid email format: "Please enter a valid email address"
-- Email not found (new user): Redirect to signup flow
-- Rate limited: "Too many requests. Please try again in X minutes."
-- Expired link: "This link has expired. Request a new one."
-- Already used link: "This link has already been used. Request a new one."
-
-**Technical Notes:**
-
-- Keycloak "magic-link" authenticator extension required
-- Deep links: `io.dartwing.app://auth/callback?token=xxx`
-- Universal links for iOS, App Links for Android
-- Fallback to web if app not installed
 
 ---
 
-#### Feature 2: Keycloak SSO
+### 6.2 U-02: Multi-Organization Management
 
-**Priority:** P0  
-**Phase:** 1  
-**Effort:** Large
+**Priority:** P0 | **Phase:** 1 | **Effort:** Medium | **Tier:** Free
 
 **Description:**
-All Dartwing applications authenticate through a centralized Keycloak instance. Users log in once and have seamless access to all Dartwing services (mobile app, web portal, Frappe backend, future apps).
+View, switch between, and manage memberships across all organizations.
 
 **Requirements:**
 
-| ID     | Requirement                                                 | Priority |
-| ------ | ----------------------------------------------------------- | -------- |
-| KC-001 | Single Keycloak realm per environment (dev, test, prod)     | Must     |
-| KC-002 | OAuth2 Authorization Code flow with PKCE for all clients    | Must     |
-| KC-003 | Support for OpenID Connect (OIDC) protocol                  | Must     |
-| KC-004 | Access tokens expire in 5 minutes                           | Must     |
-| KC-005 | Refresh tokens expire in 30 days                            | Must     |
-| KC-006 | Offline tokens for background sync                          | Should   |
-| KC-007 | Token introspection endpoint for API validation             | Must     |
-| KC-008 | User info endpoint returns email, name, groups              | Must     |
-| KC-009 | Brute force protection (5 failed attempts = 15 min lockout) | Must     |
-| KC-010 | SSL/TLS required for all connections                        | Must     |
-| KC-011 | Session idle timeout: 30 minutes                            | Should   |
-| KC-012 | Session max lifetime: 10 hours                              | Should   |
-| KC-013 | Concurrent session limit: 10 per user                       | Should   |
-
-**Keycloak Clients:**
-
-| Client ID        | Type         | Purpose                  |
-| ---------------- | ------------ | ------------------------ |
-| dartwing-mobile  | Public       | Flutter iOS/Android apps |
-| dartwing-web     | Public       | Flutter web app          |
-| dartwing-desktop | Public       | Flutter desktop apps     |
-| frappe-backend   | Confidential | Frappe API server        |
-| admin-cli        | Confidential | Admin automation         |
-
-**Token Claims:**
-
-```json
-{
-  "sub": "uuid-keycloak-user-id",
-  "email": "user@example.com",
-  "email_verified": true,
-  "name": "John Doe",
-  "given_name": "John",
-  "family_name": "Doe",
-  "groups": ["/dartwing/users", "/org-123/members"],
-  "org_context": "org-123"
-}
-```
-
----
-
-#### Feature 3: Social + Enterprise Login
-
-**Priority:** P1 (Social), P2 (Enterprise)  
-**Phase:** 1 (Social), 2 (Enterprise)  
-**Effort:** Medium (Social), Large (Enterprise)
-
-**Description:**
-Users can authenticate using existing social accounts (Google, Apple, Microsoft, Facebook) or enterprise identity providers (Azure AD, Okta, Google Workspace).
-
-**Social Login Requirements:**
-
-| ID     | Requirement                                                | Priority |
-| ------ | ---------------------------------------------------------- | -------- |
-| SL-001 | "Continue with Google" button on login screen              | Must     |
-| SL-002 | "Continue with Apple" button on login screen               | Must     |
-| SL-003 | "Continue with Microsoft" button on login screen           | Should   |
-| SL-004 | "Continue with Facebook" button on login screen            | Could    |
-| SL-005 | First-time social login creates new Person record          | Must     |
-| SL-006 | Returning social login links to existing Person (by email) | Must     |
-| SL-007 | Profile photo imported from social provider                | Should   |
-| SL-008 | Name imported from social provider                         | Must     |
-| SL-009 | User can unlink social account later                       | Should   |
-
-**Enterprise SSO Requirements:**
-
-| ID     | Requirement                                 | Priority |
-| ------ | ------------------------------------------- | -------- |
-| ES-001 | Azure AD integration via SAML or OIDC       | Must     |
-| ES-002 | Okta integration via SAML or OIDC           | Must     |
-| ES-003 | Google Workspace integration                | Should   |
-| ES-004 | LDAP integration for on-premise AD          | Could    |
-| ES-005 | Automatic user provisioning (SCIM)          | Should   |
-| ES-006 | Group-to-role mapping from IdP              | Must     |
-| ES-007 | Just-in-time user creation                  | Must     |
-| ES-008 | Forced SSO (disable password login for org) | Should   |
-
-**Social Login Flow:**
-
-```
-1. User taps "Continue with Google"
-2. Redirect to Google OAuth consent screen
-3. User grants permission
-4. Redirect back to app with auth code
-5. Exchange code for tokens via Keycloak
-6. Keycloak creates/links user
-7. User is logged in
-```
-
----
-
-#### Feature 4: Global Person ↔ User Link
-
-**Priority:** P0  
-**Phase:** 1  
-**Effort:** Medium
-
-**Description:**
-Every authenticated user is linked to exactly one Person record in Dartwing Core. This creates a permanent, universal identity that persists across all organizations and applications.
-
-**Requirements:**
-
-| ID     | Requirement                                                            | Priority |
-| ------ | ---------------------------------------------------------------------- | -------- |
-| PU-001 | Frappe User linked to Person via `frappe_user` field                   | Must     |
-| PU-002 | Person linked to Keycloak via `keycloak_user_id` field                 | Must     |
-| PU-003 | One Person per human (no duplicates)                                   | Must     |
-| PU-004 | Person created automatically on first login                            | Must     |
-| PU-005 | Person record survives org membership changes                          | Must     |
-| PU-006 | Email change syncs between Keycloak, User, Person                      | Must     |
-| PU-007 | Name change syncs between Keycloak, User, Person                       | Should   |
-| PU-008 | Person can exist before Keycloak user (invited but not yet registered) | Must     |
-| PU-009 | Merging duplicate Persons (admin function)                             | Should   |
-
-**Identity Chain:**
-
-```
-Keycloak User (authentication)
-      ↓ keycloak_user_id
-Frappe User (authorization)
-      ↓ frappe_user
-Person (identity)
-      ↓ person
-User Profile (preferences)
-```
-
-**Sync Rules:**
-
-- Keycloak is source of truth for authentication
-- Person is source of truth for identity attributes
-- Changes in Keycloak trigger sync to Person
-- Changes in Person UI trigger sync to Keycloak (admin only)
-
----
-
-#### Feature 5: Smart Invite Flow
-
-**Priority:** P1  
-**Phase:** 1  
-**Effort:** Large
-
-**Description:**
-Organization members can invite new users with pre-filled information. Invitees simply tap a magic link to join—no forms to fill out if the inviter provided details.
-
-**Requirements:**
-
-| ID     | Requirement                                            | Priority |
-| ------ | ------------------------------------------------------ | -------- |
-| SI-001 | Inviter can enter: first name, last name, email, phone | Must     |
-| SI-002 | Only email is required                                 | Must     |
-| SI-003 | Inviter can select role template for invitee           | Must     |
-| SI-004 | Inviter can add personal message                       | Should   |
-| SI-005 | Invite sent via email with magic link                  | Must     |
-| SI-006 | Invite expires after 7 days                            | Must     |
-| SI-007 | Inviter can revoke pending invite                      | Must     |
-| SI-008 | Inviter can resend invite                              | Must     |
-| SI-009 | Invitee tapping link creates account + joins org       | Must     |
-| SI-010 | If invitee already has account, just joins org         | Must     |
-| SI-011 | Pre-filled info populates Person record                | Must     |
-| SI-012 | Invitee can edit pre-filled info before confirming     | Should   |
-| SI-013 | Bulk invite via CSV upload                             | Should   |
-| SI-014 | QR code invite for in-person onboarding                | Could    |
-| SI-015 | Invite tracking dashboard for admins                   | Should   |
-
-**Invite Email Content:**
-
-```
-Subject: [Inviter Name] invited you to join [Organization Name]
-
-Hi [First Name],
-
-[Inviter Name] has invited you to join [Organization Name] on Dartwing.
-
-[Personal message if provided]
-
-Tap the button below to accept:
-
-[Join Organization]
-
-This invitation expires on [Date].
-
----
-Dartwing - One identity, all your organizations
-```
-
-**Invite Acceptance Flow:**
-
-```
-1. Invitee receives email
-2. Invitee taps "Join Organization"
-3. Deep link opens app (or web)
-4. System checks if email matches existing account:
-
-   [Existing User]
-   - Show: "Welcome back! Join [Org] as [Role]?"
-   - User confirms → Org Member created
-   - Redirect to org dashboard
-
-   [New User]
-   - Show: "Create your account"
-   - Pre-fill: name, email, phone from invite
-   - User reviews/edits → confirms
-   - Person + User + Org Member created
-   - Redirect to onboarding
-```
-
-**CSV Bulk Invite Format:**
-
-```csv
-email,first_name,last_name,phone,role_template,message
-john@example.com,John,Doe,+1-555-0100,Employee,Welcome to the team!
-jane@example.com,Jane,Smith,,Manager,
-```
-
----
-
-#### Feature 6: Multi-Org Switcher
-
-**Priority:** P1  
-**Phase:** 1  
-**Effort:** Medium
-
-**Description:**
-Users can instantly switch between their organizations without logging out. The current org context affects what data they see and what actions are available.
-
-**Requirements:**
-
-| ID     | Requirement                            | Priority |
-| ------ | -------------------------------------- | -------- |
-| MO-001 | Org switcher visible in app header/nav | Must     |
-| MO-002 | Shows all orgs user belongs to         | Must     |
-| MO-003 | Shows org name + type icon             | Must     |
-| MO-004 | Shows org logo if available            | Should   |
-| MO-005 | Shows user's role in each org          | Should   |
-| MO-006 | One-tap to switch orgs                 | Must     |
-| MO-007 | Current org highlighted                | Must     |
-| MO-008 | Switch completes in < 500ms            | Must     |
-| MO-009 | Data refreshes for new org context     | Must     |
-| MO-010 | "Personal" context for cross-org view  | Should   |
-| MO-011 | Recent orgs at top of list             | Should   |
-| MO-012 | Search/filter for users with 10+ orgs  | Could    |
+| ID       | Requirement                            | Priority |
+| -------- | -------------------------------------- | -------- |
+| U-02-001 | List all organizations user belongs to | Must     |
+| U-02-002 | Show role/status in each organization  | Must     |
+| U-02-003 | Quick-switch between orgs (<400ms)     | Must     |
+| U-02-004 | Pin favorite organizations             | Should   |
+| U-02-005 | Show pending invitations               | Must     |
+| U-02-006 | Leave organization (with confirmation) | Must     |
+| U-02-007 | View what data each org can access     | Must     |
+| U-02-008 | Request to join public organizations   | Should   |
+| U-02-009 | Organization activity summary          | Should   |
+| U-02-010 | Notification badge per organization    | Must     |
+| U-02-011 | Recent orgs at top of list             | Should   |
+| U-02-012 | Search/filter for users with 10+ orgs  | Could    |
 
 **Org Type Icons:**
 
-- Family: 👨‍👩‍👧‍👦 (family emoji) or house icon
-- Company: 🏢 (building emoji) or briefcase icon
-- Nonprofit: 💚 (heart emoji) or hands icon
-- Club: 👥 (people emoji) or groups icon
-- Association: 🏛️ (building emoji) or handshake icon
+- Family: 👨‍👩‍👧‍👦 / house icon
+- Company: 🏢 / briefcase icon
+- Nonprofit: 💚 / hands icon
+- Club: 👥 / groups icon
+- Association: 🏛️ / handshake icon
 
 **Switcher UI:**
 
 ```
-┌─────────────────────────────┐
-│ ┌───┐                       │
-│ │ 🏢│ Acme Corp        ✓   │ ← Current
-│ └───┘ Company · Admin       │
-├─────────────────────────────┤
-│ ┌───┐                       │
-│ │👨‍👩‍👧│ Chen Family          │
-│ └───┘ Family · Member       │
-├─────────────────────────────┤
-│ ┌───┐                       │
-│ │ 🏠│ Oakwood HOA           │
-│ └───┘ Club · Board Member   │
-├─────────────────────────────┤
-│ ┌───┐                       │
-│ │ 🌐│ Personal View         │
-│ └───┘ All organizations     │
-└─────────────────────────────┘
-```
-
----
-
-#### Feature 7: Personal AI Voice Clone
-
-**Priority:** P3  
-**Phase:** 4  
-**Effort:** Extra Large
-
-**Description:**
-Users can train an AI model on their voice and personality. This clone is used by all AI personas across all organizations, providing a consistent personal touch to automated communications.
-
-**Requirements:**
-
-| ID     | Requirement                                                 | Priority |
-| ------ | ----------------------------------------------------------- | -------- |
-| VC-001 | Voice training wizard in app                                | Must     |
-| VC-002 | User records 5-10 sample phrases                            | Must     |
-| VC-003 | Training completes within 24 hours                          | Must     |
-| VC-004 | Preview cloned voice before enabling                        | Must     |
-| VC-005 | Enable/disable voice clone per org                          | Should   |
-| VC-006 | Personality questionnaire (formal/casual, humor, verbosity) | Must     |
-| VC-007 | Custom personality prompt                                   | Should   |
-| VC-008 | Voice used for AI-generated calls                           | Must     |
-| VC-009 | Voice used for AI-generated voice messages                  | Must     |
-| VC-010 | Voice used for text-to-speech in app                        | Should   |
-| VC-011 | Delete voice clone and all data                             | Must     |
-| VC-012 | Re-train voice clone                                        | Should   |
-
-**Voice Training Flow:**
-
-```
-1. User opens "AI Voice Clone" settings
-2. Intro screen explains feature + privacy
-3. User records 10 prompted phrases:
-   - "Hello, this is [Name]"
-   - "I'm calling about your appointment"
-   - "Please call me back at your convenience"
-   - [7 more varied phrases]
-4. Upload progress indicator
-5. "Training in progress" status
-6. Push notification when complete
-7. User previews with custom text
-8. User enables or re-records
-```
-
-**Privacy Considerations:**
-
-- Voice data encrypted at rest (AES-256)
-- Voice data never shared with organizations
-- User can delete all voice data instantly
-- Voice clone only used for user-initiated actions
-
----
-
-#### Feature 8: Unified Personal Dashboard
-
-**Priority:** P2  
-**Phase:** 2  
-**Effort:** Large
-
-**Description:**
-A single view showing everything the user needs across all organizations: pending tasks, upcoming events, unread notifications, and AI-curated highlights.
-
-**Requirements:**
-
-| ID     | Requirement                                    | Priority |
-| ------ | ---------------------------------------------- | -------- |
-| PD-001 | Dashboard is default home screen               | Must     |
-| PD-002 | Shows items from all user's organizations      | Must     |
-| PD-003 | Grouped by type (tasks, events, notifications) | Must     |
-| PD-004 | Or grouped by organization (toggle)            | Should   |
-| PD-005 | Color-coded by organization                    | Should   |
-| PD-006 | Pending approvals section                      | Must     |
-| PD-007 | Upcoming events (next 7 days)                  | Must     |
-| PD-008 | Unread notifications                           | Must     |
-| PD-009 | Quick actions (frequent tasks)                 | Should   |
-| PD-010 | AI summary at top                              | Should   |
-| PD-011 | Pull-to-refresh                                | Must     |
-| PD-012 | Filter by organization                         | Should   |
-| PD-013 | Filter by type                                 | Should   |
-| PD-014 | Mark items as done/dismiss                     | Must     |
-| PD-015 | Tap item to navigate to detail                 | Must     |
-
-**Dashboard Layout:**
-
-```
 ┌─────────────────────────────────────┐
-│ Good morning, Sarah                 │
-│                                     │
-│ ┌─────────────────────────────────┐ │
-│ │ 📋 You have 3 items needing     │ │
-│ │ attention: HOA vote, expense    │ │
-│ │ report, and dentist at 3pm.     │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ ⏰ UPCOMING                         │
-│ ├─ 3:00 PM  Kids' dentist (Family) │
-│ ├─ Tomorrow  HOA Board Mtg (HOA)   │
-│ └─ Friday    Quarterly Review (Work)│
-│                                     │
-│ ✅ NEEDS ACTION                     │
-│ ├─ 🗳️ Vote: Pool renovation (HOA)  │
-│ ├─ 💰 Approve: Travel expense (Work)│
-│ └─ 📝 Sign: PTO request (Work)     │
-│                                     │
-│ 🔔 NOTIFICATIONS                    │
-│ ├─ New photo album shared (Family) │
-│ └─ Meeting rescheduled (Work)      │
+│ Organizations                       │
+├─────────────────────────────────────┤
+│ ┌───┐                               │
+│ │ 🏢│ Acme Corp              ✓ 3🔔 │ ← Current + badges
+│ └───┘ Company · Admin   ⭐ Pinned   │
+├─────────────────────────────────────┤
+│ ┌───┐                               │
+│ │👨‍👩‍👧│ Chen Family                  │
+│ └───┘ Family · Member               │
+├─────────────────────────────────────┤
+│ ┌───┐                               │
+│ │ 🏠│ Oakwood HOA            1🔔   │
+│ └───┘ Club · Board Member           │
+├─────────────────────────────────────┤
+│ PENDING INVITATIONS                 │
+│ ┌───────────────────────────────────┐
+│ │ ⛳ Memphis Country Club           │
+│ │ Invited by: John Smith · Member   │
+│ │ [Accept]  [Decline]               │
+│ └───────────────────────────────────┘
+├─────────────────────────────────────┤
+│ ┌───┐                               │
+│ │ 🌐│ Personal View                 │
+│ └───┘ All organizations             │
 └─────────────────────────────────────┘
 ```
 
 ---
 
-#### Feature 9: Travel Mode
+### 6.3 U-03: Device Trust & Management
 
-**Priority:** P2  
-**Phase:** 2  
-**Effort:** Medium
+**Priority:** P0 | **Phase:** 1 | **Effort:** Medium | **Tier:** Free
 
 **Description:**
-One toggle that prepares the user for travel: pauses non-critical notifications, sets auto-reply messages, and optionally hides sensitive data when crossing borders.
+Manage trusted devices with security scoring and remote revocation.
 
 **Requirements:**
 
-| ID     | Requirement                              | Priority |
-| ------ | ---------------------------------------- | -------- |
-| TM-001 | Single toggle to enable/disable          | Must     |
-| TM-002 | Quick access from dashboard or settings  | Must     |
-| TM-003 | Pauses non-critical push notifications   | Must     |
-| TM-004 | Sets auto-reply for messages             | Should   |
-| TM-005 | Auto-reply customizable                  | Should   |
-| TM-006 | Hides sensitive data (configurable)      | Should   |
-| TM-007 | Sensitive data: financials, SSN, medical | Should   |
-| TM-008 | Travel mode indicator in UI              | Must     |
-| TM-009 | Auto-disable after X days (configurable) | Should   |
-| TM-010 | Critical notifications still delivered   | Must     |
-| TM-011 | Notify org admins that user is traveling | Could    |
+| ID       | Requirement                             | Priority |
+| -------- | --------------------------------------- | -------- |
+| U-03-001 | List all registered devices             | Must     |
+| U-03-002 | Show device type, OS, last active       | Must     |
+| U-03-003 | Mark devices as trusted                 | Must     |
+| U-03-004 | Revoke device access remotely           | Must     |
+| U-03-005 | Require approval for new device login   | Should   |
+| U-03-006 | Device trust score (based on behavior)  | Should   |
+| U-03-007 | Alert on login from new device          | Must     |
+| U-03-008 | Alert on login from new location        | Should   |
+| U-03-009 | Show active sessions per device         | Should   |
+| U-03-010 | "Sign out all devices" emergency option | Must     |
+| U-03-011 | Show last known location (city-level)   | Should   |
+| U-03-012 | Show IP address                         | Should   |
+| U-03-013 | Device name user-editable               | Should   |
 
-**Travel Mode Settings:**
+**Device Trust Score Algorithm:**
+
+| Factor               | Weight | Description                      |
+| -------------------- | ------ | -------------------------------- |
+| Device age           | 20%    | Longer registered = more trusted |
+| Login frequency      | 15%    | Regular use = more trusted       |
+| Location consistency | 20%    | Same locations = more trusted    |
+| Biometric enabled    | 15%    | More secure                      |
+| OS up to date        | 10%    | Security updates installed       |
+| No failed attempts   | 10%    | No brute force attempts          |
+| MFA enabled          | 10%    | Additional verification          |
+
+**UI Wireframe:**
 
 ```
-┌─────────────────────────────────────┐
-│ ✈️ Travel Mode                      │
-│                                     │
-│ [=========] ON                      │
-│                                     │
-│ Auto-reply message:                 │
-│ ┌─────────────────────────────────┐ │
-│ │ I'm currently traveling with    │ │
-│ │ limited availability. I'll      │ │
-│ │ respond when I return.          │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ Hide sensitive data:                │
-│ [✓] Financial information           │
-│ [✓] Personal documents              │
-│ [ ] Contact details                 │
-│                                     │
-│ Auto-disable after: [7 days ▼]     │
-│                                     │
-│ Critical notifications:             │
-│ [✓] Emergency contacts              │
-│ [✓] Security alerts                 │
-│ [ ] Org announcements               │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  ← Devices                                   [Sign Out All]     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  THIS DEVICE                                                    │
+│  ─────────────────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 📱 iPhone 15 Pro                           ✓ Trusted     │  │
+│  │    iOS 18.1 • Last active: Now                           │  │
+│  │    San Juan, PR • 192.168.1.x                            │  │
+│  │    Trust Score: 95/100 ████████████████████░              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  OTHER DEVICES                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 💻 MacBook Pro                             ✓ Trusted     │  │
+│  │    macOS 15.0 • Last active: 2 hours ago                 │  │
+│  │    Memphis, TN                                           │  │
+│  │    Trust Score: 88/100 █████████████████░░░              │  │
+│  │                                              [Revoke]    │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🌐 Chrome on Windows                      ⚠️ Untrusted   │  │
+│  │    Windows 11 • Last active: 3 days ago                  │  │
+│  │    New York, NY (unusual location)                       │  │
+│  │    Trust Score: 45/100 █████████░░░░░░░░░░░              │  │
+│  │                                    [Trust] [Revoke]      │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  PENDING APPROVAL                                               │
+│  ─────────────────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 📱 Android Phone                          🕐 Pending     │  │
+│  │    Login attempt: 5 minutes ago                          │  │
+│  │    San Juan, PR                                          │  │
+│  │                                   [Approve] [Deny]       │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-#### Feature 10: Global Block List
+### 6.4 U-04: Global Block List
 
-**Priority:** P2  
-**Phase:** 2  
-**Effort:** Medium
+**Priority:** P1 | **Phase:** 2 | **Effort:** Medium | **Tier:** Free
 
 **Description:**
-Users can block a person, phone number, or email once and have that block enforced across all organizations they belong to.
+Block contacts across ALL organizations—harassment protection that follows you.
 
 **Requirements:**
 
-| ID     | Requirement                                | Priority |
-| ------ | ------------------------------------------ | -------- |
-| BL-001 | Block by Person record                     | Must     |
-| BL-002 | Block by phone number                      | Must     |
-| BL-003 | Block by email address                     | Must     |
-| BL-004 | Block syncs to all orgs instantly          | Must     |
-| BL-005 | Blocked contact can't call via Dartwing    | Must     |
-| BL-006 | Blocked contact can't message via Dartwing | Must     |
-| BL-007 | Blocked contact can't see user's location  | Must     |
-| BL-008 | View all blocked contacts                  | Must     |
-| BL-009 | Unblock contact                            | Must     |
-| BL-010 | Block reason (optional)                    | Should   |
-| BL-011 | Block date shown                           | Should   |
-| BL-012 | Import blocks from phone contacts          | Could    |
+| ID       | Requirement                                     | Priority |
+| -------- | ----------------------------------------------- | -------- |
+| U-04-001 | Block by Person record                          | Must     |
+| U-04-002 | Block by phone number                           | Must     |
+| U-04-003 | Block by email address                          | Must     |
+| U-04-004 | Blocked person cannot message user              | Must     |
+| U-04-005 | Blocked person cannot see user in directories   | Should   |
+| U-04-006 | Blocked person cannot invite user to orgs       | Should   |
+| U-04-007 | User doesn't receive notifications from blocked | Must     |
+| U-04-008 | Block is silent (blocked person not notified)   | Must     |
+| U-04-009 | Unblock with confirmation                       | Must     |
+| U-04-010 | Report to platform option                       | Should   |
+| U-04-011 | Block reason (optional, private)                | Should   |
+| U-04-012 | Block date shown                                | Should   |
 
-**Block Flow:**
+**Block Types:**
+
+| Type         | Scope      | Effect                          |
+| ------------ | ---------- | ------------------------------- |
+| Person Block | Global     | Complete block across all orgs  |
+| Phone Block  | Global     | Block unknown callers by number |
+| Email Block  | Global     | Block unknown senders by email  |
+| Org-Specific | Single org | Hide from one org only          |
+
+---
+
+### 6.5 U-05: Personal Shortcuts
+
+**Priority:** P1 | **Phase:** 3 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Custom voice/text commands for frequent actions with location and time triggers.
+
+**Requirements:**
+
+| ID       | Requirement                               | Priority |
+| -------- | ----------------------------------------- | -------- |
+| U-05-001 | Create custom trigger phrases             | Must     |
+| U-05-002 | Map to API actions                        | Must     |
+| U-05-003 | Map to navigation targets                 | Must     |
+| U-05-004 | Map to external URLs                      | Should   |
+| U-05-005 | Variable substitution in actions          | Should   |
+| U-05-006 | Time-based shortcuts (trigger at time)    | Should   |
+| U-05-007 | Location-based shortcuts (trigger at GPS) | Should   |
+| U-05-008 | Multi-action shortcuts (chain actions)    | Should   |
+| U-05-009 | Import/export shortcuts                   | Should   |
+| U-05-010 | Share shortcuts with family               | Could    |
+| U-05-011 | Voice activation                          | Should   |
+| U-05-012 | Suggested shortcuts based on usage        | Could    |
+| U-05-013 | Max 50 shortcuts per user                 | Should   |
+| U-05-014 | Case-insensitive matching                 | Must     |
+
+**Example Shortcuts:**
+
+| Trigger            | Action Type     | Target                          |
+| ------------------ | --------------- | ------------------------------- |
+| "Show my tasks"    | Navigate        | /tasks?assigned_to=me           |
+| "Log my mileage"   | API Call        | create_mileage_log              |
+| "Call the office"  | External        | tel:+15551234567                |
+| "Start focus mode" | Multi-Action    | Enable DND + hide notifications |
+| "I'm leaving work" | Location + Time | Trigger at 5pm at office GPS    |
+
+**UI Wireframe:**
 
 ```
-1. User views contact profile
-2. User taps "..." menu → "Block"
-3. Confirmation: "Block [Name]? They won't be able to contact you in any organization."
-4. User confirms → block applied
-5. Block syncs to all orgs
-6. Toast: "[Name] has been blocked"
+┌─────────────────────────────────────────────────────────────────┐
+│  ← Shortcuts                                       [+ New]      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  MY SHORTCUTS                                                   │
+│  ─────────────────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🎤 "Show my tasks"                                        │  │
+│  │    → Navigate to Tasks (filtered to me)                  │  │
+│  │                                              [Edit] [🗑️] │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🎤 "Log my mileage"                                       │  │
+│  │    → Create Mileage Log entry                            │  │
+│  │    Variables: {from}, {to}, {miles}                      │  │
+│  │                                              [Edit] [🗑️] │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 📍 "I'm leaving work" (Location + Time)                   │  │
+│  │    Triggers: 5pm + at office GPS                         │  │
+│  │    Actions: Set status "Commuting", Notify family        │  │
+│  │                                              [Edit] [🗑️] │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  SUGGESTED SHORTCUTS                                            │
+│  ─────────────────────────────────────────────────────────────  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 💡 "What's on my calendar today?"                         │  │
+│  │    Based on your frequent navigation                     │  │
+│  │                                                  [Add]   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-#### Feature 11: Device Trust & Revoke
+### 6.6 U-06: Travel Mode
 
-**Priority:** P1  
-**Phase:** 2  
-**Effort:** Medium
+**Priority:** P1 | **Phase:** 2 | **Effort:** Medium | **Tier:** Pro
 
 **Description:**
-Users can view all devices that have access to their account and revoke access instantly. Devices can be trusted (skip future verification) or untrusted (require verification each login).
+Protect sensitive data when crossing borders or in untrusted environments. Includes duress PIN for coerced situations.
 
 **Requirements:**
 
-| ID     | Requirement                                      | Priority |
-| ------ | ------------------------------------------------ | -------- |
-| DT-001 | List all devices with active sessions            | Must     |
-| DT-002 | Show device name (user-editable)                 | Must     |
-| DT-003 | Show device type (iPhone, Android, Desktop, Web) | Must     |
-| DT-004 | Show last active time                            | Must     |
-| DT-005 | Show last known location (city-level)            | Should   |
-| DT-006 | Show IP address                                  | Should   |
-| DT-007 | Mark device as trusted                           | Must     |
-| DT-008 | Revoke device access                             | Must     |
-| DT-009 | Revoke requires reason (optional)                | Should   |
-| DT-010 | Revoke instantly invalidates all sessions        | Must     |
-| DT-011 | Push notification when new device logs in        | Must     |
-| DT-012 | "Revoke all other devices" button                | Should   |
-| DT-013 | Trust score based on usage patterns              | Could    |
+| ID       | Requirement                              | Priority |
+| -------- | ---------------------------------------- | -------- |
+| U-06-001 | One-tap travel mode activation           | Must     |
+| U-06-002 | Hide financial data                      | Must     |
+| U-06-003 | Hide medical records                     | Must     |
+| U-06-004 | Hide business documents                  | Should   |
+| U-06-005 | Duress PIN shows decoy data              | Should   |
+| U-06-006 | Auto-activate based on international GPS | Could    |
+| U-06-007 | Travel mode indicator visible to user    | Must     |
+| U-06-008 | Scheduled travel mode (flight times)     | Should   |
+| U-06-009 | Notify trusted contact when activated    | Should   |
+| U-06-010 | Auto-disable after X days (configurable) | Should   |
+| U-06-011 | Critical notifications still delivered   | Must     |
+| U-06-012 | Auto-reply for messages                  | Should   |
 
-**Device List UI:**
+**Data Visibility Matrix:**
+
+| Data Type | Normal Mode | Travel Mode     | Duress PIN    |
+| --------- | ----------- | --------------- | ------------- |
+| Tasks     | ✓ All       | ✓ Non-sensitive | ✓ All         |
+| Financial | ✓ All       | ✗ Hidden        | ✗ Decoy data  |
+| Medical   | ✓ All       | ✗ Hidden        | ✗ Hidden      |
+| Documents | ✓ All       | ✓ Public only   | ✓ All         |
+| Contacts  | ✓ All       | ✓ All           | ✓ All         |
+| Messages  | ✓ All       | ✗ Last 24h only | ✓ All         |
+| Vault     | ✓ All       | ✗ Hidden        | ✗ Decoy vault |
+
+**UI Wireframe:**
 
 ```
-┌─────────────────────────────────────┐
-│ 📱 My Devices                       │
-│                                     │
-│ This device                         │
-│ ┌─────────────────────────────────┐ │
-│ │ 📱 iPhone 15 Pro          ✓    │ │
-│ │ Last active: Just now           │ │
-│ │ San Francisco, CA               │ │
-│ │ Trusted                         │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ Other devices                       │
-│ ┌─────────────────────────────────┐ │
-│ │ 💻 MacBook Pro                  │ │
-│ │ Last active: 2 hours ago        │ │
-│ │ San Francisco, CA               │ │
-│ │ Trusted · [Revoke]              │ │
-│ └─────────────────────────────────┘ │
-│ ┌─────────────────────────────────┐ │
-│ │ 🌐 Chrome on Windows            │ │
-│ │ Last active: 3 days ago         │ │
-│ │ New York, NY                    │ │
-│ │ Not trusted · [Revoke]          │ │
-│ └─────────────────────────────────┘ │
-│                                     │
-│ [Revoke All Other Devices]          │
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  ✈️ Travel Mode                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  [═══════════════════●] ENABLED                                 │
+│                                                                  │
+│  Travel mode hides sensitive data when you're traveling.        │
+│  Enable before crossing borders or in untrusted environments.   │
+│                                                                  │
+│  HIDDEN DATA                                                    │
+│  ─────────────────────────────────────────────────────────────  │
+│  ☑ Financial information                                        │
+│  ☑ Medical records                                              │
+│  ☑ Business documents                                           │
+│  ☐ Contact details                                              │
+│                                                                  │
+│  AUTO-REPLY MESSAGE                                             │
+│  ─────────────────────────────────────────────────────────────  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ I'm currently traveling with limited availability. I'll    ││
+│  │ respond when I return.                                      ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  DURESS PROTECTION                                              │
+│  ─────────────────────────────────────────────────────────────  │
+│  ☑ Enable duress PIN                                            │
+│  Duress PIN: [••••••]  [Change]                                │
+│  When entered, shows decoy data instead of real data.          │
+│                                                                  │
+│  SCHEDULE                                                       │
+│  ─────────────────────────────────────────────────────────────  │
+│  Auto-disable after: [7 days ▼]                                │
+│  ☐ Auto-activate when leaving home country                     │
+│                                                                  │
+│  NOTIFICATIONS                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  ☑ Notify trusted contact when enabled                         │
+│  Contact: [Jane Doe (Sister) ▼]                                │
+│                                                                  │
+│  Critical notifications still delivered:                        │
+│  ☑ Emergency contacts                                           │
+│  ☑ Security alerts                                              │
+│  ☐ Org announcements                                            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-#### Feature 12: Daily AI Briefing
+### 6.7 U-07: Push-to-Approve Login
 
-**Priority:** P3  
-**Phase:** 3  
-**Effort:** Large
+**Priority:** P1 | **Phase:** 2 | **Effort:** Large | **Tier:** Pro
 
 **Description:**
-Every morning, users receive a push notification with a personalized summary of what needs their attention across all organizations.
+Approve logins from new devices via push notification on trusted device.
 
 **Requirements:**
 
-| ID     | Requirement                               | Priority |
-| ------ | ----------------------------------------- | -------- |
-| DB-001 | Push notification at user-configured time | Must     |
-| DB-002 | Default time: 7:00 AM local               | Must     |
-| DB-003 | Summarizes all orgs in one message        | Must     |
-| DB-004 | Includes: pending approvals               | Must     |
-| DB-005 | Includes: today's events                  | Must     |
-| DB-006 | Includes: urgent notifications            | Must     |
-| DB-007 | Includes: weather (optional)              | Could    |
-| DB-008 | AI-generated natural language summary     | Must     |
-| DB-009 | Tap notification → open dashboard         | Must     |
-| DB-010 | Configure which orgs to include           | Should   |
-| DB-011 | Configure which item types to include     | Should   |
-| DB-012 | Disable briefing entirely                 | Must     |
-| DB-013 | "Snooze" option (remind in 1 hour)        | Could    |
-
-**Briefing Content Example:**
-
-```
-Good morning, Sarah! ☀️
-
-Today you have:
-• HOA vote on pool renovation closes at 5pm
-• Quarterly review meeting at 2pm (Acme Corp)
-• Kids' dentist appointment at 3:30pm
-
-Action needed:
-• Approve Marcus's expense report ($450)
-• Sign updated employment agreement
-
-Have a great day! 🚀
-```
-
----
-
-#### Feature 13: Cross-Org Search
-
-**Priority:** P2  
-**Phase:** 2  
-**Effort:** Large
-
-**Description:**
-Users can search across all their organizations at once, finding documents, contacts, messages, and other content regardless of which org it belongs to.
-
-**Requirements:**
-
-| ID     | Requirement                                        | Priority |
-| ------ | -------------------------------------------------- | -------- |
-| CS-001 | Global search bar in app header                    | Must     |
-| CS-002 | Searches all user's organizations                  | Must     |
-| CS-003 | Results grouped by organization                    | Should   |
-| CS-004 | Results grouped by type (contacts, docs, messages) | Should   |
-| CS-005 | Filter by organization                             | Must     |
-| CS-006 | Filter by content type                             | Must     |
-| CS-007 | Filter by date range                               | Should   |
-| CS-008 | Full-text search in documents                      | Must     |
-| CS-009 | Search in: contacts, files, messages, events       | Must     |
-| CS-010 | Respect per-org permissions                        | Must     |
-| CS-011 | Recent searches saved                              | Should   |
-| CS-012 | Search suggestions/autocomplete                    | Should   |
-| CS-013 | Voice search                                       | Could    |
-
-**Search Results UI:**
-
-```
-┌─────────────────────────────────────┐
-│ 🔍 "quarterly report"               │
-│ ──────────────────────────────────  │
-│ Filters: [All Orgs ▼] [All Types ▼] │
-│                                     │
-│ 📄 Documents (3)                    │
-│ ├─ Q3 Quarterly Report.pdf (Work)   │
-│ ├─ HOA Quarterly Financials (HOA)   │
-│ └─ Family Budget Q3.xlsx (Family)   │
-│                                     │
-│ 📅 Events (1)                       │
-│ └─ Quarterly Review - Nov 15 (Work) │
-│                                     │
-│ 💬 Messages (2)                     │
-│ ├─ "...quarterly report is ready..."│
-│ └─ "...review the quarterly..."     │
-└─────────────────────────────────────┘
-```
-
----
-
-#### Feature 14: Personal Shortcut Commands
-
-**Priority:** P3  
-**Phase:** 3  
-**Effort:** Medium
-
-**Description:**
-Users can create personal voice/text commands that work across all organizations. For example, "Call Mom" always dials their mother regardless of which org context they're in.
-
-**Requirements:**
-
-| ID     | Requirement                                           | Priority |
-| ------ | ----------------------------------------------------- | -------- |
-| SC-001 | Create shortcut with trigger phrase                   | Must     |
-| SC-002 | Shortcut actions: Call, Message, Open Screen, Web URL | Must     |
-| SC-003 | Trigger via voice command                             | Must     |
-| SC-004 | Trigger via text in AI chat                           | Must     |
-| SC-005 | Trigger via search bar                                | Should   |
-| SC-006 | Shortcuts work in any org context                     | Must     |
-| SC-007 | Edit/delete shortcuts                                 | Must     |
-| SC-008 | Import suggested shortcuts                            | Could    |
-| SC-009 | Max 50 shortcuts per user                             | Should   |
-| SC-010 | Case-insensitive matching                             | Must     |
-| SC-011 | Fuzzy matching ("call mom" = "call mother")           | Could    |
-
-**Shortcut Examples:**
-
-```
-"Call Mom" → Call Person: [Mom's Person record]
-"Show PTO" → Open Screen: /hr/leave-balance
-"Team standup" → Web URL: https://meet.google.com/xyz
-"Send report" → Run Command: generate_weekly_report
-```
-
----
-
-#### Feature 15: Data Export / Self-Delete
-
-**Priority:** P2  
-**Phase:** 2  
-**Effort:** Medium
-
-**Description:**
-Users can export all their data in a portable format (GDPR compliance) or permanently delete their account and all associated data (right to erasure).
-
-**Requirements:**
-
-| ID     | Requirement                                    | Priority |
-| ------ | ---------------------------------------------- | -------- |
-| DE-001 | Export all personal data                       | Must     |
-| DE-002 | Export includes: profile, preferences, devices | Must     |
-| DE-003 | Export includes: org memberships               | Must     |
-| DE-004 | Export includes: communications                | Should   |
-| DE-005 | Export includes: files/documents owned         | Should   |
-| DE-006 | Export format: JSON + ZIP of files             | Must     |
-| DE-007 | Export available for download 24 hours         | Must     |
-| DE-008 | Email notification when export ready           | Must     |
-| DE-009 | Delete account permanently                     | Must     |
-| DE-010 | Delete requires email confirmation code        | Must     |
-| DE-011 | Delete removes: User, Person, User Profile     | Must     |
-| DE-012 | Delete removes: all org memberships            | Must     |
-| DE-013 | Delete revokes Keycloak session                | Must     |
-| DE-014 | 7-day grace period before deletion             | Should   |
-| DE-015 | Cannot delete if sole org admin                | Must     |
-
-**Delete Flow:**
-
-```
-1. User opens Privacy settings → "Delete Account"
-2. Warning screen explains consequences
-3. User types "DELETE" to confirm intent
-4. Email sent with confirmation code
-5. User enters code
-6. Account enters "Pending Deletion" state
-7. User has 7 days to cancel
-8. After 7 days, permanent deletion executes
-9. Confirmation email sent
-```
-
----
-
-#### Feature 16: Emergency Digital Will
-
-**Priority:** P3  
-**Phase:** 4  
-**Effort:** Large
-
-**Description:**
-Users can designate a trusted contact who gains read-only access to their account if they're inactive for a specified period (default 90 days).
-
-**Requirements:**
-
-| ID     | Requirement                                | Priority |
-| ------ | ------------------------------------------ | -------- |
-| DW-001 | Enable/disable digital will                | Must     |
-| DW-002 | Select trusted contact (Person)            | Must     |
-| DW-003 | Set inactive days threshold (30-365)       | Must     |
-| DW-004 | Warning notification at 50% of threshold   | Must     |
-| DW-005 | Warning notification at 75% of threshold   | Must     |
-| DW-006 | Trusted contact notified when activated    | Must     |
-| DW-007 | Trusted contact gets read-only access      | Must     |
-| DW-008 | Configure which orgs to grant access       | Should   |
-| DW-009 | Configure which data types to share        | Should   |
-| DW-010 | User can deactivate will after activation  | Must     |
-| DW-011 | Activity = any login or API call           | Must     |
-| DW-012 | Require trusted contact to verify identity | Should   |
-
-**Digital Will Settings:**
-
-```
-┌─────────────────────────────────────┐
-│ 🔐 Digital Will                     │
-│                                     │
-│ [=========] ENABLED                 │
-│                                     │
-│ Trusted Contact:                    │
-│ [👤 Jane Doe (Sister)          ▼]  │
-│                                     │
-│ Activate after inactive for:        │
-│ [90 days                       ▼]  │
-│                                     │
-│ Grant access to:                    │
-│ [✓] Personal organization           │
-│ [ ] Work organizations              │
-│ [✓] Family organizations            │
-│                                     │
-│ Allow trusted contact to:           │
-│ [✓] View contacts                   │
-│ [✓] View documents                  │
-│ [✓] Download data export            │
-│ [ ] Post on my behalf               │
-└─────────────────────────────────────┘
-```
-
----
-
-#### Feature 17: Push-to-Approve Logins
-
-**Priority:** P1  
-**Phase:** 2  
-**Effort:** Large
-
-**Description:**
-When a new device attempts to log in, the user receives a push notification on their trusted devices asking to approve or deny the login.
-
-**Requirements:**
-
-| ID     | Requirement                                      | Priority |
-| ------ | ------------------------------------------------ | -------- |
-| PA-001 | Push notification sent to all trusted devices    | Must     |
-| PA-002 | Notification shows: device type, location, time  | Must     |
-| PA-003 | "Approve" action completes login on new device   | Must     |
-| PA-004 | "Deny" action blocks login + alerts user         | Must     |
-| PA-005 | Notification expires after 5 minutes             | Must     |
-| PA-006 | If no response, login denied                     | Must     |
-| PA-007 | User can disable feature (security tradeoff)     | Should   |
-| PA-008 | Fallback to email approval if no trusted devices | Should   |
-| PA-009 | Log all approval requests                        | Must     |
-| PA-010 | "This was me" option after denial (unblock)      | Should   |
+| ID       | Requirement                                | Priority |
+| -------- | ------------------------------------------ | -------- |
+| U-07-001 | Push notification for new device login     | Must     |
+| U-07-002 | Show device info, location, time           | Must     |
+| U-07-003 | One-tap approve from notification          | Must     |
+| U-07-004 | One-tap deny from notification             | Must     |
+| U-07-005 | Timeout after 5 minutes                    | Must     |
+| U-07-006 | Fallback to email/SMS if no push           | Should   |
+| U-07-007 | "Always approve from this location" option | Should   |
+| U-07-008 | Rich notification with map                 | Could    |
+| U-07-009 | Deny + report suspicious option            | Should   |
+| U-07-010 | Audit log of all approvals/denials         | Must     |
 
 **Push Notification Content:**
 
@@ -1206,158 +871,866 @@ When a new device attempts to log in, the user receives a push notification on t
 └─────────────────────────────────────┘
 ```
 
+**Flow Diagram:**
+
+```
+New Device                    Keycloak              Trusted Device
+    │                            │                        │
+    │ 1. Login attempt           │                        │
+    │───────────────────────────►│                        │
+    │                            │                        │
+    │ 2. Hold (pending approval) │                        │
+    │◄───────────────────────────│                        │
+    │                            │                        │
+    │                            │ 3. Push notification   │
+    │                            │───────────────────────►│
+    │                            │                        │
+    │                            │        4. User reviews │
+    │                            │                        │
+    │                            │ 5. Approve / Deny      │
+    │                            │◄───────────────────────│
+    │                            │                        │
+    │ 6a. Login granted          │                        │
+    │◄───────────────────────────│ (if approved)         │
+    │                            │                        │
+    │ 6b. Login denied + alert   │                        │
+    │◄───────────────────────────│ (if denied)           │
+```
+
 ---
 
-#### Feature 18: Theme & Language Preference
+### 6.8 U-08: Digital Will & Succession
 
-**Priority:** P1  
-**Phase:** 1  
-**Effort:** Small
+**Priority:** P2 | **Phase:** 4 | **Effort:** Large | **Tier:** Pro
 
 **Description:**
-Users set their visual preferences once, and they apply across all Dartwing apps and organizations.
+Designate trusted contacts who gain access if user becomes incapacitated.
 
 **Requirements:**
 
-| ID     | Requirement                                      | Priority |
-| ------ | ------------------------------------------------ | -------- |
-| TL-001 | Theme options: Light, Dark, AMOLED Black, System | Must     |
-| TL-002 | Theme applies to all Dartwing apps               | Must     |
-| TL-003 | Theme syncs across devices                       | Must     |
-| TL-004 | Language selection from available languages      | Must     |
-| TL-005 | Language applies to all UI text                  | Must     |
-| TL-006 | Font size: Small, Medium, Large, Extra Large     | Should   |
-| TL-007 | Timezone selection                               | Must     |
-| TL-008 | Date format preference                           | Should   |
-| TL-009 | Time format: 12-hour / 24-hour                   | Should   |
-| TL-010 | Preferences persist on logout/login              | Must     |
+| ID       | Requirement                                    | Priority |
+| -------- | ---------------------------------------------- | -------- |
+| U-08-001 | Designate 1-3 trusted contacts                 | Must     |
+| U-08-002 | Set inactivity period (30-365 days)            | Must     |
+| U-08-003 | Trusted contact can request access             | Must     |
+| U-08-004 | User notified of access request                | Must     |
+| U-08-005 | Waiting period before access granted (7 days)  | Must     |
+| U-08-006 | User can cancel during waiting period          | Must     |
+| U-08-007 | Define what data successor can access          | Should   |
+| U-08-008 | Successor can download data                    | Should   |
+| U-08-009 | Successor cannot delete or modify              | Must     |
+| U-08-010 | Legal documentation template                   | Could    |
+| U-08-011 | Warning at 50% and 75% of inactivity threshold | Must     |
+| U-08-012 | Require trusted contact to verify identity     | Should   |
+
+**Digital Will States:**
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                     DIGITAL WILL LIFECYCLE                      │
+│                                                                 │
+│  ┌─────────┐      ┌─────────┐      ┌─────────┐     ┌─────────┐│
+│  │ Active  │─────►│Inactive │─────►│Requested│────►│ Granted ││
+│  │         │      │(counting)│     │(waiting)│     │         ││
+│  └─────────┘      └────┬────┘      └────┬────┘     └─────────┘│
+│       ▲                │                │                      │
+│       │                │                │                      │
+│       └────────────────┴────────────────┘                      │
+│           User activity cancels process                        │
+│                                                                 │
+│  Timeline Example (90-day threshold):                          │
+│  Day 0:  User last active                                      │
+│  Day 45: Warning notification (50%)                            │
+│  Day 68: Warning notification (75%)                            │
+│  Day 90: Inactivity threshold reached                          │
+│  Day 90: Trusted contact notified, can request access          │
+│  Day 91: Trusted contact requests access                       │
+│  Day 91: User notified via all channels                        │
+│  Day 98: 7-day waiting period expires                          │
+│  Day 98: Access granted to trusted contact                     │
+│                                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-#### Feature 19: Live Location Share
+### 6.9 U-09: AI Voice Profile
 
-**Priority:** P3  
-**Phase:** 3  
-**Effort:** Large
+**Priority:** P2 | **Phase:** 4 | **Effort:** Extra Large | **Tier:** Pro
 
 **Description:**
-Users can share their real-time location with specific people or organizations for a limited time. Useful for family safety, work check-ins, or emergency situations.
+Clone user's voice for AI to use in calls and voice messages. All AI-generated audio is watermarked.
 
 **Requirements:**
 
-| ID     | Requirement                                           | Priority |
-| ------ | ----------------------------------------------------- | -------- |
-| LS-001 | Share location with specific Person                   | Must     |
-| LS-002 | Share location with entire Organization               | Must     |
-| LS-003 | Set duration: 1h, 4h, 8h, 24h, Until I stop           | Must     |
-| LS-004 | Real-time updates (every 30 seconds)                  | Must     |
-| LS-005 | Battery-efficient background tracking                 | Must     |
-| LS-006 | Recipient sees location on map                        | Must     |
-| LS-007 | Stop sharing anytime                                  | Must     |
-| LS-008 | Notification when sharing starts/stops                | Must     |
-| LS-009 | Share "last known" location (less battery)            | Should   |
-| LS-010 | Emergency share: one tap, notifies emergency contacts | Should   |
-| LS-011 | Geofence alerts (notify when entering/leaving area)   | Could    |
+| ID       | Requirement                          | Priority |
+| -------- | ------------------------------------ | -------- |
+| U-09-001 | Record 30-second voice sample        | Must     |
+| U-09-002 | Generate voice model from sample     | Must     |
+| U-09-003 | AI can use voice for outbound calls  | Should   |
+| U-09-004 | AI can generate voice messages       | Should   |
+| U-09-005 | User approves each use of voice      | Must     |
+| U-09-006 | Watermark ALL AI-generated audio     | Must     |
+| U-09-007 | Define personality traits for AI     | Should   |
+| U-09-008 | Custom personality prompt            | Should   |
+| U-09-009 | Delete voice model on request        | Must     |
+| U-09-010 | Voice model never shared with orgs   | Must     |
+| U-09-011 | Explicit consent with legal terms    | Must     |
+| U-09-012 | Preview cloned voice before enabling | Must     |
+| U-09-013 | Re-train voice clone                 | Should   |
 
-**Location Share Flow:**
+**Voice Training Flow:**
 
 ```
-1. User taps "Share My Location" in quick actions
-2. Select recipient: Person or Organization
-3. Select duration: 1h, 4h, 8h, 24h, Until I stop
-4. Confirm → sharing begins
-5. Indicator in status bar shows sharing active
-6. Recipient receives notification
-7. Recipient can view live location on map
-8. User can stop sharing anytime
-9. Auto-stops when duration expires
+1. User opens "AI Voice Clone" settings
+2. Intro screen explains feature + privacy
+3. User records prompted text (30 seconds total):
+   - "Hello, this is [Name]"
+   - "I'm calling about your appointment"
+   - "Please call me back at your convenience"
+   - [Additional varied phrases]
+4. Upload progress indicator
+5. "Training in progress" status (up to 24 hours)
+6. Push notification when complete
+7. User previews with custom text
+8. User enables or re-records
+```
+
+**Privacy Considerations:**
+
+- Voice data encrypted at rest (AES-256)
+- Voice data never shared with organizations
+- User can delete all voice data instantly
+- Voice clone only used for user-initiated actions
+- All generated audio contains inaudible watermark
+
+**UI Wireframe:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  AI Voice Profile                                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Your AI assistant can speak in your voice for:                 │
+│  • Automated call responses                                     │
+│  • Voice messages when you're unavailable                       │
+│  • Reading documents aloud                                      │
+│                                                                  │
+│  All AI-generated audio is watermarked and you approve          │
+│  each use.                                                      │
+│                                                                  │
+│  VOICE SAMPLE                                                   │
+│  ─────────────────────────────────────────────────────────────  │
+│  Status: ✓ Recorded (32 seconds)                               │
+│                                                                  │
+│  [▶️ Play Sample]  [🔄 Re-record]  [🗑️ Delete]                   │
+│                                                                  │
+│  PERSONALITY                                                    │
+│  ─────────────────────────────────────────────────────────────  │
+│  Describe your communication style:                             │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Professional but friendly. I prefer to get to the point   ││
+│  │ quickly. I use humor occasionally but stay focused on     ││
+│  │ business during work hours.                                ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  AI USAGE PERMISSIONS                                           │
+│  ─────────────────────────────────────────────────────────────  │
+│  ☑ Voicemail greetings                                         │
+│  ☐ Outbound calls (requires approval each time)                │
+│  ☑ Reading documents aloud                                      │
+│  ☐ Voice messages to contacts                                   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-#### Feature 20: Contacts Auto-Match
+### 6.10 U-10: Daily AI Briefing
 
-**Priority:** P3  
-**Phase:** 3  
-**Effort:** Medium
+**Priority:** P1 | **Phase:** 3 | **Effort:** Large | **Tier:** Pro
 
 **Description:**
-On first login to the mobile app, users can optionally scan their phone contacts to automatically link existing Person records, instantly connecting them to people they know who already use Dartwing.
+Personalized morning briefing aggregating information across all organizations. Available as text and audio.
 
 **Requirements:**
 
-| ID     | Requirement                                                 | Priority |
-| ------ | ----------------------------------------------------------- | -------- |
-| CM-001 | Opt-in prompt during onboarding                             | Must     |
-| CM-002 | Explain privacy implications clearly                        | Must     |
-| CM-003 | Match by phone number (primary)                             | Must     |
-| CM-004 | Match by email (secondary)                                  | Must     |
-| CM-005 | Show matches for user approval                              | Must     |
-| CM-006 | User can skip individual matches                            | Must     |
-| CM-007 | User can skip entire feature                                | Must     |
-| CM-008 | Contacts never uploaded to server (matching done on device) | Must     |
-| CM-009 | Re-run matching from settings                               | Should   |
-| CM-010 | Suggest inviting unmatched contacts                         | Could    |
+| ID       | Requirement                           | Priority |
+| -------- | ------------------------------------- | -------- |
+| U-10-001 | Aggregate tasks from all orgs         | Must     |
+| U-10-002 | Show today's calendar events          | Must     |
+| U-10-003 | Highlight overdue items               | Must     |
+| U-10-004 | Show unread messages summary          | Should   |
+| U-10-005 | Weather for user's locations          | Should   |
+| U-10-006 | Commute time estimate                 | Could    |
+| U-10-007 | Custom sections (stocks, news)        | Could    |
+| U-10-008 | Delivery time preference              | Must     |
+| U-10-009 | Text AND audio versions               | Should   |
+| U-10-010 | "Snooze" for 1 hour option            | Should   |
+| U-10-011 | Configure which orgs to include       | Should   |
+| U-10-012 | Configure which item types to include | Should   |
+| U-10-013 | Disable briefing entirely             | Must     |
+| U-10-014 | AI-generated natural language summary | Must     |
 
-**Matching Flow:**
+**Briefing Content:**
 
 ```
-1. Onboarding screen: "Connect with people you know"
-2. Explanation: "We'll check if your contacts use Dartwing. Your contacts never leave your device."
-3. User taps "Scan Contacts"
-4. Permission prompt for contacts access
-5. Processing indicator
-6. Results screen: "We found 5 matches!"
-   - [✓] Mom (matched by phone)
-   - [✓] John Smith (matched by email)
-   - [✓] Sarah at Work (matched by phone)
-   - [  ] Skip this one
-   - [✓] Neighbor Bob (matched by phone)
-7. User confirms selections
-8. Connections created
+┌─────────────────────────────────────────────────────────────────┐
+│  Good morning, Brett! ☀️                    Tuesday, Nov 29     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  🌡️ WEATHER                                                     │
+│  ─────────────────────────────────────────────────────────────  │
+│  San Juan: 82°F, Partly cloudy                                  │
+│  Memphis: 45°F, Rain expected                                   │
+│                                                                  │
+│  📅 TODAY'S SCHEDULE (4 events)                                 │
+│  ─────────────────────────────────────────────────────────────  │
+│  9:00 AM   Team standup (Opensoft)                              │
+│  11:00 AM  Dentist appointment (Personal)                       │
+│  2:00 PM   Board meeting (Lakewood HOA)                         │
+│  5:00 PM   Soccer practice - pick up kids (Family)              │
+│                                                                  │
+│  ✅ TASKS DUE TODAY (3 items)                                   │
+│  ─────────────────────────────────────────────────────────────  │
+│  • Review Q4 budget proposal (Opensoft) - High priority         │
+│  • Submit expense report (Personal)                             │
+│  • Vote on landscaping proposal (HOA) - Deadline 6pm            │
+│                                                                  │
+│  ⚠️ ATTENTION NEEDED (2 items)                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  • 3 unread messages from HOA Board                             │
+│  • Invoice #1234 pending your approval                          │
+│                                                                  │
+│  [🔊 Listen to Briefing]                    [Snooze 1 hour]    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 6. User Stories & Acceptance Criteria
+### 6.11 U-11: Live Location Sharing
 
-### 6.1 Authentication Stories
+**Priority:** P2 | **Phase:** 3 | **Effort:** Large | **Tier:** Pro
 
-**US-001: Magic-Link Login**
+**Description:**
+Share real-time location with trusted contacts for safety or coordination.
+
+**Requirements:**
+
+| ID       | Requirement                                           | Priority |
+| -------- | ----------------------------------------------------- | -------- |
+| U-11-001 | Share location with specific person                   | Must     |
+| U-11-002 | Share location with organization                      | Should   |
+| U-11-003 | Set expiration (1hr, 4hr, 8hr, 24hr, until cancelled) | Must     |
+| U-11-004 | View who can see your location                        | Must     |
+| U-11-005 | Stop sharing instantly                                | Must     |
+| U-11-006 | Battery-efficient location updates                    | Must     |
+| U-11-007 | Works in background                                   | Must     |
+| U-11-008 | Location history (last 24hr)                          | Should   |
+| U-11-009 | Geofence alerts (arrived/left)                        | Should   |
+| U-11-010 | Emergency broadcast location                          | Should   |
+| U-11-011 | Real-time updates every 30 seconds                    | Must     |
+
+---
+
+### 6.12 U-12: Identity Verification
+
+**Priority:** P1 | **Phase:** 2 | **Effort:** Large | **Tier:** Free
+
+**Description:**
+Verify user identity for high-trust scenarios. Verification is portable across all organizations.
+
+**Requirements:**
+
+| ID       | Requirement                                     | Priority |
+| -------- | ----------------------------------------------- | -------- |
+| U-12-001 | Government ID scan (driver's license, passport) | Must     |
+| U-12-002 | Selfie liveness check                           | Must     |
+| U-12-003 | Address verification                            | Should   |
+| U-12-004 | Phone number verification                       | Must     |
+| U-12-005 | Email verification                              | Must     |
+| U-12-006 | Verification badge on profile                   | Should   |
+| U-12-007 | Verification level (basic, standard, enhanced)  | Should   |
+| U-12-008 | Re-verification reminder (annual)               | Should   |
+| U-12-009 | Verification portable across orgs               | Must     |
+| U-12-010 | Integration with IDV providers (Persona, Jumio) | Must     |
+
+**Verification Levels:**
+
+| Level        | Requirements                  | Use Cases                                |
+| ------------ | ----------------------------- | ---------------------------------------- |
+| **Basic**    | Email + Phone verified        | General membership                       |
+| **Standard** | Basic + Government ID scan    | Financial transactions, voting           |
+| **Enhanced** | Standard + Address + Liveness | Board positions, high-value transactions |
+
+**UI Wireframe:**
 
 ```
+┌─────────────────────────────────────────────────────────────────┐
+│  Identity Verification                                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  VERIFICATION STATUS                                            │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                  │
+│  Current Level: Standard ✓                                      │
+│  Verified: November 15, 2024                                    │
+│  Next verification due: November 15, 2025                       │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ ✓ Email verified         brett@example.com               │  │
+│  │ ✓ Phone verified         +1 (555) 123-4567              │  │
+│  │ ✓ Government ID          Driver's License (TN)          │  │
+│  │ ○ Address verification   Not completed                   │  │
+│  │ ○ Liveness check         Not completed                   │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  [Upgrade to Enhanced →]                                        │
+│                                                                  │
+│  VERIFICATION BENEFITS                                          │
+│  ─────────────────────────────────────────────────────────────  │
+│  ✓ Trusted badge on your profile                               │
+│  ✓ Join organizations faster (skip manual review)              │
+│  ✓ Access financial features                                   │
+│  ✓ Eligible for board positions                                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 6.13 U-13: Personal Vault
+
+**Priority:** P1 | **Phase:** 2 | **Effort:** Large | **Tier:** Pro
+
+**Description:**
+End-to-end encrypted storage for sensitive personal documents accessible only to user.
+
+**Requirements:**
+
+| ID       | Requirement                      | Priority |
+| -------- | -------------------------------- | -------- |
+| U-13-001 | End-to-end encrypted storage     | Must     |
+| U-13-002 | Upload any file type             | Must     |
+| U-13-003 | 1GB free storage, expandable     | Must     |
+| U-13-004 | Organize with folders/tags       | Should   |
+| U-13-005 | Search within documents          | Should   |
+| U-13-006 | Share specific files temporarily | Should   |
+| U-13-007 | Expiring share links             | Should   |
+| U-13-008 | Access from any device           | Must     |
+| U-13-009 | Offline access to pinned files   | Should   |
+| U-13-010 | Include in Digital Will          | Should   |
+| U-13-011 | Virus scanning on upload         | Must     |
+| U-13-012 | Version history                  | Should   |
+
+**Suggested Vault Categories:**
+
+| Category      | Example Documents                                   |
+| ------------- | --------------------------------------------------- |
+| **Identity**  | Passport, Driver's license, Birth certificate       |
+| **Financial** | Tax returns, Bank statements, Investment records    |
+| **Medical**   | Vaccination records, Prescriptions, Insurance cards |
+| **Legal**     | Will, Power of attorney, Contracts                  |
+| **Property**  | Deeds, Vehicle titles, Insurance policies           |
+| **Education** | Diplomas, Transcripts, Certifications               |
+
+---
+
+### 6.14 U-14: Emergency Contacts
+
+**Priority:** P0 | **Phase:** 1 | **Effort:** Small | **Tier:** Free
+
+**Description:**
+Designate contacts for emergencies, accessible across all organizations.
+
+**Requirements:**
+
+| ID       | Requirement                              | Priority |
+| -------- | ---------------------------------------- | -------- |
+| U-14-001 | Add up to 5 emergency contacts           | Must     |
+| U-14-002 | Priority order                           | Must     |
+| U-14-003 | Relationship type                        | Must     |
+| U-14-004 | Multiple contact methods per person      | Should   |
+| U-14-005 | Organizations can view (with permission) | Should   |
+| U-14-006 | One-tap emergency call                   | Must     |
+| U-14-007 | Emergency broadcast to all contacts      | Should   |
+| U-14-008 | Medical info (allergies, conditions)     | Should   |
+| U-14-009 | ICE lock screen widget                   | Could    |
+| U-14-010 | Auto-notify on SOS activation            | Should   |
+
+---
+
+### 6.15 U-15: Notification Preferences
+
+**Priority:** P0 | **Phase:** 1 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Granular control over how and when notifications are delivered.
+
+**Requirements:**
+
+| ID       | Requirement                               | Priority |
+| -------- | ----------------------------------------- | -------- |
+| U-15-001 | Per-organization notification settings    | Must     |
+| U-15-002 | Per-channel settings (push, email, SMS)   | Must     |
+| U-15-003 | Quiet hours schedule                      | Must     |
+| U-15-004 | Priority override during quiet hours      | Should   |
+| U-15-005 | Notification grouping preferences         | Should   |
+| U-15-006 | Digest frequency (instant, hourly, daily) | Should   |
+| U-15-007 | Mute specific conversations               | Should   |
+| U-15-008 | Vacation mode (auto-reply)                | Should   |
+| U-15-009 | Focus modes (Work, Personal, Sleep)       | Should   |
+| U-15-010 | Smart delivery timing                     | Could    |
+
+---
+
+### 6.16 U-16: Privacy Dashboard
+
+**Priority:** P1 | **Phase:** 2 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Central view of all data shared and privacy settings with privacy health score.
+
+**Requirements:**
+
+| ID       | Requirement                        | Priority |
+| -------- | ---------------------------------- | -------- |
+| U-16-001 | Show all organizations with access | Must     |
+| U-16-002 | Show what data each org can see    | Must     |
+| U-16-003 | Revoke org access to specific data | Should   |
+| U-16-004 | Activity log of data access        | Should   |
+| U-16-005 | Third-party app connections        | Should   |
+| U-16-006 | Data download request              | Must     |
+| U-16-007 | Account deletion request           | Must     |
+| U-16-008 | Privacy score/health check         | Should   |
+| U-16-009 | Recommendations to improve privacy | Should   |
+| U-16-010 | GDPR/CCPA rights explanation       | Should   |
+
+**UI Wireframe:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Privacy Dashboard                                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  PRIVACY SCORE                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                  │
+│  ████████████████████████░░░░░░ 78/100 Good                    │
+│                                                                  │
+│  💡 Enable 2FA for +10 points                                   │
+│  💡 Review third-party apps for +5 points                       │
+│                                                                  │
+│  DATA SHARING BY ORGANIZATION                                   │
+│  ─────────────────────────────────────────────────────────────  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🏢 Opensoft Inc                                           │  │
+│  │    Can access: Name, Email, Phone, Profile Photo         │  │
+│  │    Cannot access: Financial, Medical, Location           │  │
+│  │                                              [Manage →]  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ 🏠 Lakewood HOA                                           │  │
+│  │    Can access: Name, Email, Address, Vehicles            │  │
+│  │    Cannot access: Financial (except dues), Medical       │  │
+│  │                                              [Manage →]  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  CONNECTED APPS                                                 │
+│  ─────────────────────────────────────────────────────────────  │
+│  Google Calendar    Connected Nov 1, 2024      [Disconnect]    │
+│  Slack              Connected Oct 15, 2024     [Disconnect]    │
+│                                                                  │
+│  YOUR DATA RIGHTS                                               │
+│  ─────────────────────────────────────────────────────────────  │
+│  [📥 Download All My Data]  [🗑️ Delete My Account]              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 6.17 U-17: Data Export & Portability
+
+**Priority:** P0 | **Phase:** 2 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Export all personal data in portable format (GDPR/CCPA compliance).
+
+**Requirements:**
+
+| ID       | Requirement                                    | Priority |
+| -------- | ---------------------------------------------- | -------- |
+| U-17-001 | Export all personal data                       | Must     |
+| U-17-002 | Export includes: profile, preferences, devices | Must     |
+| U-17-003 | Export includes: org memberships               | Must     |
+| U-17-004 | Export includes: communications                | Should   |
+| U-17-005 | Export includes: files/documents owned         | Should   |
+| U-17-006 | Export format: JSON + ZIP of files             | Must     |
+| U-17-007 | Export available for download 24 hours         | Must     |
+| U-17-008 | Email notification when export ready           | Must     |
+| U-17-009 | Processing time < 24 hours                     | Must     |
+
+---
+
+### 6.18 U-18: Account Deletion
+
+**Priority:** P0 | **Phase:** 2 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Permanently delete account and all associated data (right to erasure).
+
+**Requirements:**
+
+| ID       | Requirement                                | Priority |
+| -------- | ------------------------------------------ | -------- |
+| U-18-001 | Delete account permanently                 | Must     |
+| U-18-002 | Delete requires email confirmation code    | Must     |
+| U-18-003 | Delete removes: User, Person, User Profile | Must     |
+| U-18-004 | Delete removes: all org memberships        | Must     |
+| U-18-005 | Delete revokes Keycloak session            | Must     |
+| U-18-006 | 7-day grace period before deletion         | Should   |
+| U-18-007 | Cannot delete if sole org admin            | Must     |
+| U-18-008 | User types "DELETE" to confirm intent      | Must     |
+| U-18-009 | Confirmation email sent after deletion     | Must     |
+
+**Delete Flow:**
+
+```
+1. User opens Privacy settings → "Delete Account"
+2. Warning screen explains consequences
+3. User types "DELETE" to confirm intent
+4. Email sent with confirmation code
+5. User enters code
+6. Account enters "Pending Deletion" state
+7. User has 7 days to cancel
+8. After 7 days, permanent deletion executes
+9. Confirmation email sent
+```
+
+---
+
+### 6.19 U-19: Cross-Org Search
+
+**Priority:** P1 | **Phase:** 2 | **Effort:** Large | **Tier:** Pro
+
+**Description:**
+Search across all organizations simultaneously with unified results.
+
+**Requirements:**
+
+| ID       | Requirement                                        | Priority |
+| -------- | -------------------------------------------------- | -------- |
+| U-19-001 | Global search bar in app header                    | Must     |
+| U-19-002 | Searches all user's organizations                  | Must     |
+| U-19-003 | Results grouped by organization                    | Should   |
+| U-19-004 | Results grouped by type (contacts, docs, messages) | Should   |
+| U-19-005 | Filter by organization                             | Must     |
+| U-19-006 | Filter by content type                             | Must     |
+| U-19-007 | Filter by date range                               | Should   |
+| U-19-008 | Full-text search in documents                      | Must     |
+| U-19-009 | Search in: contacts, files, messages, events       | Must     |
+| U-19-010 | Respect per-org permissions                        | Must     |
+| U-19-011 | Recent searches saved                              | Should   |
+| U-19-012 | Search suggestions/autocomplete                    | Should   |
+| U-19-013 | Voice search                                       | Could    |
+
+---
+
+### 6.20 U-20: Unified Activity Feed
+
+**Priority:** P1 | **Phase:** 2 | **Effort:** Medium | **Tier:** Pro
+
+**Description:**
+Combined activity feed from all organizations.
+
+**Requirements:**
+
+| ID       | Requirement                          | Priority |
+| -------- | ------------------------------------ | -------- |
+| U-20-001 | Combined feed from all organizations | Must     |
+| U-20-002 | Filter by org or activity type       | Must     |
+| U-20-003 | Real-time updates                    | Must     |
+| U-20-004 | Mark as read/unread                  | Must     |
+| U-20-005 | Tap to navigate to source            | Must     |
+| U-20-006 | Color-coded by organization          | Should   |
+| U-20-007 | Group similar activities             | Should   |
+
+---
+
+### 6.21 U-21: Contact Auto-Match
+
+**Priority:** P1 | **Phase:** 3 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Match phone contacts to existing Dartwing users.
+
+**Requirements:**
+
+| ID       | Requirement                                            | Priority |
+| -------- | ------------------------------------------------------ | -------- |
+| U-21-001 | Opt-in prompt during onboarding                        | Must     |
+| U-21-002 | Explain privacy implications clearly                   | Must     |
+| U-21-003 | Match by phone number (primary)                        | Must     |
+| U-21-004 | Match by email (secondary)                             | Must     |
+| U-21-005 | Show matches for user approval                         | Must     |
+| U-21-006 | User can skip individual matches                       | Must     |
+| U-21-007 | User can skip entire feature                           | Must     |
+| U-21-008 | Contacts never uploaded to server (on-device matching) | Must     |
+| U-21-009 | Re-run matching from settings                          | Should   |
+| U-21-010 | Suggest inviting unmatched contacts                    | Could    |
+
+---
+
+### 6.22 U-22: Smart Invitations
+
+**Priority:** P1 | **Phase:** 1 | **Effort:** Large | **Tier:** Free
+
+**Description:**
+Invite contacts to organizations with pre-filled information.
+
+**Requirements:**
+
+| ID       | Requirement                                            | Priority |
+| -------- | ------------------------------------------------------ | -------- |
+| U-22-001 | Inviter can enter: first name, last name, email, phone | Must     |
+| U-22-002 | Only email is required                                 | Must     |
+| U-22-003 | Inviter can select role template for invitee           | Must     |
+| U-22-004 | Inviter can add personal message                       | Should   |
+| U-22-005 | Invite sent via email with magic link                  | Must     |
+| U-22-006 | Invite expires after 7 days                            | Must     |
+| U-22-007 | Inviter can revoke pending invite                      | Must     |
+| U-22-008 | Inviter can resend invite                              | Must     |
+| U-22-009 | Invitee tapping link creates account + joins org       | Must     |
+| U-22-010 | If invitee already has account, just joins org         | Must     |
+| U-22-011 | Pre-filled info populates Person record                | Must     |
+| U-22-012 | Invitee can edit pre-filled info before confirming     | Should   |
+| U-22-013 | Bulk invite via CSV upload                             | Should   |
+| U-22-014 | QR code invite for in-person onboarding                | Could    |
+| U-22-015 | Invite tracking dashboard for admins                   | Should   |
+
+---
+
+### 6.23 U-23: Biometric Unlock
+
+**Priority:** P0 | **Phase:** 1 | **Effort:** Small | **Tier:** Free
+
+**Description:**
+Use device biometrics for app unlock.
+
+**Requirements:**
+
+| ID       | Requirement                                      | Priority |
+| -------- | ------------------------------------------------ | -------- |
+| U-23-001 | Face ID support (iOS)                            | Must     |
+| U-23-002 | Touch ID support (iOS)                           | Must     |
+| U-23-003 | Fingerprint support (Android)                    | Must     |
+| U-23-004 | Face unlock support (Android)                    | Should   |
+| U-23-005 | Configurable timeout (1min, 5min, 15min, always) | Must     |
+| U-23-006 | Fallback to PIN                                  | Must     |
+| U-23-007 | Require biometric for sensitive actions          | Should   |
+
+---
+
+### 6.24 U-24: Passkey Support
+
+**Priority:** P1 | **Phase:** 2 | **Effort:** Large | **Tier:** Free
+
+**Description:**
+FIDO2/WebAuthn passwordless authentication.
+
+**Requirements:**
+
+| ID       | Requirement                       | Priority |
+| -------- | --------------------------------- | -------- |
+| U-24-001 | FIDO2/WebAuthn support            | Must     |
+| U-24-002 | Cross-device passkeys             | Should   |
+| U-24-003 | Phishing-resistant authentication | Must     |
+| U-24-004 | Works on web and mobile           | Must     |
+| U-24-005 | Register multiple passkeys        | Should   |
+| U-24-006 | Revoke individual passkeys        | Must     |
+
+---
+
+### 6.25 U-25: Session Management
+
+**Priority:** P0 | **Phase:** 1 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+View and manage active sessions.
+
+**Requirements:**
+
+| ID       | Requirement                    | Priority |
+| -------- | ------------------------------ | -------- |
+| U-25-001 | View all active sessions       | Must     |
+| U-25-002 | Session duration limits        | Should   |
+| U-25-003 | Force logout specific sessions | Must     |
+| U-25-004 | Session activity log           | Should   |
+| U-25-005 | Session location (city-level)  | Should   |
+
+---
+
+### 6.26 U-26: Achievements & Gamification
+
+**Priority:** P2 | **Phase:** 4 | **Effort:** Medium | **Tier:** Free
+
+**Description:**
+Profile badges and engagement milestones.
+
+**Requirements:**
+
+| ID       | Requirement                        | Priority |
+| -------- | ---------------------------------- | -------- |
+| U-26-001 | Profile completion badges          | Should   |
+| U-26-002 | Engagement milestones              | Should   |
+| U-26-003 | Organization-specific achievements | Could    |
+| U-26-004 | Leaderboards (opt-in)              | Could    |
+| U-26-005 | Badge showcase on profile          | Should   |
+
+---
+
+### 6.27 U-27: Reputation Score
+
+**Priority:** P2 | **Phase:** 4 | **Effort:** Large | **Tier:** Pro
+
+**Description:**
+Portable trust metric across organizations.
+
+**Requirements:**
+
+| ID       | Requirement                                  | Priority |
+| -------- | -------------------------------------------- | -------- |
+| U-27-001 | Based on verified identity                   | Must     |
+| U-27-002 | Community feedback component                 | Should   |
+| U-27-003 | Payment history component                    | Should   |
+| U-27-004 | Portable across organizations                | Must     |
+| U-27-005 | Visible to organizations (with user consent) | Must     |
+| U-27-006 | Appeal/dispute process                       | Should   |
+
+---
+
+### 6.28 U-28: Personal AI Memory
+
+**Priority:** P2 | **Phase:** 4 | **Effort:** Large | **Tier:** Pro
+
+**Description:**
+AI remembers user preferences across sessions.
+
+**Requirements:**
+
+| ID       | Requirement                              | Priority |
+| -------- | ---------------------------------------- | -------- |
+| U-28-001 | AI remembers preferences across sessions | Must     |
+| U-28-002 | Learns communication style               | Should   |
+| U-28-003 | Stores context for better assistance     | Must     |
+| U-28-004 | User can view all memories               | Must     |
+| U-28-005 | User can delete individual memories      | Must     |
+| U-28-006 | User can delete all memories             | Must     |
+| U-28-007 | Memories never shared with orgs          | Must     |
+
+---
+
+### 6.29 U-29: Health Data Integration
+
+**Priority:** P2 | **Phase:** 4 | **Effort:** Large | **Tier:** Pro
+
+**Description:**
+Sync health data from wearables and health apps.
+
+**Requirements:**
+
+| ID       | Requirement                               | Priority |
+| -------- | ----------------------------------------- | -------- |
+| U-29-001 | Apple Health sync                         | Should   |
+| U-29-002 | Google Fit sync                           | Should   |
+| U-29-003 | Emergency medical info                    | Should   |
+| U-29-004 | Medication reminders                      | Could    |
+| U-29-005 | Share with healthcare orgs (with consent) | Should   |
+| U-29-006 | Data encrypted at rest                    | Must     |
+
+---
+
+### 6.30 U-30: Wearable Device Sync
+
+**Priority:** P2 | **Phase:** 4 | **Effort:** Extra Large | **Tier:** Pro
+
+**Description:**
+Companion apps for smartwatches.
+
+**Requirements:**
+
+| ID       | Requirement              | Priority |
+| -------- | ------------------------ | -------- |
+| U-30-001 | Apple Watch app          | Should   |
+| U-30-002 | Wear OS app              | Should   |
+| U-30-003 | Quick actions from wrist | Should   |
+| U-30-004 | Notification mirroring   | Must     |
+| U-30-005 | Briefing on watch face   | Could    |
+| U-30-006 | Complication support     | Could    |
+
+---
+
+## 7. User Stories & Acceptance Criteria
+
+### 7.1 Profile & Preferences Stories
+
+**US-001: Edit Profile**
+
+```gherkin
 As a user
-I want to log in by clicking a link in my email
-So that I don't have to remember a password
+I want to edit my profile information
+So that my identity is accurate across all organizations
 
 Acceptance Criteria:
-- Given I enter my registered email
-- When I submit the login form
-- Then I receive an email within 5 seconds
-- And the email contains a "Log In" button
-- When I click the button
-- Then I am logged into the app
-- And I see my dashboard
+- Given I am logged in
+- When I navigate to Profile settings
+- Then I can edit my display name, bio, and photo
+- And changes sync to all my organizations within 5 seconds
+- And my theme preference applies immediately
 ```
 
-**US-002: Social Login**
+**US-002: Switch Organizations**
 
-```
-As a new user
-I want to sign up using my Google account
-So that I can get started quickly
+```gherkin
+As a user with multiple organizations
+I want to quickly switch between them
+So that I can manage different areas of my life
 
 Acceptance Criteria:
-- Given I tap "Continue with Google"
-- When I authorize the app in Google
-- Then a new account is created with my Google name and email
-- And I am logged in
-- And I see the onboarding flow
+- Given I am logged in and viewing Work dashboard
+- When I tap the org switcher in the header
+- Then I see a list of all my organizations
+- And each shows name, type, and my role
+- When I tap "Family"
+- Then I see the Family dashboard
+- And the switch completes in under 400ms
 ```
 
-**US-003: New Device Approval**
+### 7.2 Security Stories
 
+**US-003: Device Management**
+
+```gherkin
+As a security-conscious user
+I want to manage my trusted devices
+So that I can revoke access if a device is lost
+
+Acceptance Criteria:
+- Given I navigate to Devices settings
+- Then I see all devices with active sessions
+- And each shows device type, last active, and location
+- When I tap "Revoke" on a device
+- Then that device is immediately logged out
+- And I see a confirmation message
 ```
+
+**US-004: Push-to-Approve Login**
+
+```gherkin
 As a security-conscious user
 I want to approve new device logins from my phone
 So that I know when someone accesses my account
@@ -1375,48 +1748,28 @@ Acceptance Criteria:
 - And I receive a security alert
 ```
 
-### 6.2 Organization Stories
+**US-005: Enable Travel Mode**
 
-**US-004: Join Organization via Invite**
-
-```
-As an invitee
-I want to join an organization by clicking a link
-So that I don't have to manually find and request access
+```gherkin
+As a traveling professional
+I want to hide sensitive data when crossing borders
+So that my confidential information is protected
 
 Acceptance Criteria:
-- Given I received an invite email from Sarah
-- When I click "Join Organization"
-- And I already have a Dartwing account
-- Then I am added to the organization with the assigned role
-- And I see the organization dashboard
-- When I don't have an account
-- Then I am prompted to create one
-- And my name/email are pre-filled from the invite
+- Given I am in Settings
+- When I enable Travel Mode
+- Then financial data is hidden from all views
+- And medical records are hidden
+- And a travel mode indicator appears in the UI
+- When I enter my duress PIN instead of regular PIN
+- Then decoy data is shown instead of real data
 ```
 
-**US-005: Switch Organizations**
-
-```
-As a user with multiple organizations
-I want to quickly switch between them
-So that I can manage different areas of my life
-
-Acceptance Criteria:
-- Given I am logged in and viewing Work dashboard
-- When I tap the org switcher in the header
-- Then I see a list of all my organizations
-- And each shows name, type, and my role
-- When I tap "Family"
-- Then I see the Family dashboard
-- And the switch completes in under 500ms
-```
-
-### 6.3 Privacy Stories
+### 7.3 Privacy Stories
 
 **US-006: Block Contact Globally**
 
-```
+```gherkin
 As a user
 I want to block someone across all my organizations
 So that they cannot contact me anywhere
@@ -1429,20 +1782,21 @@ Acceptance Criteria:
 - Then the contact is blocked in all organizations
 - And they cannot call or message me via Dartwing
 - And they cannot see my shared location
+- And they are not notified of the block
 ```
 
 **US-007: Export My Data**
 
-```
+```gherkin
 As a privacy-conscious user
 I want to export all my data
 So that I have a portable copy
 
 Acceptance Criteria:
-- Given I navigate to Privacy settings
-- When I tap "Export My Data"
-- Then I see a progress indicator
-- And I receive an email when the export is ready
+- Given I navigate to Privacy Dashboard
+- When I tap "Download All My Data"
+- Then I see a confirmation that export is processing
+- And I receive an email within 24 hours when ready
 - When I download the export
 - Then it contains a JSON file with my profile and settings
 - And it contains any documents I own
@@ -1451,30 +1805,44 @@ Acceptance Criteria:
 
 **US-008: Delete My Account**
 
-```
+```gherkin
 As a user
 I want to permanently delete my account
 So that my data is erased
 
 Acceptance Criteria:
-- Given I navigate to Privacy settings
-- When I tap "Delete Account"
+- Given I navigate to Privacy Dashboard
+- When I tap "Delete My Account"
 - Then I see a warning explaining consequences
 - When I type "DELETE" and request confirmation
 - Then I receive an email with a confirmation code
 - When I enter the code
 - Then my account enters "pending deletion" state
 - And I have 7 days to cancel
-- After 7 days
-- Then my User, Person, and all org memberships are deleted
+- After 7 days, my User, Person, and all org memberships are deleted
 - And I cannot log in
 ```
 
-### 6.4 AI & Personalization Stories
+**US-009: View Privacy Dashboard**
 
-**US-009: Daily Briefing**
+```gherkin
+As a privacy-conscious user
+I want to see what data organizations can access
+So that I can control my privacy
 
+Acceptance Criteria:
+- Given I navigate to Privacy Dashboard
+- Then I see my privacy score
+- And I see all organizations I belong to
+- And for each org, I see what data they can access
+- And I see recommendations to improve my privacy score
 ```
+
+### 7.4 AI & Personalization Stories
+
+**US-010: Daily Briefing**
+
+```gherkin
 As a busy professional
 I want a morning summary of everything I need to know
 So that I can plan my day
@@ -1485,15 +1853,16 @@ Acceptance Criteria:
 - Then I receive a push notification
 - And the notification summarizes:
   - Pending approvals
-  - Today's events
+  - Today's events from all orgs
   - Urgent items
 - When I tap the notification
-- Then I see my full dashboard
+- Then I see my full briefing with details
+- And I can tap "Listen" to hear audio version
 ```
 
-**US-010: Personal Shortcut**
+**US-011: Personal Shortcut**
 
-```
+```gherkin
 As a user
 I want to create a shortcut for "Call Mom"
 So that I can quickly call her from any context
@@ -1507,11 +1876,46 @@ Acceptance Criteria:
 - Then the shortcut still works
 ```
 
-### 6.5 Emergency Stories
+**US-012: Location-Based Shortcut**
 
-**US-011: Digital Will Activation**
+```gherkin
+As a user
+I want a shortcut that triggers when I leave work
+So that my family knows I'm on my way
 
+Acceptance Criteria:
+- Given I create a shortcut with trigger "I'm leaving work"
+- And I set location trigger to my office address
+- And I set time trigger to after 5pm
+- When I leave my office after 5pm
+- Then the shortcut triggers automatically
+- And my family receives a notification
 ```
+
+**US-013: Train Voice Clone**
+
+```gherkin
+As a user
+I want to train an AI voice clone
+So that my AI assistant sounds like me
+
+Acceptance Criteria:
+- Given I navigate to AI Voice settings
+- When I tap "Create Voice Clone"
+- Then I see a privacy explanation
+- When I record 30 seconds of sample phrases
+- Then I see "Training in progress"
+- When training completes (within 24 hours)
+- Then I receive a notification
+- And I can preview my cloned voice
+- And all AI-generated audio is watermarked
+```
+
+### 7.5 Emergency Stories
+
+**US-014: Digital Will Activation**
+
+```gherkin
 As a user with a digital will
 I want my trusted contact to gain access if I'm incapacitated
 So that someone can manage my affairs
@@ -1525,58 +1929,84 @@ Acceptance Criteria:
 - Then I receive another warning
 - When I haven't logged in for 90 days
 - Then Jane receives a notification
-- And Jane can access my account in read-only mode
+- And Jane can request access
+- When Jane requests access
+- Then I'm notified via all channels
+- And there's a 7-day waiting period
+- After 7 days, Jane gains read-only access
 - When I log in after activation
 - Then Jane's access is revoked
-- And I see a notification explaining what happened
+```
+
+**US-015: Emergency Contacts**
+
+```gherkin
+As a user
+I want to set up emergency contacts
+So that they can be reached in an emergency
+
+Acceptance Criteria:
+- Given I navigate to Emergency Contacts
+- When I add a contact with phone and relationship
+- Then they appear in my emergency contacts list
+- And they are prioritized by order
+- When I tap the emergency call button
+- Then my first emergency contact is called
+- And organizations with permission can see my emergency contacts
+```
+
+### 7.6 Identity Verification Stories
+
+**US-016: Complete Identity Verification**
+
+```gherkin
+As a user
+I want to verify my identity
+So that I can access trusted features
+
+Acceptance Criteria:
+- Given I navigate to Identity Verification
+- When I complete email verification
+- And I complete phone verification
+- Then my verification level is "Basic"
+- When I scan my government ID
+- And the ID matches my profile
+- Then my verification level is "Standard"
+- And a verification badge appears on my profile
+- And my verification is valid across all organizations
+```
+
+### 7.7 Personal Vault Stories
+
+**US-017: Upload to Personal Vault**
+
+```gherkin
+As a user
+I want to store sensitive documents securely
+So that only I can access them
+
+Acceptance Criteria:
+- Given I navigate to Personal Vault
+- When I upload a document
+- Then it is encrypted end-to-end
+- And it appears in my vault with a category
+- And I can access it from any device
+- When I enable offline access
+- Then the document is cached locally
+- And organizations cannot see my vault contents
 ```
 
 ---
 
-## 7. User Flows
+## 8. User Flows
 
-### 7.1 New User Registration Flow
+### 8.1 Profile Setup Flow
 
 ```
 ┌─────────────────┐
-│   App Launch    │
+│   First Login   │
 └────────┬────────┘
          │
-         ▼
-┌─────────────────┐
-│ Welcome Screen  │
-│                 │
-│ [Get Started]   │
-│ [I have account]│
-└────────┬────────┘
-         │ Get Started
-         ▼
-┌─────────────────┐
-│ Choose Method   │
-│                 │
-│ [📧 Email]      │
-│ [🔵 Google]     │
-│ [📱 Apple]      │
-└────────┬────────┘
-         │ Email
-         ▼
-┌─────────────────┐
-│ Enter Email     │
-│                 │
-│ [____________]  │
-│ [Send Link]     │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Check Email     │
-│                 │
-│ 📧 Sent to      │
-│ user@email.com  │
-│                 │
-│ [Open Email App]│
-└────────┬────────┘
-         │ Tap link in email
          ▼
 ┌─────────────────┐
 │ Complete Profile│
@@ -1584,6 +2014,17 @@ Acceptance Criteria:
 │ First Name [__] │
 │ Last Name [___] │
 │ Phone [_______] │
+│                 │
+│ [Continue]      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Preferences     │
+│                 │
+│ Theme [Dark ▼]  │
+│ Language [EN ▼] │
+│ Timezone [Auto] │
 │                 │
 │ [Continue]      │
 └────────┬────────┘
@@ -1599,71 +2040,11 @@ Acceptance Criteria:
          │
          ▼
 ┌─────────────────┐
-│ Preferences     │
-│                 │
-│ Theme [Dark ▼]  │
-│ Language [EN ▼] │
-│                 │
-│ [Finish Setup]  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
 │   Dashboard     │
-│   (Empty State) │
-│                 │
-│ Create or join  │
-│ an organization │
 └─────────────────┘
 ```
 
-### 7.2 Invite Acceptance Flow
-
-```
-┌─────────────────┐
-│ Email Inbox     │
-│                 │
-│ "Sarah invited  │
-│ you to join..." │
-└────────┬────────┘
-         │ Tap "Join"
-         ▼
-┌─────────────────┐
-│ Deep Link Opens │
-│ Dartwing App    │
-└────────┬────────┘
-         │
-         ▼
-    ┌────┴────┐
-    │ Account │
-    │ Exists? │
-    └────┬────┘
-    Yes  │  No
-    ┌────┴────────────────────┐
-    ▼                         ▼
-┌──────────────┐      ┌──────────────┐
-│ Welcome Back │      │ Create       │
-│              │      │ Account      │
-│ Join [Org]   │      │              │
-│ as [Role]?   │      │ Name: [____] │ ← Pre-filled
-│              │      │ Email: [___] │ ← Pre-filled
-│ [Confirm]    │      │ Phone: [___] │ ← Pre-filled
-└──────┬───────┘      │              │
-       │              │ [Create]     │
-       │              └──────┬───────┘
-       │                     │
-       └──────────┬──────────┘
-                  │
-                  ▼
-         ┌───────────────┐
-         │ Org Dashboard │
-         │               │
-         │ "Welcome to   │
-         │ [Org Name]!"  │
-         └───────────────┘
-```
-
-### 7.3 Device Approval Flow
+### 8.2 Device Approval Flow
 
 ```
 ┌─────────────────┐        ┌─────────────────┐
@@ -1671,30 +2052,29 @@ Acceptance Criteria:
 │   (Logging in)  │        │  (User's phone) │
 └────────┬────────┘        └────────┬────────┘
          │                          │
-         │ 1. Enter email           │
-         │    Send magic link       │
+         │ 1. Login attempt         │
          │                          │
-         │ 2. Click link            │
-         │    (in email)            │
+         │ 2. System detects        │
+         │    new device            │
          │                          │
-         │ 3. Token exchange        │
+         │ 3. Login held pending    │
          │                          │
-         │ 4. Push approval needed  │
-         │────────────────────────►│
-         │                          │
+         │                          │ 4. Push notification
          │                    ┌─────┴─────┐
-         │                    │ Push:     │
          │                    │ New login │
          │                    │ request   │
+         │                    │           │
+         │                    │ iPhone 15 │
+         │                    │ New York  │
          │                    │           │
          │                    │ [Approve] │
          │                    │ [Deny]    │
          │                    └─────┬─────┘
          │                          │
-         │                          │ Approve
+         │                          │ 5. User taps Approve
          │◄─────────────────────────│
          │                          │
-         │ 5. Login completes       │
+         │ 6. Login completes       │
          │                          │
          ▼                          ▼
 ┌─────────────────┐        ┌─────────────────┐
@@ -1703,114 +2083,146 @@ Acceptance Criteria:
 └─────────────────┘        └─────────────────┘
 ```
 
-### 7.4 Cross-Org Search Flow
+### 8.3 Travel Mode Activation Flow
 
 ```
 ┌─────────────────┐
-│ Any Screen      │
-│                 │
-│ [🔍 Search...]  │
+│ User traveling  │
+│ internationally │
 └────────┬────────┘
-         │ Tap search
+         │
          ▼
 ┌─────────────────┐
-│ Search Screen   │
-│                 │
-│ [quarterly___]  │ ← User types
-│                 │
-│ Recent:         │
-│ - budget        │
-│ - meeting notes │
+│ Open Settings   │
+│ → Travel Mode   │
 └────────┬────────┘
-         │ Submit
+         │
          ▼
 ┌─────────────────┐
-│ Results         │
+│ Review hidden   │
+│ data types      │
 │                 │
-│ Filters:        │
-│ [All Orgs ▼]    │
-│ [All Types ▼]   │
-│                 │
-│ 📄 Documents    │
-│ ├─ Q3 Report    │
-│ │   (Work)      │
-│ └─ HOA Budget   │
-│     (HOA)       │
-│                 │
-│ 📅 Events       │
-│ └─ Quarterly    │
-│     Review      │
-│     (Work)      │
+│ ☑ Financial     │
+│ ☑ Medical       │
+│ ☑ Business docs │
 └────────┬────────┘
-         │ Tap result
+         │
          ▼
 ┌─────────────────┐
-│ Document Detail │
-│ (in Work org    │
-│  context)       │
-└─────────────────┘
+│ Set duress PIN  │
+│ (optional)      │
+│                 │
+│ PIN: [••••••]   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Enable Travel   │
+│ Mode            │
+│                 │
+│ [Enable]        │
+└────────┬────────┘
+         │
+         ├──────────────────────┐
+         │                      │
+         ▼                      ▼
+┌─────────────────┐    ┌─────────────────┐
+│ Trusted contact │    │ ✈️ Travel mode  │
+│ notified        │    │ indicator shown │
+│ (if configured) │    │ in app header   │
+└─────────────────┘    └─────────────────┘
+```
+
+### 8.4 Privacy Dashboard Flow
+
+```
+┌─────────────────┐
+│ Settings →      │
+│ Privacy         │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│ Privacy Dashboard           │
+│                             │
+│ Score: 78/100 [████████░░]  │
+│                             │
+│ 💡 Recommendations:         │
+│ • Enable 2FA (+10)          │
+│ • Review apps (+5)          │
+│                             │
+│ Organizations:              │
+│ ┌─────────────────────────┐ │
+│ │ 🏢 Work                 │ │
+│ │ Can see: Name, Email    │ │
+│ │ [Manage →]              │ │
+│ └─────────────────────────┘ │
+│                             │
+│ [Export Data]               │
+│ [Delete Account]            │
+└─────────────────────────────┘
 ```
 
 ---
 
-## 8. Non-Functional Requirements
+## 9. Non-Functional Requirements
 
-### 8.1 Performance
+### 9.1 Performance
 
-| Metric                     | Target      | Measurement                           |
-| -------------------------- | ----------- | ------------------------------------- |
-| Magic link delivery        | < 5 seconds | Time from submit to email received    |
-| Login completion           | < 3 seconds | Time from link click to dashboard     |
-| Org switch                 | < 500ms     | Time from tap to new org loaded       |
-| Search results             | < 2 seconds | Time from submit to results displayed |
-| Push notification delivery | < 1 second  | Time from trigger to device receipt   |
-| App cold start             | < 3 seconds | Time from tap to interactive          |
-| App warm start             | < 1 second  | Time from background to foreground    |
+| Metric                     | Target      | Measurement                        |
+| -------------------------- | ----------- | ---------------------------------- |
+| Profile load               | < 1 second  | Time to display profile screen     |
+| Org switch                 | < 400ms     | Time from tap to new org loaded    |
+| Search results             | < 2 seconds | Time from submit to results        |
+| Push notification delivery | < 1 second  | Time from trigger to device        |
+| App cold start             | < 3 seconds | Time from tap to interactive       |
+| App warm start             | < 1 second  | Time from background to foreground |
+| Briefing generation        | < 5 seconds | Time to generate daily briefing    |
+| Voice clone training       | < 24 hours  | Time from sample upload to ready   |
 
-### 8.2 Scalability
+### 9.2 Scalability
 
-| Dimension              | Target  | Notes                     |
-| ---------------------- | ------- | ------------------------- |
-| Concurrent users       | 100,000 | Per Keycloak realm        |
-| Organizations per user | 50      | Soft limit, can be raised |
-| Devices per user       | 20      | Active devices            |
-| Searches per minute    | 10,000  | Across all users          |
-| Invites per day        | 50,000  | System-wide               |
+| Dimension              | Target   | Notes                  |
+| ---------------------- | -------- | ---------------------- |
+| Concurrent users       | 100,000  | Per environment        |
+| Organizations per user | 50       | Soft limit             |
+| Devices per user       | 20       | Active devices         |
+| Shortcuts per user     | 50       | Personal shortcuts     |
+| Vault storage          | 1GB base | Expandable via upgrade |
+| Emergency contacts     | 5        | Per user               |
+| Blocked contacts       | 500      | Per user               |
 
-### 8.3 Availability
+### 9.3 Availability
 
-| Metric                         | Target                            |
-| ------------------------------ | --------------------------------- |
-| Uptime                         | 99.9% (8.76 hours downtime/year)  |
-| Keycloak availability          | 99.99% (52 minutes downtime/year) |
-| Planned maintenance window     | Sundays 2-4 AM UTC                |
-| Recovery Time Objective (RTO)  | 1 hour                            |
-| Recovery Point Objective (RPO) | 5 minutes                         |
+| Metric                         | Target                           |
+| ------------------------------ | -------------------------------- |
+| Uptime                         | 99.9% (8.76 hours downtime/year) |
+| Planned maintenance window     | Sundays 2-4 AM UTC               |
+| Recovery Time Objective (RTO)  | 1 hour                           |
+| Recovery Point Objective (RPO) | 5 minutes                        |
 
-### 8.4 Security
+### 9.4 Security
 
-| Requirement            | Implementation                     |
-| ---------------------- | ---------------------------------- |
-| Authentication         | OAuth2 + PKCE, no password storage |
-| Token encryption       | JWT with RS256 signing             |
-| Data at rest           | AES-256 encryption                 |
-| Data in transit        | TLS 1.3 minimum                    |
-| Session management     | Redis with encryption              |
-| Audit logging          | All auth events logged             |
-| Brute force protection | 5 attempts, 15-minute lockout      |
-| CSRF protection        | State parameter in OAuth flows     |
+| Requirement        | Implementation                  |
+| ------------------ | ------------------------------- |
+| Data at rest       | AES-256 encryption              |
+| Data in transit    | TLS 1.3 minimum                 |
+| Personal vault     | E2E encryption (user holds key) |
+| Session management | Secure tokens in Redis          |
+| Audit logging      | All security events logged      |
+| Voice data         | Encrypted, user-deletable       |
+| AI memory          | Encrypted, user-deletable       |
 
-### 8.5 Compliance
+### 9.5 Compliance
 
 | Standard      | Status          | Notes                          |
 | ------------- | --------------- | ------------------------------ |
 | GDPR          | Required        | Data export, deletion, consent |
 | CCPA          | Required        | Similar to GDPR                |
-| SOC 2 Type II | Planned Q3 2026 | For enterprise customers       |
-| HIPAA         | Future          | For healthcare orgs            |
-| ISO 27001     | Future          | For enterprise credibility     |
+| SOC 2 Type II | Planned Q4 2026 | For enterprise customers       |
+| HIPAA         | Future          | For health data features       |
 
-### 8.6 Accessibility
+### 9.6 Accessibility
 
 | Requirement           | Target                |
 | --------------------- | --------------------- |
@@ -1824,31 +2236,32 @@ Acceptance Criteria:
 
 ---
 
-## 9. Dependencies & Integrations
+## 10. Dependencies & Integrations
 
-### 9.1 Internal Dependencies
+### 10.1 Internal Dependencies
 
 | Dependency       | Type     | Description                               |
 | ---------------- | -------- | ----------------------------------------- |
 | Dartwing Core    | Module   | Person, Organization, Org Member doctypes |
 | Frappe Framework | Platform | User, Role, Permission infrastructure     |
-| Dartwing Comms   | Module   | For notifications, messages (Phase 2+)    |
-| Dartwing AI      | Module   | For briefings, voice clone (Phase 3+)     |
+| Dartwing Comms   | Module   | For notifications, messages               |
+| Dartwing AI      | Module   | For briefings, voice clone, AI memory     |
 
-### 9.2 External Dependencies
+### 10.2 External Dependencies
 
 | Service            | Purpose                  | Criticality      |
 | ------------------ | ------------------------ | ---------------- |
-| Keycloak           | Identity Provider        | Critical         |
 | Redis              | Session storage, caching | Critical         |
-| MariaDB            | Data persistence         | Critical         |
+| MariaDB/PostgreSQL | Data persistence         | Critical         |
 | SendGrid/SES       | Email delivery           | Critical         |
 | Firebase/APNs      | Push notifications       | High             |
-| ElevenLabs         | Voice cloning            | Medium (Phase 4) |
-| Twilio             | SMS for MFA              | Medium           |
-| Google/Apple OAuth | Social login             | Medium           |
+| ElevenLabs/Play.ht | Voice cloning            | Medium (Phase 4) |
+| Twilio             | SMS verification         | Medium           |
+| Persona/Jumio      | Identity verification    | Medium (Phase 2) |
+| Apple Health API   | Health data              | Low (Phase 4)    |
+| Google Fit API     | Health data              | Low (Phase 4)    |
 
-### 9.3 Integration Points
+### 10.3 Architecture Integration
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -1857,121 +2270,129 @@ Acceptance Criteria:
          │              │               │              │
          ▼              ▼               ▼              ▼
 ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│  Keycloak   │ │   Frappe    │ │   Dartwing  │ │  External   │
-│    SSO      │ │   Backend   │ │    Core     │ │  Services   │
+│  Core       │ │   Frappe    │ │    AI       │ │  External   │
+│  Module     │ │   Backend   │ │   Module    │ │  Services   │
 │             │ │             │ │             │ │             │
-│ - Auth      │ │ - User CRUD │ │ - Person    │ │ - Email     │
-│ - Tokens    │ │ - API       │ │ - Org       │ │ - Push      │
-│ - Sessions  │ │ - Hooks     │ │ - Member    │ │ - Voice     │
+│ - Person    │ │ - User CRUD │ │ - Briefing  │ │ - Email     │
+│ - Org       │ │ - API       │ │ - Voice     │ │ - Push      │
+│ - Member    │ │ - Hooks     │ │ - Memory    │ │ - IDV       │
 └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
 ```
 
 ---
 
-## 10. Risks & Mitigations
+## 11. Risks & Mitigations
 
-### 10.1 Technical Risks
+### 11.1 Technical Risks
 
-| Risk                              | Probability | Impact   | Mitigation                             |
-| --------------------------------- | ----------- | -------- | -------------------------------------- |
-| Keycloak downtime blocks all auth | Low         | Critical | Multi-region deployment, cached tokens |
-| Magic link email deliverability   | Medium      | High     | Multiple email providers, monitoring   |
-| Cross-org search performance      | Medium      | Medium   | Elasticsearch, query optimization      |
-| Voice clone quality               | Medium      | Low      | Beta testing, user feedback            |
-| Mobile deep link failures         | Medium      | Medium   | Universal links, fallback web          |
+| Risk                                  | Probability | Impact | Mitigation                                     |
+| ------------------------------------- | ----------- | ------ | ---------------------------------------------- |
+| Cross-org search performance degrades | Medium      | Medium | Elasticsearch, query optimization, caching     |
+| Voice clone quality inconsistent      | Medium      | Low    | Multiple providers, user feedback, re-training |
+| Device trust score gaming             | Low         | Medium | ML-based anomaly detection, manual review      |
+| E2E encryption key loss               | Low         | High   | Key recovery options, warning prompts          |
+| Mobile deep link failures             | Medium      | Medium | Universal links, fallback web                  |
 
-### 10.2 Business Risks
+### 11.2 Business Risks
 
 | Risk                         | Probability | Impact | Mitigation                                   |
 | ---------------------------- | ----------- | ------ | -------------------------------------------- |
-| Low multi-org adoption       | Medium      | High   | Incentivize org creation, invite flows       |
+| Low multi-org adoption       | Medium      | High   | Incentivize org creation, showcase value     |
 | Privacy concerns deter users | Low         | High   | Transparency, data controls, no selling data |
-| Enterprise SSO complexity    | Medium      | Medium | Dedicated integration support                |
 | Competitor copies features   | High        | Medium | Execution speed, network effects             |
+| Premium conversion too low   | Medium      | Medium | Free tier value + clear premium benefits     |
 
-### 10.3 Compliance Risks
+### 11.3 Compliance Risks
 
-| Risk                      | Probability | Impact   | Mitigation                          |
-| ------------------------- | ----------- | -------- | ----------------------------------- |
-| GDPR violation            | Low         | Critical | Legal review, automated compliance  |
-| Data breach               | Low         | Critical | Encryption, access controls, audits |
-| User data request backlog | Medium      | Medium   | Automated export, self-service      |
+| Risk                  | Probability | Impact   | Mitigation                            |
+| --------------------- | ----------- | -------- | ------------------------------------- |
+| GDPR violation        | Low         | Critical | Legal review, automated compliance    |
+| Data breach           | Low         | Critical | Encryption, access controls, audits   |
+| Voice clone misuse    | Medium      | High     | Watermarking, consent, usage tracking |
+| Health data liability | Low         | High     | Clear consent, HIPAA planning         |
 
 ---
 
-## 11. Release Plan
+## 12. Release Plan
 
-### 11.1 Phase 1: Foundation (Q1 2026)
+### 12.1 Phase 1: Foundation (Q1 2026)
 
-**Goal:** Basic authentication and identity management
+**Goal:** Core identity and security features
 
 **Features:**
 
-- Magic-Link Login
-- Keycloak SSO
-- Social Login (Google, Apple)
-- Global Person ↔ User Link
-- Basic User Profile
-- Device Registration
-- Smart Invite Flow
-- Multi-Org Switcher
-- Theme & Language Preferences
+- U-01: User Profile & Preferences
+- U-02: Multi-Organization Management
+- U-03: Device Trust & Management
+- U-14: Emergency Contacts
+- U-15: Notification Preferences
+- U-22: Smart Invitations
+- U-23: Biometric Unlock
+- U-25: Session Management
 
 **Success Criteria:**
 
-- 1,000 registered users
-- 90% login success rate
-- < 5 second magic link delivery
+- 2,000 registered users
+- 80% profile completion rate
 - 50% of users in 2+ orgs
+- < 400ms org switch time
 
-### 11.2 Phase 2: Security & Privacy (Q2 2026)
+### 12.2 Phase 2: Security & Privacy (Q2 2026)
 
-**Goal:** Enterprise-ready security and user control
+**Goal:** Enterprise-ready security and privacy controls
 
 **Features:**
 
-- Device Trust & Revoke
-- Push-to-Approve Logins
-- Enterprise SSO (Azure AD, Okta)
-- Global Block List
-- Travel Mode
-- Unified Personal Dashboard
-- Cross-Org Search
-- Data Export / Self-Delete
+- U-04: Global Block List
+- U-06: Travel Mode (with Duress PIN)
+- U-07: Push-to-Approve Login
+- U-12: Identity Verification
+- U-13: Personal Vault
+- U-16: Privacy Dashboard
+- U-17: Data Export
+- U-18: Account Deletion
+- U-19: Cross-Org Search
+- U-20: Unified Activity Feed
+- U-24: Passkey Support
 
 **Success Criteria:**
 
 - 5,000 registered users
-- 10 enterprise SSO customers
-- 25% of users enable 2+ privacy features
+- 40% with privacy features enabled
+- 30% with Standard+ verification
 - < 2 second search results
 
-### 11.3 Phase 3: AI & Engagement (Q3 2026)
+### 12.3 Phase 3: AI & Engagement (Q3 2026)
 
 **Goal:** Personalized experience and daily engagement
 
 **Features:**
 
-- Daily AI Briefing
-- Personal Shortcut Commands
-- Contacts Auto-Match
-- Live Location Share
+- U-05: Personal Shortcuts (with location/time triggers)
+- U-10: Daily AI Briefing (with audio)
+- U-11: Live Location Sharing
+- U-21: Contact Auto-Match
 
 **Success Criteria:**
 
 - 10,000 registered users
 - 35% daily briefing open rate
 - 50 shortcuts per 100 users
-- 20% of users share location at least once
+- 20% location share usage
 
-### 11.4 Phase 4: Advanced Personalization (Q4 2026)
+### 12.4 Phase 4: Advanced Personalization (Q4 2026)
 
-**Goal:** Premium features and long-term retention
+**Goal:** Premium features and long-term engagement
 
 **Features:**
 
-- Personal AI Voice Clone
-- Digital Will
+- U-08: Digital Will
+- U-09: AI Voice Profile (with watermarking)
+- U-26: Achievements & Gamification
+- U-27: Reputation Score
+- U-28: Personal AI Memory
+- U-29: Health Data Integration
+- U-30: Wearable Device Sync
 
 **Success Criteria:**
 
@@ -1982,128 +2403,247 @@ Acceptance Criteria:
 
 ---
 
-## 12. Appendices
+## 13. Data Model
+
+### 13.1 Doctype Relationships
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      USER MODULE DATA MODEL                      │
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    Person (Core Module)                      ││
+│  │              The master identity record                      ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              │                                   │
+│                              │ 1:1                               │
+│                              ▼                                   │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                      User Profile                            ││
+│  │  person, theme, language, timezone, travel_mode, ...        ││
+│  │                                                              ││
+│  │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐         ││
+│  │  │ shortcuts[]  │ │  blocks[]    │ │ emergency[]  │         ││
+│  │  └──────────────┘ └──────────────┘ └──────────────┘         ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              │                                   │
+│         ┌────────────────────┼────────────────────┐             │
+│         │                    │                    │             │
+│         ▼                    ▼                    ▼             │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐     │
+│  │ User Device │      │AI Voice     │      │ Digital Will│     │
+│  │             │      │Profile      │      │             │     │
+│  │ person      │      │ person      │      │ person      │     │
+│  │ device_id   │      │ voice_model │      │ trusted_    │     │
+│  │ is_trusted  │      │ personality │      │   contacts  │     │
+│  │ trust_score │      │ permissions │      │ inactive_   │     │
+│  │ last_active │      │ watermark   │      │   days      │     │
+│  └─────────────┘      └─────────────┘      └─────────────┘     │
+│                                                                  │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐     │
+│  │ Location    │      │ Personal    │      │ Verification│     │
+│  │ Share       │      │ Vault Item  │      │ Record      │     │
+│  │             │      │             │      │             │     │
+│  │ person      │      │ person      │      │ person      │     │
+│  │ shared_with │      │ file        │      │ level       │     │
+│  │ expires_at  │      │ category    │      │ verified_at │     │
+│  │ lat/lng     │      │ encrypted   │      │ provider    │     │
+│  └─────────────┘      └─────────────┘      └─────────────┘     │
+│                                                                  │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐     │
+│  │ Privacy     │      │ AI Memory   │      │ Reputation  │     │
+│  │ Setting     │      │ Entry       │      │ Score       │     │
+│  │             │      │             │      │             │     │
+│  │ person      │      │ person      │      │ person      │     │
+│  │ organization│      │ context     │      │ score       │     │
+│  │ data_type   │      │ memory_text │      │ components  │     │
+│  │ allowed     │      │ expires_at  │      │ updated_at  │     │
+│  └─────────────┘      └─────────────┘      └─────────────┘     │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 13.2 Key Doctypes
+
+| Doctype             | Purpose              | Key Fields                                                          |
+| ------------------- | -------------------- | ------------------------------------------------------------------- |
+| User Profile        | Personal preferences | theme, language, timezone, travel_mode, duress_pin                  |
+| User Device         | Trusted devices      | device_id, device_name, is_trusted, trust_score, last_active        |
+| User Shortcut       | Custom commands      | trigger_phrase, action_type, target, location_trigger, time_trigger |
+| User Block          | Blocked contacts     | block_type, blocked_person/phone/email, reason                      |
+| User Location Share | Live location        | shared_with, expires_at, latitude, longitude                        |
+| AI Voice Profile    | Voice clone          | voice_model_id, personality_prompt, permissions, watermark_key      |
+| Digital Will        | Succession           | trusted_contacts[], inactive_days, access_level, status             |
+| Personal Vault Item | Secure storage       | file, category, is_encrypted, encryption_key                        |
+| Emergency Contact   | ICE contacts         | contact_person, relationship, priority, phone                       |
+| Verification Record | ID verification      | level, verified_at, provider, document_type, expires_at             |
+| Privacy Setting     | Per-org permissions  | organization, data_type, is_allowed                                 |
+| AI Memory Entry     | AI context           | context_type, memory_text, expires_at                               |
+| Reputation Score    | Trust metric         | score, identity_component, payment_component, feedback_component    |
+
+---
+
+## 14. API Specification
+
+### 14.1 Profile APIs
+
+| Endpoint            | Method | Purpose            |
+| ------------------- | ------ | ------------------ |
+| `/user/profile`     | GET    | Get user profile   |
+| `/user/profile`     | PUT    | Update profile     |
+| `/user/preferences` | GET    | Get preferences    |
+| `/user/preferences` | PUT    | Update preferences |
+| `/user/avatar`      | POST   | Upload avatar      |
+
+### 14.2 Device APIs
+
+| Endpoint                     | Method | Purpose         |
+| ---------------------------- | ------ | --------------- |
+| `/user/devices`              | GET    | List devices    |
+| `/user/devices`              | POST   | Register device |
+| `/user/devices/{id}`         | DELETE | Revoke device   |
+| `/user/devices/{id}/trust`   | POST   | Trust device    |
+| `/user/devices/{id}/approve` | POST   | Approve pending |
+| `/user/devices/sign-out-all` | POST   | Sign out all    |
+
+### 14.3 Organization APIs
+
+| Endpoint                         | Method | Purpose                  |
+| -------------------------------- | ------ | ------------------------ |
+| `/user/organizations`            | GET    | List organizations       |
+| `/user/organizations/{id}/leave` | POST   | Leave organization       |
+| `/user/invitations`              | GET    | List pending invitations |
+| `/user/invitations/{id}/accept`  | POST   | Accept invitation        |
+| `/user/invitations/{id}/decline` | POST   | Decline invitation       |
+
+### 14.4 Privacy APIs
+
+| Endpoint                 | Method | Purpose                  |
+| ------------------------ | ------ | ------------------------ |
+| `/user/privacy/settings` | GET    | Get all privacy settings |
+| `/user/privacy/settings` | PUT    | Update privacy settings  |
+| `/user/privacy/export`   | POST   | Request data export      |
+| `/user/privacy/delete`   | POST   | Request account deletion |
+| `/user/privacy/score`    | GET    | Get privacy score        |
+| `/user/blocks`           | GET    | Get block list           |
+| `/user/blocks`           | POST   | Add block                |
+| `/user/blocks/{id}`      | DELETE | Remove block             |
+
+### 14.5 Security APIs
+
+| Endpoint                   | Method | Purpose                |
+| -------------------------- | ------ | ---------------------- |
+| `/user/travel-mode`        | POST   | Toggle travel mode     |
+| `/user/travel-mode/status` | GET    | Get travel mode status |
+| `/user/sessions`           | GET    | List active sessions   |
+| `/user/sessions/{id}`      | DELETE | End session            |
+
+### 14.6 Feature APIs
+
+| Endpoint                    | Method              | Purpose                   |
+| --------------------------- | ------------------- | ------------------------- |
+| `/user/briefing`            | GET                 | Get daily briefing        |
+| `/user/briefing/audio`      | GET                 | Get audio briefing        |
+| `/user/shortcuts`           | GET/POST/PUT/DELETE | Manage shortcuts          |
+| `/user/location-share`      | POST                | Start location share      |
+| `/user/location-share/{id}` | DELETE              | Stop sharing              |
+| `/user/emergency-contacts`  | GET/POST/PUT/DELETE | Manage contacts           |
+| `/user/vault`               | GET/POST/DELETE     | Manage vault items        |
+| `/user/voice-profile`       | GET/POST/DELETE     | Manage voice profile      |
+| `/user/digital-will`        | GET/PUT             | Manage digital will       |
+| `/user/verification/start`  | POST                | Start ID verification     |
+| `/user/verification/status` | GET                 | Check verification status |
+| `/user/ai-memory`           | GET/DELETE          | View/clear AI memory      |
+| `/user/cross-org-search`    | POST                | Search across orgs        |
+| `/user/activity-feed`       | GET                 | Get unified feed          |
+| `/user/reputation`          | GET                 | Get reputation score      |
+
+---
+
+## 15. Appendices
 
 ### Appendix A: Glossary
 
-| Term           | Definition                                                        |
-| -------------- | ----------------------------------------------------------------- |
-| Person         | Master identity record in Dartwing Core representing a human      |
-| User Profile   | Personal preferences and settings in User module                  |
-| Org Member     | Link between Person and Organization with role                    |
-| Magic Link     | One-time authentication link sent via email                       |
-| PKCE           | Proof Key for Code Exchange, OAuth2 security extension            |
-| Trusted Device | Device approved by user for login without additional verification |
-| Digital Will   | Emergency access grant to trusted contact after inactivity        |
-| Cross-Org      | Features that work across multiple organizations                  |
+| Term               | Definition                                                        |
+| ------------------ | ----------------------------------------------------------------- |
+| Person             | Master identity record in Dartwing Core representing a human      |
+| User Profile       | Personal preferences and settings in User module                  |
+| Org Member         | Link between Person and Organization with role                    |
+| Trusted Device     | Device approved by user for login without additional verification |
+| Trust Score        | Calculated score (0-100) of device trustworthiness                |
+| Digital Will       | Emergency access grant to trusted contact after inactivity        |
+| Duress PIN         | Secondary PIN that shows decoy data when entered under coercion   |
+| Travel Mode        | Security mode that hides sensitive data while traveling           |
+| Cross-Org          | Features that work across multiple organizations                  |
+| Verification Level | Tier of identity verification (Basic, Standard, Enhanced)         |
+| Personal Vault     | E2E encrypted document storage                                    |
+| AI Memory          | Persistent AI context that remembers user preferences             |
+| Reputation Score   | Portable trust metric based on identity, payments, feedback       |
 
-### Appendix B: API Endpoint Summary
-
-| Endpoint                                   | Method | Purpose              |
-| ------------------------------------------ | ------ | -------------------- |
-| `dartwing_user.api.get_my_profile`         | GET    | Get user profile     |
-| `dartwing_user.api.update_preferences`     | POST   | Update preferences   |
-| `dartwing_user.api.toggle_travel_mode`     | POST   | Toggle travel mode   |
-| `dartwing_user.api.get_my_devices`         | GET    | List devices         |
-| `dartwing_user.api.register_device`        | POST   | Register device      |
-| `dartwing_user.api.revoke_device`          | POST   | Revoke device        |
-| `dartwing_user.api.approve_device`         | POST   | Approve login        |
-| `dartwing_user.api.get_block_list`         | GET    | Get blocked contacts |
-| `dartwing_user.api.block_contact`          | POST   | Block contact        |
-| `dartwing_user.api.unblock_contact`        | POST   | Unblock contact      |
-| `dartwing_user.api.get_user_organizations` | GET    | List orgs            |
-| `dartwing_user.api.cross_org_search`       | POST   | Search all orgs      |
-| `dartwing_user.api.match_contacts`         | POST   | Match contacts       |
-| `dartwing_user.api.send_invite`            | POST   | Send invite          |
-| `dartwing_user.api.export_all_data`        | GET    | GDPR export          |
-| `dartwing_user.api.delete_account`         | POST   | Delete account       |
-| `dartwing_user.api.generate_briefing`      | GET    | Get briefing         |
-
-### Appendix C: Wireframe References
-
-_Note: Detailed wireframes to be created in Figma_
-
-| Screen                   | Description                             | Priority |
-| ------------------------ | --------------------------------------- | -------- |
-| Login Screen             | Email entry, social buttons, magic link | P0       |
-| Magic Link Sent          | Waiting screen with resend              | P0       |
-| Onboarding - Profile     | Name, phone entry                       | P0       |
-| Onboarding - Contacts    | Contact matching opt-in                 | P3       |
-| Onboarding - Preferences | Theme, language selection               | P1       |
-| Dashboard                | Unified view of all orgs                | P2       |
-| Org Switcher             | Dropdown/modal of organizations         | P1       |
-| Settings - Profile       | Edit personal info                      | P0       |
-| Settings - Preferences   | Theme, language, briefing               | P1       |
-| Settings - Devices       | List with revoke actions                | P1       |
-| Settings - Privacy       | Export, delete, blocks                  | P2       |
-| Settings - Travel Mode   | Toggle and options                      | P2       |
-| Settings - Digital Will  | Trusted contact setup                   | P3       |
-| Settings - Voice Clone   | Recording wizard                        | P3       |
-| Search                   | Global search with filters              | P2       |
-| Invite Flow              | Send invite form                        | P1       |
-| Device Approval          | Push notification UI                    | P1       |
-
-### Appendix D: Competitive Analysis
+### Appendix B: Competitive Analysis
 
 | Feature               | Dartwing | Google | Apple | Okta | Auth0 |
 | --------------------- | -------- | ------ | ----- | ---- | ----- |
-| Magic-link login      | ✅       | ❌     | ❌    | ✅   | ✅    |
 | Multi-org identity    | ✅       | ❌     | ❌    | ⚠️   | ⚠️    |
 | Cross-org search      | ✅       | ❌     | ❌    | ❌   | ❌    |
 | Personal AI assistant | ✅       | ⚠️     | ⚠️    | ❌   | ❌    |
 | Voice clone           | ✅       | ❌     | ❌    | ❌   | ❌    |
 | Digital will          | ✅       | ⚠️     | ⚠️    | ❌   | ❌    |
-| Travel mode           | ✅       | ❌     | ❌    | ❌   | ❌    |
+| Travel mode / Duress  | ✅       | ❌     | ❌    | ❌   | ❌    |
 | Global block list     | ✅       | ⚠️     | ⚠️    | ❌   | ❌    |
-| Privacy controls      | ✅       | ⚠️     | ✅    | ⚠️   | ⚠️    |
-| Enterprise SSO        | ✅       | ✅     | ⚠️    | ✅   | ✅    |
+| Privacy dashboard     | ✅       | ⚠️     | ✅    | ⚠️   | ⚠️    |
+| Personal vault        | ✅       | ⚠️     | ⚠️    | ❌   | ❌    |
+| Identity verification | ✅       | ⚠️     | ⚠️    | ⚠️   | ⚠️    |
+| Reputation score      | ✅       | ❌     | ❌    | ❌   | ❌    |
+| Device trust score    | ✅       | ⚠️     | ⚠️    | ⚠️   | ⚠️    |
+| Passkey support       | ✅       | ✅     | ✅    | ✅   | ✅    |
 
 ✅ = Full support | ⚠️ = Partial/limited | ❌ = Not available
 
-### Appendix E: Success Metrics Dashboard
+### Appendix C: Screen Inventory
 
-**Acquisition Metrics:**
+| Screen                | Route                     | Priority | Phase |
+| --------------------- | ------------------------- | -------- | ----- |
+| Profile               | `/profile`                | P0       | 1     |
+| Preferences           | `/settings/preferences`   | P1       | 1     |
+| Organizations         | `/organizations`          | P0       | 1     |
+| Devices               | `/settings/devices`       | P0       | 1     |
+| Sessions              | `/settings/sessions`      | P0       | 1     |
+| Privacy Dashboard     | `/settings/privacy`       | P1       | 2     |
+| Block List            | `/settings/blocks`        | P1       | 2     |
+| Travel Mode           | `/settings/travel`        | P1       | 2     |
+| Identity Verification | `/verify`                 | P1       | 2     |
+| Personal Vault        | `/vault`                  | P1       | 2     |
+| Emergency Contacts    | `/emergency`              | P0       | 1     |
+| Notifications         | `/settings/notifications` | P0       | 1     |
+| Shortcuts             | `/settings/shortcuts`     | P1       | 3     |
+| Daily Briefing        | `/briefing`               | P1       | 3     |
+| Activity Feed         | `/activity`               | P1       | 2     |
+| Cross-Org Search      | `/search`                 | P1       | 2     |
+| Digital Will          | `/settings/will`          | P2       | 4     |
+| Voice Profile         | `/settings/voice`         | P2       | 4     |
+| AI Memory             | `/settings/ai-memory`     | P2       | 4     |
+| Reputation            | `/reputation`             | P2       | 4     |
 
-- New registrations (daily, weekly, monthly)
-- Registration method breakdown (email, Google, Apple)
-- Invite acceptance rate
-- Time to first org join
+### Appendix D: Architecture Cross-Reference
 
-**Activation Metrics:**
-
-- Profile completion rate
-- Preferences configured
-- Second org joined
-- First cross-org search
-
-**Engagement Metrics:**
-
-- DAU / WAU / MAU
-- Org switches per session
-- Daily briefing opens
-- Shortcuts created
-- Searches performed
-
-**Retention Metrics:**
-
-- D1 / D7 / D30 retention
-- Churn rate
-- Feature adoption over time
-- NPS score
-
-**Revenue Metrics (Future):**
-
-- Premium conversion rate
-- Enterprise contract value
-- Voice clone upsell rate
+| Component           | Reference Document               |
+| ------------------- | -------------------------------- |
+| Person doctype      | dartwing_core_prd.md, Section 3  |
+| Authentication      | dartwing_core_prd.md, Section 4  |
+| Notification system | dartwing_core_prd.md, Section 8  |
+| AI features         | dartwing_core_prd.md, Section 12 |
+| Privacy/GDPR        | dartwing_core_prd.md, Section 9  |
+| File storage        | dartwing_core_prd.md, Section 7  |
 
 ---
 
 ## Document History
 
-| Version | Date          | Author         | Changes     |
-| ------- | ------------- | -------------- | ----------- |
-| 1.0     | November 2025 | Claude + Brett | Initial PRD |
+| Version | Date          | Author         | Changes                                                                     |
+| ------- | ------------- | -------------- | --------------------------------------------------------------------------- |
+| 1.0     | November 2025 | Claude + Brett | Initial PRD                                                                 |
+| 2.0     | November 2025 | Claude + Brett | Merged best of both PRDs, added 14 new features, enhanced existing features |
 
 ---
 

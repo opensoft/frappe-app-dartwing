@@ -118,13 +118,32 @@ app_version = "0.1.0"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"Family": "dartwing.permissions.family.get_permission_query_conditions",
+	"Family Member": "dartwing.permissions.family.get_member_permission_query_conditions",
+}
+
+has_permission = {
+	"Family": "dartwing.permissions.family.has_permission",
+}
+
+# Fixtures
+# --------
+# Data to be exported/imported during migrations
+
+fixtures = [
+	{
+		"doctype": "Role",
+		"filters": [["name", "in", [
+			"Family Manager",
+			"Family Admin",
+			"Family Parent",
+			"Family Teen",
+			"Family Child",
+			"Family Extended"
+		]]]
+	}
+]
 
 # DocType Class
 # ---------------

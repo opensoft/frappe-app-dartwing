@@ -8,6 +8,7 @@
  "field_order": [
   "family_name",
   "slug",
+  "organization",
   "description",
   "tags",
   "column_break_1",
@@ -33,6 +34,15 @@
    "label": "Slug",
    "read_only": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "organization",
+   "fieldtype": "Link",
+   "label": "Organization",
+   "options": "Organization",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Parent organization for multi-tenant isolation"
   },
   {
    "fieldname": "description",
