@@ -5,9 +5,12 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from dartwing.utils import doctype_exists
+
 try:
     import phonenumbers
     from phonenumbers import NumberParseException
+
     HAS_PHONENUMBERS = True
 except ImportError:
     HAS_PHONENUMBERS = False
@@ -46,20 +49,24 @@ class Person(Document):
         Per FR-006: System MUST prevent deletion of Person records that
         are linked to Org Member records.
         """
-        if not frappe.db.table_exists("tabOrg Member"):
+        # Early return if "Org Member" doctype does not exist.
+        # This check is critical: without the doctype, there can be no links,
+        # and attempting to query it would cause errors. This preserves security/integrity
+        # and prevents accidental deletion-blocking logic from failing unexpectedly.
+        if not doctype_exists("Org Member"):
             return
 
         linked_org_members = frappe.get_all(
-            "Org Member",
-            filters={"person": self.name},
-            limit=1
+            "Org Member", filters={"person": self.name}, limit=1
         )
 
         if linked_org_members:
             frappe.throw(
-                _("Cannot delete Person linked to Org Member. "
-                  "Please deactivate or merge instead."),
-                frappe.LinkExistsError
+                _(
+                    "Cannot delete Person linked to Org Member. "
+                    "Please deactivate or merge instead."
+                ),
+                frappe.LinkExistsError,
             )
 
     def _trigger_user_auto_creation(self):
@@ -75,9 +82,9 @@ class Person(Document):
         if self.frappe_user:
             return
 
-        # Check if auto-creation is enabled
         from dartwing.utils.person_sync import is_auto_creation_enabled, queue_user_sync
 
+        # Check if auto-creation is enabled
         if not is_auto_creation_enabled():
             return
 
@@ -95,17 +102,14 @@ class Person(Document):
         if self.keycloak_user_id:
             existing = frappe.db.get_value(
                 "Person",
-                {
-                    "keycloak_user_id": self.keycloak_user_id,
-                    "name": ["!=", self.name]
-                }
+                {"keycloak_user_id": self.keycloak_user_id, "name": ["!=", self.name]},
             )
             if existing:
                 frappe.throw(
-                    _("Keycloak User ID {0} is already linked to another Person").format(
-                        self.keycloak_user_id
-                    ),
-                    frappe.DuplicateEntryError
+                    _(
+                        "Keycloak User ID {0} is already linked to another Person"
+                    ).format(self.keycloak_user_id),
+                    frappe.DuplicateEntryError,
                 )
 
     def _validate_unique_frappe_user(self):
@@ -116,18 +120,14 @@ class Person(Document):
         """
         if self.frappe_user:
             existing = frappe.db.get_value(
-                "Person",
-                {
-                    "frappe_user": self.frappe_user,
-                    "name": ["!=", self.name]
-                }
+                "Person", {"frappe_user": self.frappe_user, "name": ["!=", self.name]}
             )
             if existing:
                 frappe.throw(
                     _("Frappe User {0} is already linked to another Person").format(
                         self.frappe_user
                     ),
-                    frappe.DuplicateEntryError
+                    frappe.DuplicateEntryError,
                 )
 
     def _validate_mobile_no(self):
@@ -143,25 +143,20 @@ class Person(Document):
             # Parse with default country (US) - can be overridden by international format
             parsed = phonenumbers.parse(self.mobile_no, "US")
             if not phonenumbers.is_valid_number(parsed):
-                frappe.throw(
-                    _("Invalid mobile number format"),
-                    frappe.ValidationError
-                )
+                frappe.throw(_("Invalid mobile number format"), frappe.ValidationError)
 
             # Normalize to E.164 format
             self.mobile_no = phonenumbers.format_number(
                 parsed, phonenumbers.PhoneNumberFormat.E164
             )
         except NumberParseException:
-            frappe.throw(
-                _("Invalid mobile number"),
-                frappe.ValidationError
-            )
+            frappe.throw(_("Invalid mobile number"), frappe.ValidationError)
 
     def _check_minor_consent_block(self):
         """Block updates to minor's record if consent not captured (FR-013).
 
-        Exception: Allow the consent capture operation itself.
+        Exception: Allow ONLY the consent capture operation itself, which may
+        only modify consent_captured and consent_timestamp fields.
         """
         if self.is_new():
             return
@@ -169,11 +164,46 @@ class Person(Document):
         if self.is_minor and not self.consent_captured:
             # Check if this is a consent capture operation
             if self.has_value_changed("consent_captured") and self.consent_captured:
+                # Authentication check: Only allow if current user is NOT the minor
+                # Assumes self.frappe_user is the field linking the Person to the user account
+                if (
+                    hasattr(self, "frappe_user")
+                    and frappe.session.user == self.frappe_user
+                ):
+                    frappe.throw(
+                        _(
+                            "Minors cannot capture their own consent. Only an authorized parent or guardian may perform this operation."
+                        ),
+                        frappe.PermissionError,
+                    )
+                # Validate that ONLY consent-related fields are being modified
+                # to prevent race condition / privilege escalation
+                allowed_fields = {
+                    "consent_captured",
+                    "consent_timestamp",
+                    "modified",
+                    "modified_by",
+                }
+                valid_columns = self.meta.get_valid_columns()
+                changed_fields = {
+                    field for field in valid_columns if self.has_value_changed(field)
+                }
+
+                unauthorized_changes = changed_fields - allowed_fields
+                if unauthorized_changes:
+                    frappe.throw(
+                        _(
+                            "During consent capture, only consent_captured and consent_timestamp may be modified. "
+                            "Attempted to modify: {0}"
+                        ).format(", ".join(unauthorized_changes)),
+                        frappe.PermissionError,
+                    )
+
                 return  # Allow this specific update
 
             frappe.throw(
                 _("Cannot modify Person record for a minor until consent is captured"),
-                frappe.PermissionError
+                frappe.PermissionError,
             )
 
     def _compute_full_name(self):
@@ -206,19 +236,21 @@ class Person(Document):
         if old_status == "Merged":
             frappe.throw(
                 _("Cannot change status of a merged Person record"),
-                frappe.ValidationError
+                frappe.ValidationError,
             )
 
         # All other transitions are allowed per the state machine
         valid_transitions = {
             "Active": ["Inactive", "Merged"],
-            "Inactive": ["Active", "Merged"]
+            "Inactive": ["Active", "Merged"],
         }
 
         if new_status not in valid_transitions.get(old_status, []):
             frappe.throw(
-                _("Invalid status transition from {0} to {1}").format(old_status, new_status),
-                frappe.ValidationError
+                _("Invalid status transition from {0} to {1}").format(
+                    old_status, new_status
+                ),
+                frappe.ValidationError,
             )
 
 

@@ -12,6 +12,19 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
+# Import database-specific exceptions for proper error classification
+try:
+    import pymysql.err as db_errors
+    HAS_PYMYSQL = True
+except ImportError:
+    HAS_PYMYSQL = False
+
+try:
+    import redis.exceptions as redis_errors
+    HAS_REDIS = True
+except ImportError:
+    HAS_REDIS = False
+
 # Retry configuration
 MAX_RETRIES = 5
 BASE_DELAY = 2  # seconds
@@ -20,12 +33,45 @@ MAX_DELAY = 120  # seconds
 
 class RetryableError(Exception):
     """Error that should trigger a retry."""
+
     pass
 
 
 class NonRetryableError(Exception):
     """Error that should NOT trigger a retry."""
+
     pass
+
+
+def is_retryable_error(exception: Exception) -> bool:
+    """Determine if an exception represents a transient, retryable error.
+
+    Only classifies specific exception types as retryable to avoid
+    incorrectly retrying non-transient errors.
+
+    Args:
+        exception: The exception to classify
+
+    Returns:
+        bool: True if the error is retryable, False otherwise
+    """
+    # Check for database connection errors
+    if HAS_PYMYSQL:
+        # OperationalError: connection issues, server gone away, etc.
+        if isinstance(exception, (db_errors.OperationalError, db_errors.InterfaceError)):
+            return True
+
+    # Check for Redis connection errors
+    if HAS_REDIS:
+        if isinstance(exception, (redis_errors.ConnectionError, redis_errors.TimeoutError)):
+            return True
+
+    # Check for Frappe-specific transient errors
+    if isinstance(exception, frappe.QueryTimeoutError):
+        return True
+
+    # Default: do not retry unless we're certain it's transient
+    return False
 
 
 def queue_user_sync(person_name: str, attempt: int = 1) -> None:
@@ -38,7 +84,7 @@ def queue_user_sync(person_name: str, attempt: int = 1) -> None:
         person_name: The Person document name
         attempt: Current attempt number (1-indexed)
     """
-    delay = min(BASE_DELAY ** attempt, MAX_DELAY)
+    delay = min(BASE_DELAY * (2 ** (attempt - 1)), MAX_DELAY)
 
     frappe.enqueue(
         "dartwing.utils.person_sync.sync_frappe_user",
@@ -48,7 +94,7 @@ def queue_user_sync(person_name: str, attempt: int = 1) -> None:
         timeout=300,
         job_id=f"person-sync-{person_name}",
         enqueue_after_commit=True,
-        at_front=False
+        at_front=False,
     )
 
 
@@ -63,8 +109,7 @@ def sync_frappe_user(person_name: str, attempt: int = 1) -> None:
     """
     if not frappe.db.exists("Person", person_name):
         frappe.log_error(
-            f"Person sync failed: {person_name} not found",
-            "Person Sync Error"
+            f"Person sync failed: {person_name} not found", "Person Sync Error"
         )
         return
 
@@ -104,8 +149,7 @@ def sync_frappe_user(person_name: str, attempt: int = 1) -> None:
             person.save(ignore_permissions=True)
             frappe.db.commit()
             frappe.log_error(
-                f"Person sync failed after {MAX_RETRIES} retries: {person_name}",
-                str(e)
+                f"Person sync failed after {MAX_RETRIES} retries: {person_name}", str(e)
             )
 
     except NonRetryableError as e:
@@ -113,10 +157,7 @@ def sync_frappe_user(person_name: str, attempt: int = 1) -> None:
         person.sync_error_message = str(e)
         person.save(ignore_permissions=True)
         frappe.db.commit()
-        frappe.log_error(
-            f"Person sync failed (non-retryable): {person_name}",
-            str(e)
-        )
+        frappe.log_error(f"Person sync failed (non-retryable): {person_name}", str(e))
 
     except Exception as e:
         # Unexpected error - log and mark as failed
@@ -124,10 +165,7 @@ def sync_frappe_user(person_name: str, attempt: int = 1) -> None:
         person.sync_error_message = f"Unexpected error: {e}"
         person.save(ignore_permissions=True)
         frappe.db.commit()
-        frappe.log_error(
-            f"Person sync unexpected error: {person_name}",
-            str(e)
-        )
+        frappe.log_error(f"Person sync unexpected error: {person_name}", str(e))
 
 
 def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
@@ -152,16 +190,18 @@ def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
         return frappe.get_doc("User", existing_user)
 
     try:
-        user = frappe.get_doc({
-            "doctype": "User",
-            "email": person.primary_email,
-            "first_name": person.first_name,
-            "last_name": person.last_name,
-            "full_name": person.full_name,
-            "enabled": 1,
-            "user_type": "Website User",
-            "roles": [{"role": "Dartwing User"}]
-        })
+        user = frappe.get_doc(
+            {
+                "doctype": "User",
+                "email": person.primary_email,
+                "first_name": person.first_name,
+                "last_name": person.last_name,
+                "full_name": person.full_name,
+                "enabled": 1,
+                "user_type": "Website User",
+                "roles": [{"role": "Dartwing User"}],
+            }
+        )
         user.flags.ignore_permissions = True
         user.flags.no_welcome_mail = True
         user.insert()
@@ -175,11 +215,10 @@ def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
         raise NonRetryableError(f"Validation error: {e}")
 
     except Exception as e:
-        # Connection errors, timeouts, etc. are retryable
-        error_str = str(e).lower()
-        if any(keyword in error_str for keyword in ["timeout", "connection", "unavailable"]):
-            raise RetryableError(f"Service unavailable: {e}")
-        raise NonRetryableError(f"Unexpected error: {e}")
+        # Use type-based error classification instead of string matching
+        if is_retryable_error(e):
+            raise RetryableError(f"Transient error (will retry): {e}")
+        raise NonRetryableError(f"Non-retryable error: {e}")
 
 
 def is_auto_creation_enabled() -> bool:
@@ -189,7 +228,20 @@ def is_auto_creation_enabled() -> bool:
         True if auto-creation is enabled, False otherwise
     """
     try:
-        return frappe.db.get_single_value("Settings", "auto_create_user_on_keycloak_signup") or False
+        return (
+            frappe.db.get_single_value(
+                "Settings", "auto_create_user_on_keycloak_signup"
+            )
+            or False
+        )
     except frappe.ValidationError:
         # Field doesn't exist on Settings DocType - feature not configured
+        frappe.log_error(
+            title="User Auto-Creation Configuration Missing",
+            message=(
+                "User auto-creation requires field 'auto_create_user_on_keycloak_signup' "
+                "in Settings DocType. Please add this field to Settings DocType or disable "
+                "auto-creation by removing keycloak_user_id references in Person records."
+            ),
+        )
         return False

@@ -55,9 +55,9 @@ dartwing/
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create Person Merge Log child table JSON definition in `dartwing/dartwing_core/doctype/person_merge_log/person_merge_log.json` with fields: source_person (Link:Person), target_person (Link:Person), merged_at (Datetime), merged_by (Link:User), notes (Small Text), and `istable: 1` property
-- [ ] T006 Create Person Merge Log controller in `dartwing/dartwing_core/doctype/person_merge_log/person_merge_log.py` with basic Document class
-- [ ] T007 Create Person DocType JSON definition in `dartwing/dartwing_core/doctype/person/person.json` with all fields from data-model.md: primary_email (unique), keycloak_user_id, frappe_user (Link:User), first_name, last_name, full_name, mobile_no, personal_org (Link:Organization), is_minor, consent_captured, consent_timestamp, source (Select), status (Select), user_sync_status (Select), sync_error_message, last_sync_at, merge_logs (Table:Person Merge Log)
+- [ ] T005 Create Person Merge Log child table JSON structure in `dartwing/dartwing_core/doctype/person_merge_log/person_merge_log.json` with `istable: 1` property
+- [ ] T006 Define Person Merge Log fields in `dartwing/dartwing_core/doctype/person_merge_log/person_merge_log.json` as specified in data-model.md: source_person (Link:Person), target_person (Link:Person), merged_at (Datetime), merged_by (Link:User), notes (Small Text)
+- [ ] T007 Create Person DocType JSON definition in `dartwing/dartwing_core/doctype/person/person.json` using all field specifications as defined in `data-model.md`, including: primary_email (unique), keycloak_user_id, frappe_user (Link:User), first_name, last_name, full_name, mobile_no, personal_org (Link:Organization), is_minor, consent_captured, consent_timestamp, source (Select), status (Select), user_sync_status (Select), sync_error_message, last_sync_at, merge_logs (Table:Person Merge Log).
 - [ ] T008 Create base Person controller in `dartwing/dartwing_core/doctype/person/person.py` with Document class skeleton and autoname property
 - [ ] T009 Run `bench --site {site} migrate` to create database tables and verify schema matches data-model.md
 
@@ -81,9 +81,9 @@ dartwing/
 ### Implementation for User Story 1
 
 - [ ] T013 [US1] Implement `validate()` method in `dartwing/dartwing_core/doctype/person/person.py` with uniqueness checks for keycloak_user_id and frappe_user using validate hook pattern from research.md
-- [ ] T014 [US1] Implement `_validate_mobile_no()` method in `dartwing/dartwing_core/doctype/person/person.py` using phonenumbers library to parse and normalize to E.164 format
+- [ ] T014 [US1] Implement `_validate_and_normalize_mobile_no()` method in `dartwing/dartwing_core/doctype/person/person.py` using phonenumbers library to parse and normalize to E.164 format
 - [ ] T015 [US1] Implement `before_save()` method in `dartwing/dartwing_core/doctype/person/person.py` to compute full_name from first_name + last_name
-- [ ] T016 [US1] Implement `_check_minor_consent_block()` method in `dartwing/dartwing_core/doctype/person/person.py` to block writes on minors without consent, with exception for consent capture operation per research.md
+- [ ] T016 [US1] Implement `_enforce_minor_consent_policy()` method in `dartwing/dartwing_core/doctype/person/person.py` to block writes on minors without consent, with exception for consent capture operation per research.md. During the consent capture operation, ONLY consent fields and system metadata fields (such as 'modified' and 'modified_by') may be modified; all other fields must remain unchanged.
 - [ ] T017 [US1] Add permissions to `person.json` for System Manager and Dartwing User roles
 - [ ] T017a [US1] Create `capture_consent` API endpoint in `dartwing/api/person.py` per contracts/person-api.yaml to capture consent for minors (FR-013)
 
@@ -160,7 +160,7 @@ dartwing/
 
 **Purpose**: API completion, integration tests, documentation validation
 
-- [ ] T035 *(Moved to T017a in US1)*
+- [ ] T035 _(Moved to T017a in US1)_
 - [ ] T036 [P] Create integration tests in `dartwing/tests/test_person_api.py` covering full CRUD cycle via REST API
 - [ ] T037 Run quickstart.md validation - execute all code examples and verify expected outputs
 - [ ] T038 Update `dartwing/hooks.py` to register Person DocType fixtures if needed
