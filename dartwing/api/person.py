@@ -12,8 +12,10 @@ import frappe
 from frappe import _
 from frappe.utils import now
 
-# Removed: from dartwing.utils import doctype_exists
-# Using frappe.db.exists() directly for better editor compatibility
+from dartwing.dartwing_core.doctype.person.person import _has_org_member_doctype
+
+# Note: Using cached DocType existence checks for performance.
+# The doctype_table_exists() utility is for low-level table existence checks.
 
 
 @frappe.whitelist()
@@ -192,9 +194,9 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
             frappe.ValidationError,
         )
 
-    # Transfer Org Member links (if Org Member DocType exists)
+    # Transfer Org Member links (if Org Member DocType exists - cached check)
     org_members_transferred = 0
-    if frappe.db.exists("DocType", "Org Member"):
+    if _has_org_member_doctype():
         org_members = frappe.get_all(
             "Org Member", filters={"person": source_person}, pluck="name"
         )

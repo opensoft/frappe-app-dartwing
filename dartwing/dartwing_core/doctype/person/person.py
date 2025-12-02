@@ -5,8 +5,6 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from dartwing.utils import doctype_exists
-
 try:
     import phonenumbers
     from phonenumbers import NumberParseException
@@ -14,6 +12,25 @@ try:
     HAS_PHONENUMBERS = True
 except ImportError:
     HAS_PHONENUMBERS = False
+
+# Module-level cache for Org Member DocType existence
+# Avoids repeated database queries on every Person deletion
+_org_member_doctype_exists_cache = None
+
+
+def _has_org_member_doctype() -> bool:
+    """Check if Org Member DocType exists (cached).
+
+    Caches the result at module level to avoid repeated database queries.
+    DocType existence is unlikely to change during runtime.
+
+    Returns:
+        bool: True if Org Member DocType exists, False otherwise
+    """
+    global _org_member_doctype_exists_cache
+    if _org_member_doctype_exists_cache is None:
+        _org_member_doctype_exists_cache = frappe.db.exists("DocType", "Org Member")
+    return bool(_org_member_doctype_exists_cache)
 
 
 class Person(Document):
@@ -49,11 +66,11 @@ class Person(Document):
         Per FR-006: System MUST prevent deletion of Person records that
         are linked to Org Member records.
         """
-        # Early return if "Org Member" doctype does not exist.
+        # Early return if "Org Member" doctype does not exist (cached check).
         # This check is critical: without the doctype, there can be no links,
         # and attempting to query it would cause errors. This preserves security/integrity
         # and prevents accidental deletion-blocking logic from failing unexpectedly.
-        if not doctype_exists("Org Member"):
+        if not _has_org_member_doctype():
             return
 
         linked_org_members = frappe.get_all(
@@ -168,6 +185,7 @@ class Person(Document):
                 # Assumes self.frappe_user is the field linking the Person to the user account
                 if (
                     hasattr(self, "frappe_user")
+                    and self.frappe_user is not None
                     and frappe.session.user == self.frappe_user
                 ):
                     frappe.throw(

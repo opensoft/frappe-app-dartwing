@@ -46,8 +46,14 @@ class NonRetryableError(Exception):
 def is_retryable_error(exception: Exception) -> bool:
     """Determine if an exception represents a transient, retryable error.
 
-    Only classifies specific exception types as retryable to avoid
-    incorrectly retrying non-transient errors.
+    Classifies the following specific exception types as retryable:
+    - pymysql: OperationalError (connection issues, server gone away),
+               InterfaceError (protocol errors)
+    - redis: ConnectionError, TimeoutError
+    - Frappe: QueryTimeoutError
+
+    All other exceptions are considered non-retryable to avoid wasting
+    retries on permanent errors (validation failures, bad data, etc.).
 
     Args:
         exception: The exception to classify
@@ -171,11 +177,14 @@ def sync_frappe_user(person_name: str, attempt: int = 1) -> None:
 def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
     """Create Frappe User with default 'Dartwing User' role.
 
+    If a user with the same email already exists, it will be reused
+    and the 'Dartwing User' role will be added if not already present.
+
     Args:
         person: Person document
 
     Returns:
-        Created User document
+        User document (newly created or existing with role ensured)
 
     Raises:
         NonRetryableError: For validation errors, duplicate entries
@@ -183,11 +192,22 @@ def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
     """
     # Check if user already exists with this email
     if frappe.db.exists("User", {"email": person.primary_email}):
-        existing_user = frappe.db.get_value(
-            "User", {"email": person.primary_email}, "name"
+        existing_user = frappe.get_doc("User", {"email": person.primary_email})
+
+        # Ensure the user has the required 'Dartwing User' role
+        has_role = any(
+            role.get("role") == "Dartwing User"
+            for role in existing_user.get("roles", [])
         )
-        # Link to existing user instead of creating new
-        return frappe.get_doc("User", existing_user)
+
+        if not has_role:
+            # Add the role if missing to ensure consistent permissions
+            existing_user.append("roles", {"role": "Dartwing User"})
+            existing_user.flags.ignore_permissions = True
+            existing_user.save()
+            frappe.db.commit()
+
+        return existing_user
 
     try:
         user = frappe.get_doc(
