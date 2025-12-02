@@ -27,7 +27,9 @@ def capture_consent(person_name: str) -> dict:
 
     Permission Requirements:
     - User must have write permission on the Person document
-    - User must NOT be the minor themselves (checked in Person.validate)
+    - User must NOT be the minor themselves (guardian/role gate)
+    - User must have one of the roles configured in Settings.consent_capture_roles
+      (System Manager is always allowed as a security fallback)
 
     Args:
         person_name: The name (ID) of the Person document
@@ -38,7 +40,7 @@ def capture_consent(person_name: str) -> dict:
     Raises:
         frappe.DoesNotExistError: If Person not found
         frappe.ValidationError: If Person is not a minor or consent already captured
-        frappe.PermissionError: If user lacks permission or is the minor
+        frappe.PermissionError: If user lacks permission, is the minor, or lacks authorized role
     """
     if not person_name:
         frappe.throw(_("person_name is required"), frappe.ValidationError)
@@ -63,8 +65,51 @@ def capture_consent(person_name: str) -> dict:
             frappe.ValidationError,
         )
 
+    # Guardian/role gate: Enforce that only authorized users can capture consent
+    # 1. Block self-capture: Minor cannot consent themselves
+    if person.frappe_user and frappe.session.user == person.frappe_user:
+        frappe.throw(
+            _(
+                "Minors cannot capture their own consent. "
+                "Only an authorized parent or guardian may perform this operation."
+            ),
+            frappe.PermissionError,
+        )
+
+    # 2. Role gate: User must have an authorized role for consent capture
+    # Read allowed roles from Settings (defaults to System Manager if not configured)
+    try:
+        allowed_roles_config = frappe.db.get_single_value("Settings", "consent_capture_roles")
+        if allowed_roles_config:
+            # Parse comma-separated roles and strip whitespace
+            authorized_roles = {role.strip() for role in allowed_roles_config.split(",") if role.strip()}
+        else:
+            # Default to System Manager only if Settings field is empty
+            authorized_roles = {"System Manager"}
+    except Exception:
+        # Field doesn't exist yet - default to System Manager only
+        authorized_roles = {"System Manager"}
+
+    # System Manager is always allowed (security fallback)
+    authorized_roles.add("System Manager")
+
+    # Check if user has one of the authorized roles
+    current_user_roles = frappe.get_roles(frappe.session.user)
+    if not authorized_roles.intersection(current_user_roles):
+        frappe.throw(
+            _(
+                "User does not have an authorized role for consent capture. "
+                "Required roles: {0}"
+            ).format(", ".join(sorted(authorized_roles))),
+            frappe.PermissionError,
+        )
+
     # Capture consent - this bypasses the minor consent block check
-    # because we're specifically changing consent_captured to True
+    # because we're specifically changing consent_captured to True.
+    # ignore_permissions=True is necessary here because:
+    # 1. We've already verified write permission above
+    # 2. This is the authorized exception to the minor-consent blocking rule
+    # 3. The operation modifies a minor's record to SET consent, which is explicitly allowed
     consent_time = now()
     person.consent_captured = 1
     person.consent_timestamp = consent_time
@@ -226,6 +271,12 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
             frappe.ValidationError,
         )
 
+    if target.status == "Merged":
+        frappe.throw(
+            _("Target Person {0} has already been merged. Cannot merge into a merged Person.").format(target_person),
+            frappe.ValidationError,
+        )
+
     # Transfer Org Member links (if Org Member DocType exists - cached check)
     org_members_transferred = 0
     if _has_org_member_doctype():
@@ -241,6 +292,10 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
             org_members_transferred = len(org_members)
 
     # Create merge log entry on target
+    # ignore_permissions=True is necessary here because:
+    # 1. We've already verified write permission on both source and target above
+    # 2. This is an internal system operation (adding audit log, changing status)
+    # 3. Prevents child table permission issues with merge_logs
     target.append(
         "merge_logs",
         {
@@ -254,6 +309,9 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
     target.save(ignore_permissions=True)
 
     # Mark source as Merged
+    # ignore_permissions=True is necessary here because:
+    # 1. We've already verified write permission above
+    # 2. This is an internal status change that must succeed once merge is authorized
     source.status = "Merged"
     source.save(ignore_permissions=True)
 

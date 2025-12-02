@@ -16,6 +16,18 @@
       "label": "Auto-create Frappe User on Keycloak Signup",
       "default": "0",
       "description": "Automatically create a Frappe User with 'Dartwing User' role when a Person is linked to a Keycloak user ID. The user creation happens asynchronously via background job."
+    },
+    {
+      "fieldname": "consent_section",
+      "fieldtype": "Section Break",
+      "label": "Minor Consent Management"
+    },
+    {
+      "fieldname": "consent_capture_roles",
+      "fieldtype": "Small Text",
+      "label": "Allowed Roles for Consent Capture",
+      "default": "System Manager",
+      "description": "Comma-separated list of roles authorized to capture consent for minors. System Manager is always allowed. Add custom roles like 'Guardian' or 'Parent' if provisioned in your site."
     }
   ],
   "permissions": [
