@@ -3,6 +3,27 @@
   "name": "Settings",
   "module": "Dartwing Core",
   "custom": 1,
-  "fields": [],
-  "permissions": []
+  "issingle": 1,
+  "fields": [
+    {
+      "fieldname": "user_management_section",
+      "fieldtype": "Section Break",
+      "label": "User Management"
+    },
+    {
+      "fieldname": "auto_create_user_on_keycloak_signup",
+      "fieldtype": "Check",
+      "label": "Auto-create Frappe User on Keycloak Signup",
+      "default": "0",
+      "description": "Automatically create a Frappe User with 'Dartwing User' role when a Person is linked to a Keycloak user ID. The user creation happens asynchronously via background job."
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1
+    }
+  ]
 }

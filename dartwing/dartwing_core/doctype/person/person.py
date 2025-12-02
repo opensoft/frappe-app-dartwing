@@ -172,17 +172,27 @@ class Person(Document):
     def _check_minor_consent_block(self):
         """Block updates to minor's record if consent not captured (FR-013).
 
-        Exception: Allow ONLY the consent capture operation itself, which may
-        only modify consent_captured and consent_timestamp fields.
+        Exceptions:
+        1. Consent capture operation (consent_captured, consent_timestamp)
+        2. System user sync updates (frappe_user, user_sync_status, last_sync_at, sync_error_message)
         """
         if self.is_new():
             return
 
         if self.is_minor and not self.consent_captured:
-            # Check if this is a consent capture operation
+            # Get all changed fields
+            valid_columns = self.meta.get_valid_columns()
+            changed_fields = {
+                field for field in valid_columns if self.has_value_changed(field)
+            }
+
+            # Always allow modifications of audit fields
+            audit_fields = {"modified", "modified_by"}
+            changed_fields_without_audit = changed_fields - audit_fields
+
+            # Exception 1: Check if this is a consent capture operation
             if self.has_value_changed("consent_captured") and self.consent_captured:
                 # Authentication check: Only allow if current user is NOT the minor
-                # Assumes self.frappe_user is the field linking the Person to the user account
                 if (
                     hasattr(self, "frappe_user")
                     and self.frappe_user is not None
@@ -195,30 +205,31 @@ class Person(Document):
                         frappe.PermissionError,
                     )
                 # Validate that ONLY consent-related fields are being modified
-                # to prevent race condition / privilege escalation
-                allowed_fields = {
-                    "consent_captured",
-                    "consent_timestamp",
-                    "modified",
-                    "modified_by",
-                }
-                valid_columns = self.meta.get_valid_columns()
-                changed_fields = {
-                    field for field in valid_columns if self.has_value_changed(field)
-                }
-
-                unauthorized_changes = changed_fields - allowed_fields
+                allowed_consent_fields = {"consent_captured", "consent_timestamp"}
+                unauthorized_changes = changed_fields_without_audit - allowed_consent_fields
                 if unauthorized_changes:
                     frappe.throw(
                         _(
                             "During consent capture, only consent_captured and consent_timestamp may be modified. "
                             "Attempted to modify: {0}"
-                        ).format(", ".join(unauthorized_changes)),
+                        ).format(", ".join(sorted(unauthorized_changes))),
                         frappe.PermissionError,
                     )
 
-                return  # Allow this specific update
+                return  # Allow consent capture
 
+            # Exception 2: Check if this is a system user sync update
+            allowed_sync_fields = {
+                "frappe_user",
+                "user_sync_status",
+                "last_sync_at",
+                "sync_error_message",
+            }
+            if changed_fields_without_audit and changed_fields_without_audit.issubset(allowed_sync_fields):
+                # This is a system sync operation - allow it
+                return
+
+            # No valid exception - block the update
             frappe.throw(
                 _("Cannot modify Person record for a minor until consent is captured"),
                 frappe.PermissionError,

@@ -81,27 +81,48 @@ def is_retryable_error(exception: Exception) -> bool:
 
 
 def queue_user_sync(person_name: str, attempt: int = 1) -> None:
-    """Queue background job for Frappe User creation.
+    """Queue background job for Frappe User creation with exponential backoff.
 
-    Uses frappe.enqueue() with job_id deduplication to prevent
-    duplicate jobs for the same Person.
+    Uses frappe.enqueue() with job_id deduplication per attempt to prevent
+    duplicate jobs for the same Person at the same retry level.
+
+    Implements exponential backoff: 2s, 4s, 8s, 16s, 32s (capped at 120s).
 
     Args:
         person_name: The Person document name
         attempt: Current attempt number (1-indexed)
     """
-    delay = min(BASE_DELAY * (2 ** (attempt - 1)), MAX_DELAY)
+    # Calculate exponential backoff delay in seconds
+    delay_seconds = min(BASE_DELAY * (2 ** (attempt - 1)), MAX_DELAY)
 
-    frappe.enqueue(
-        "dartwing.utils.person_sync.sync_frappe_user",
-        person_name=person_name,
-        attempt=attempt,
-        queue="default",
-        timeout=300,
-        job_id=f"person-sync-{person_name}",
-        enqueue_after_commit=True,
-        at_front=False,
-    )
+    # Include attempt in job_id to allow retries without dedup collision
+    job_id = f"person-sync-{person_name}-attempt-{attempt}"
+
+    if attempt == 1:
+        # First attempt: enqueue immediately
+        frappe.enqueue(
+            "dartwing.utils.person_sync.sync_frappe_user",
+            person_name=person_name,
+            attempt=attempt,
+            queue="default",
+            timeout=300,
+            job_id=job_id,
+            enqueue_after_commit=True,
+            at_front=False,
+        )
+    else:
+        # Retry attempts: enqueue with delay
+        frappe.enqueue(
+            "dartwing.utils.person_sync.sync_frappe_user",
+            person_name=person_name,
+            attempt=attempt,
+            queue="default",
+            timeout=300,
+            job_id=job_id,
+            enqueue_after_commit=True,
+            at_front=False,
+            enqueue_in=delay_seconds,
+        )
 
 
 def sync_frappe_user(person_name: str, attempt: int = 1) -> None:
@@ -242,26 +263,28 @@ def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
 
 
 def is_auto_creation_enabled() -> bool:
-    """Check if Frappe User auto-creation is enabled via site configuration.
+    """Check if Frappe User auto-creation is enabled via Settings DocType.
+
+    Reads the 'auto_create_user_on_keycloak_signup' field from the Settings
+    single DocType. Defaults to False if field doesn't exist or is not set.
 
     Returns:
         True if auto-creation is enabled, False otherwise
     """
     try:
-        return (
+        return bool(
             frappe.db.get_single_value(
                 "Settings", "auto_create_user_on_keycloak_signup"
             )
-            or False
         )
-    except frappe.ValidationError:
-        # Field doesn't exist on Settings DocType - feature not configured
+    except Exception as e:
+        # Field doesn't exist or Settings DocType not accessible
         frappe.log_error(
-            title="User Auto-Creation Configuration Missing",
+            title="User Auto-Creation Configuration Error",
             message=(
-                "User auto-creation requires field 'auto_create_user_on_keycloak_signup' "
-                "in Settings DocType. Please add this field to Settings DocType or disable "
-                "auto-creation by removing keycloak_user_id references in Person records."
+                f"Could not read 'auto_create_user_on_keycloak_signup' from Settings: {e}\n\n"
+                "User auto-creation is disabled. To enable, add the field to Settings DocType "
+                "or run 'bench migrate' to update the schema."
             ),
         )
         return False

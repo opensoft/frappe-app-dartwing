@@ -10,6 +10,8 @@ Run tests with:
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from unittest.mock import patch, MagicMock
+from frappe.utils import now
 
 
 class TestPerson(FrappeTestCase):
@@ -273,15 +275,198 @@ class TestPerson(FrappeTestCase):
     # User Story 2: Link Person to Frappe User - Tests (T018-T019)
     # =========================================================================
 
-    def test_user_sync_status_synced_on_success(self):
-        """T018: Verify frappe_user link and user_sync_status='synced' when auto-creation succeeds."""
-        # This test will be implemented when User sync functionality is added
-        pass
+    @patch("dartwing.utils.person_sync.is_auto_creation_enabled")
+    @patch("dartwing.utils.person_sync.queue_user_sync")
+    def test_user_sync_queued_on_person_creation(self, mock_queue_sync, mock_is_enabled):
+        """T018: Verify user sync is queued when Person is created with keycloak_user_id."""
+        # Enable auto-creation
+        mock_is_enabled.return_value = True
 
-    def test_user_sync_status_pending_on_failure(self):
-        """T019: Verify Person saved with user_sync_status='pending' when User creation fails."""
-        # This test will be implemented when User sync functionality is added
-        pass
+        # Create person with keycloak_user_id
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "sync.test@test.example.com",
+            "first_name": "Sync",
+            "last_name": "Test",
+            "source": "signup",
+            "keycloak_user_id": "kc-sync-test-123"
+        })
+        person.insert()
+
+        # Verify sync was queued
+        mock_queue_sync.assert_called_once_with(person.name, attempt=1)
+        self.assertEqual(person.user_sync_status, "pending")
+
+    @patch("dartwing.utils.person_sync.is_auto_creation_enabled")
+    @patch("dartwing.utils.person_sync.queue_user_sync")
+    def test_user_sync_not_queued_when_disabled(self, mock_queue_sync, mock_is_enabled):
+        """T018: Verify user sync is NOT queued when auto-creation is disabled."""
+        # Disable auto-creation
+        mock_is_enabled.return_value = False
+
+        # Create person with keycloak_user_id
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "sync.disabled@test.example.com",
+            "first_name": "Sync",
+            "last_name": "Disabled",
+            "source": "signup",
+            "keycloak_user_id": "kc-sync-disabled-123"
+        })
+        person.insert()
+
+        # Verify sync was NOT queued
+        mock_queue_sync.assert_not_called()
+        self.assertIsNone(person.user_sync_status)
+
+    @patch("dartwing.utils.person_sync.create_frappe_user")
+    @patch("frappe.enqueue")
+    def test_user_sync_status_synced_on_success(self, mock_enqueue, mock_create_user):
+        """T018: Verify frappe_user link and user_sync_status='synced' when auto-creation succeeds."""
+        from dartwing.utils.person_sync import sync_frappe_user
+
+        # Create person
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "sync.success@test.example.com",
+            "first_name": "Sync",
+            "last_name": "Success",
+            "source": "signup",
+            "keycloak_user_id": "kc-sync-success-123"
+        })
+        person.insert()
+
+        # Mock successful user creation
+        mock_user = MagicMock()
+        mock_user.name = "sync.success@test.example.com"
+        mock_create_user.return_value = mock_user
+
+        # Call sync directly (bypassing queue)
+        sync_frappe_user(person.name, attempt=1)
+
+        # Reload person and verify sync succeeded
+        person.reload()
+        self.assertEqual(person.frappe_user, "sync.success@test.example.com")
+        self.assertEqual(person.user_sync_status, "synced")
+        self.assertIsNotNone(person.last_sync_at)
+        self.assertIsNone(person.sync_error_message)
+
+    @patch("dartwing.utils.person_sync.create_frappe_user")
+    @patch("frappe.enqueue")
+    def test_user_sync_status_pending_on_retryable_failure(self, mock_enqueue, mock_create_user):
+        """T019: Verify Person saved with user_sync_status='pending' when User creation fails with retryable error."""
+        from dartwing.utils.person_sync import sync_frappe_user, RetryableError
+
+        # Create person
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "sync.retry@test.example.com",
+            "first_name": "Sync",
+            "last_name": "Retry",
+            "source": "signup",
+            "keycloak_user_id": "kc-sync-retry-123"
+        })
+        person.insert()
+
+        # Mock retryable error
+        mock_create_user.side_effect = RetryableError("Database connection failed")
+
+        # Call sync directly (bypassing queue)
+        sync_frappe_user(person.name, attempt=1)
+
+        # Reload person and verify status
+        person.reload()
+        self.assertEqual(person.user_sync_status, "pending")
+        self.assertIsNotNone(person.sync_error_message)
+        self.assertIn("Database connection failed", person.sync_error_message)
+
+        # Verify retry was queued
+        mock_enqueue.assert_called()
+
+    @patch("dartwing.utils.person_sync.create_frappe_user")
+    @patch("frappe.enqueue")
+    def test_user_sync_status_failed_on_nonretryable_error(self, mock_enqueue, mock_create_user):
+        """T019: Verify Person saved with user_sync_status='failed' when User creation fails with non-retryable error."""
+        from dartwing.utils.person_sync import sync_frappe_user, NonRetryableError
+
+        # Create person
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "sync.failed@test.example.com",
+            "first_name": "Sync",
+            "last_name": "Failed",
+            "source": "signup",
+            "keycloak_user_id": "kc-sync-failed-123"
+        })
+        person.insert()
+
+        # Mock non-retryable error
+        mock_create_user.side_effect = NonRetryableError("Invalid email format")
+
+        # Call sync directly (bypassing queue)
+        sync_frappe_user(person.name, attempt=1)
+
+        # Reload person and verify status
+        person.reload()
+        self.assertEqual(person.user_sync_status, "failed")
+        self.assertIsNotNone(person.sync_error_message)
+        self.assertIn("Invalid email format", person.sync_error_message)
+
+        # Verify retry was NOT queued
+        mock_enqueue.assert_not_called()
+
+    @patch("frappe.enqueue")
+    def test_user_sync_exponential_backoff(self, mock_enqueue):
+        """Verify exponential backoff is applied to retry attempts."""
+        from dartwing.utils.person_sync import queue_user_sync, BASE_DELAY
+
+        person_name = "test-person-backoff"
+
+        # Test first attempt (immediate)
+        queue_user_sync(person_name, attempt=1)
+        call_kwargs = mock_enqueue.call_args[1]
+        self.assertNotIn("enqueue_in", call_kwargs)
+
+        # Test second attempt (2s delay)
+        queue_user_sync(person_name, attempt=2)
+        call_kwargs = mock_enqueue.call_args[1]
+        self.assertEqual(call_kwargs["enqueue_in"], BASE_DELAY * 2)
+
+        # Test third attempt (4s delay)
+        queue_user_sync(person_name, attempt=3)
+        call_kwargs = mock_enqueue.call_args[1]
+        self.assertEqual(call_kwargs["enqueue_in"], BASE_DELAY * 4)
+
+        # Test fourth attempt (8s delay)
+        queue_user_sync(person_name, attempt=4)
+        call_kwargs = mock_enqueue.call_args[1]
+        self.assertEqual(call_kwargs["enqueue_in"], BASE_DELAY * 8)
+
+    def test_minor_allows_system_sync_updates(self):
+        """Test that minors without consent can receive system sync updates (FR-013 Exception 2)."""
+        # Create a minor without consent
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "minor.sync@test.example.com",
+            "first_name": "Minor",
+            "last_name": "Sync",
+            "source": "signup",
+            "is_minor": 1,
+            "consent_captured": 0,
+            "keycloak_user_id": "kc-minor-sync-123"
+        })
+        person.insert()
+
+        # Update sync fields - should succeed
+        person.user_sync_status = "synced"
+        person.frappe_user = "minor.sync@test.example.com"
+        person.last_sync_at = now()
+        person.save()
+
+        # Reload and verify
+        person.reload()
+        self.assertEqual(person.user_sync_status, "synced")
+        self.assertEqual(person.frappe_user, "minor.sync@test.example.com")
 
     # =========================================================================
     # User Story 3: Prevent Deletion of Linked Person - Tests (T026-T027)
@@ -289,8 +474,43 @@ class TestPerson(FrappeTestCase):
 
     def test_deletion_blocked_with_org_member(self):
         """T026: Verify LinkExistsError when deleting Person linked to Org Member."""
-        # This test will be implemented when Org Member exists
-        pass
+        # Skip if Org Member DocType doesn't exist
+        if not frappe.db.exists("DocType", "Org Member"):
+            self.skipTest("Org Member DocType not available")
+
+        # Create organization
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Org Deletion",
+            "org_type": "Family"
+        })
+        org.insert()
+
+        # Create person
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "delete.blocked@test.example.com",
+            "first_name": "Delete",
+            "last_name": "Blocked",
+            "source": "signup"
+        })
+        person.insert()
+
+        # Create Org Member link
+        org_member = frappe.get_doc({
+            "doctype": "Org Member",
+            "organization": org.name,
+            "person": person.name,
+            "role": "Member"
+        })
+        org_member.insert()
+
+        # Attempt to delete person - should fail
+        with self.assertRaises(frappe.LinkExistsError):
+            person.delete()
+
+        # Cleanup
+        org_member.delete()
 
     def test_deletion_allowed_without_org_member(self):
         """T027: Verify Person without Org Member links can be deleted."""
@@ -309,16 +529,290 @@ class TestPerson(FrappeTestCase):
 
         self.assertFalse(frappe.db.exists("Person", person_name))
 
+    def test_deletion_allowed_when_org_member_doctype_absent(self):
+        """T027: Verify Person can be deleted when Org Member DocType doesn't exist."""
+        # This test verifies graceful handling when Org Member DocType is absent
+        # The _has_org_member_doctype() cache check should prevent errors
+
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "delete.no.orgmember@test.example.com",
+            "first_name": "Delete",
+            "last_name": "NoOrgMember",
+            "source": "signup"
+        })
+        person.insert()
+        person_name = person.name
+
+        # Mock the cache to simulate Org Member DocType not existing
+        from dartwing.dartwing_core.doctype.person import person as person_module
+        original_cache = person_module._org_member_doctype_exists_cache
+        try:
+            person_module._org_member_doctype_exists_cache = False
+
+            # Delete should succeed without errors
+            person.delete()
+            self.assertFalse(frappe.db.exists("Person", person_name))
+
+        finally:
+            # Restore original cache state
+            person_module._org_member_doctype_exists_cache = original_cache
+
     # =========================================================================
     # User Story 4: Merge Duplicate Persons - Tests (T030-T031)
     # =========================================================================
 
     def test_merge_operation(self):
         """T030: Verify source Person status='Merged', merge log entry created on target."""
-        # This test will be implemented when merge functionality is added
-        pass
+        from dartwing.api.person import merge_persons
+
+        # Create source person
+        source = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.source@test.example.com",
+            "first_name": "Source",
+            "last_name": "Person",
+            "source": "signup"
+        })
+        source.insert()
+
+        # Create target person
+        target = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.target@test.example.com",
+            "first_name": "Target",
+            "last_name": "Person",
+            "source": "invite"
+        })
+        target.insert()
+
+        # Perform merge
+        result = merge_persons(source.name, target.name, notes="Test merge")
+
+        # Verify result
+        self.assertTrue(result["success"])
+        self.assertEqual(result["source"], source.name)
+        self.assertEqual(result["target"], target.name)
+
+        # Reload and verify source status
+        source.reload()
+        self.assertEqual(source.status, "Merged")
+
+        # Reload and verify merge log entry on target
+        target.reload()
+        self.assertEqual(len(target.merge_logs), 1)
+        merge_log = target.merge_logs[0]
+        self.assertEqual(merge_log.source_person, source.name)
+        self.assertEqual(merge_log.target_person, target.name)
+        self.assertEqual(merge_log.notes, "Test merge")
+        self.assertIsNotNone(merge_log.merged_at)
+        self.assertEqual(merge_log.merged_by, frappe.session.user)
+
+    def test_merge_prevents_duplicate_merge(self):
+        """T030: Verify that already-merged Person cannot be merged again."""
+        from dartwing.api.person import merge_persons
+
+        # Create three persons
+        source = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.source2@test.example.com",
+            "first_name": "Source",
+            "last_name": "Two",
+            "source": "signup"
+        })
+        source.insert()
+
+        target1 = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.target1@test.example.com",
+            "first_name": "Target",
+            "last_name": "One",
+            "source": "invite"
+        })
+        target1.insert()
+
+        target2 = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.target2@test.example.com",
+            "first_name": "Target",
+            "last_name": "Two",
+            "source": "invite"
+        })
+        target2.insert()
+
+        # First merge
+        merge_persons(source.name, target1.name)
+
+        # Attempt second merge of already-merged source - should fail
+        with self.assertRaises(frappe.ValidationError) as context:
+            merge_persons(source.name, target2.name)
+
+        self.assertIn("already been merged", str(context.exception))
+
+    def test_merge_prevents_self_merge(self):
+        """T030: Verify Person cannot be merged into itself."""
+        from dartwing.api.person import merge_persons
+
+        # Create person
+        person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.self@test.example.com",
+            "first_name": "Self",
+            "last_name": "Merge",
+            "source": "signup"
+        })
+        person.insert()
+
+        # Attempt self-merge - should fail
+        with self.assertRaises(frappe.ValidationError) as context:
+            merge_persons(person.name, person.name)
+
+        self.assertIn("Cannot merge a Person into itself", str(context.exception))
 
     def test_merge_with_org_members(self):
         """T031: Verify Org Member links transferred to target Person."""
-        # This test will be implemented when Org Member exists and merge is implemented
-        pass
+        from dartwing.api.person import merge_persons
+
+        # Skip if Org Member DocType doesn't exist
+        if not frappe.db.exists("DocType", "Org Member"):
+            self.skipTest("Org Member DocType not available")
+
+        # Create organization
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Org Merge",
+            "org_type": "Family"
+        })
+        org.insert()
+
+        # Create source person
+        source = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.source.org@test.example.com",
+            "first_name": "Source",
+            "last_name": "WithOrg",
+            "source": "signup"
+        })
+        source.insert()
+
+        # Create target person
+        target = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.target.org@test.example.com",
+            "first_name": "Target",
+            "last_name": "WithOrg",
+            "source": "invite"
+        })
+        target.insert()
+
+        # Create Org Member link to source
+        org_member = frappe.get_doc({
+            "doctype": "Org Member",
+            "organization": org.name,
+            "person": source.name,
+            "role": "Member"
+        })
+        org_member.insert()
+
+        # Perform merge
+        result = merge_persons(source.name, target.name)
+
+        # Verify Org Member was transferred
+        self.assertEqual(result["org_members_transferred"], 1)
+
+        # Reload Org Member and verify it now points to target
+        org_member.reload()
+        self.assertEqual(org_member.person, target.name)
+
+        # Cleanup
+        org_member.delete()
+
+    def test_merge_without_org_members(self):
+        """T031: Verify merge succeeds when source has no Org Member links."""
+        from dartwing.api.person import merge_persons
+
+        # Create source person
+        source = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.source.noorg@test.example.com",
+            "first_name": "Source",
+            "last_name": "NoOrg",
+            "source": "signup"
+        })
+        source.insert()
+
+        # Create target person
+        target = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.target.noorg@test.example.com",
+            "first_name": "Target",
+            "last_name": "NoOrg",
+            "source": "invite"
+        })
+        target.insert()
+
+        # Perform merge (no Org Members to transfer)
+        result = merge_persons(source.name, target.name)
+
+        # Verify merge succeeded with 0 transfers
+        self.assertTrue(result["success"])
+        self.assertEqual(result["org_members_transferred"], 0)
+
+    def test_merge_status_transition_validation(self):
+        """Test that status transitions are validated correctly during merge."""
+        # Test that Merged is a terminal state
+        merged_person = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merged.terminal@test.example.com",
+            "first_name": "Merged",
+            "last_name": "Terminal",
+            "source": "signup",
+            "status": "Active"
+        })
+        merged_person.insert()
+
+        # Manually set status to Merged
+        merged_person.status = "Merged"
+        merged_person.save()
+
+        # Attempt to change status - should fail
+        merged_person.status = "Active"
+        with self.assertRaises(frappe.ValidationError) as context:
+            merged_person.save()
+
+        self.assertIn("Cannot change status of a merged Person", str(context.exception))
+
+    @patch("dartwing.api.person._has_org_member_doctype")
+    def test_merge_when_org_member_doctype_absent(self, mock_has_org_member):
+        """Test merge operation succeeds gracefully when Org Member DocType doesn't exist."""
+        from dartwing.api.person import merge_persons
+
+        # Mock Org Member DocType as absent
+        mock_has_org_member.return_value = False
+
+        # Create source person
+        source = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.source.absent@test.example.com",
+            "first_name": "Source",
+            "last_name": "Absent",
+            "source": "signup"
+        })
+        source.insert()
+
+        # Create target person
+        target = frappe.get_doc({
+            "doctype": "Person",
+            "primary_email": "merge.target.absent@test.example.com",
+            "first_name": "Target",
+            "last_name": "Absent",
+            "source": "invite"
+        })
+        target.insert()
+
+        # Perform merge - should succeed without attempting Org Member transfer
+        result = merge_persons(source.name, target.name)
+
+        # Verify merge succeeded with 0 transfers (since DocType doesn't exist)
+        self.assertTrue(result["success"])
+        self.assertEqual(result["org_members_transferred"], 0)

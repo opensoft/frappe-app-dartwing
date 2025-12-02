@@ -25,6 +25,10 @@ def capture_consent(person_name: str) -> dict:
     This is the only write operation allowed on a minor without consent.
     Per contracts/person-api.yaml: POST /api/method/dartwing.api.person.capture_consent
 
+    Permission Requirements:
+    - User must have write permission on the Person document
+    - User must NOT be the minor themselves (checked in Person.validate)
+
     Args:
         person_name: The name (ID) of the Person document
 
@@ -34,6 +38,7 @@ def capture_consent(person_name: str) -> dict:
     Raises:
         frappe.DoesNotExistError: If Person not found
         frappe.ValidationError: If Person is not a minor or consent already captured
+        frappe.PermissionError: If user lacks permission or is the minor
     """
     if not person_name:
         frappe.throw(_("person_name is required"), frappe.ValidationError)
@@ -43,7 +48,9 @@ def capture_consent(person_name: str) -> dict:
             _("Person {0} not found").format(person_name), frappe.DoesNotExistError
         )
 
+    # Check write permission on Person document
     person = frappe.get_doc("Person", person_name)
+    person.check_permission("write")
 
     if not person.is_minor:
         frappe.throw(
@@ -72,12 +79,18 @@ def get_sync_status(person_name: str) -> dict:
 
     Per contracts/person-api.yaml: GET /api/method/dartwing.api.person.get_sync_status
 
+    Permission Requirements:
+    - User must have read permission on the Person document
+
     Args:
         person_name: The name (ID) of the Person document
 
     Returns:
         dict: Sync status details including user_sync_status, frappe_user,
               sync_error_message, and last_sync_at
+
+    Raises:
+        frappe.PermissionError: If user lacks read permission
     """
     if not person_name:
         frappe.throw(_("person_name is required"), frappe.ValidationError)
@@ -87,7 +100,9 @@ def get_sync_status(person_name: str) -> dict:
             _("Person {0} not found").format(person_name), frappe.DoesNotExistError
         )
 
+    # Check read permission on Person document
     person = frappe.get_doc("Person", person_name)
+    person.check_permission("read")
 
     return {
         "person_name": person.name,
@@ -104,6 +119,9 @@ def retry_sync(person_name: str) -> dict:
 
     Per contracts/person-api.yaml: POST /api/method/dartwing.api.person.retry_sync
 
+    Permission Requirements:
+    - User must be System Manager or have write permission on Person
+
     Args:
         person_name: The name (ID) of the Person document
 
@@ -113,6 +131,7 @@ def retry_sync(person_name: str) -> dict:
     Raises:
         frappe.DoesNotExistError: If Person not found
         frappe.ValidationError: If Person is already synced or has no keycloak_user_id
+        frappe.PermissionError: If user lacks permission
     """
     if not person_name:
         frappe.throw(_("person_name is required"), frappe.ValidationError)
@@ -122,7 +141,9 @@ def retry_sync(person_name: str) -> dict:
             _("Person {0} not found").format(person_name), frappe.DoesNotExistError
         )
 
+    # Check write permission (System Manager or document owner)
     person = frappe.get_doc("Person", person_name)
+    person.check_permission("write")
 
     if person.user_sync_status == "synced":
         frappe.throw(
@@ -157,6 +178,9 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
     - Creates audit log entry on target
     - Sets source status to "Merged"
 
+    Permission Requirements:
+    - User must have write permission on BOTH source and target Person documents
+
     Args:
         source_person: Name of Person to merge from (will be marked Merged)
         target_person: Name of Person to merge into (survives)
@@ -164,6 +188,10 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
 
     Returns:
         dict: Success status, source, target, and count of transferred Org Members
+
+    Raises:
+        frappe.PermissionError: If user lacks write permission on either Person
+        frappe.ValidationError: If source already merged or invalid merge
     """
     if not source_person or not target_person:
         frappe.throw(
@@ -185,8 +213,12 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
             frappe.DoesNotExistError,
         )
 
+    # Check write permission on BOTH Person documents
     source = frappe.get_doc("Person", source_person)
     target = frappe.get_doc("Person", target_person)
+
+    source.check_permission("write")
+    target.check_permission("write")
 
     if source.status == "Merged":
         frappe.throw(
