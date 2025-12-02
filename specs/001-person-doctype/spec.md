@@ -81,7 +81,7 @@ When duplicate Person records are detected (e.g., same email or Keycloak ID), th
 
 ### Functional Requirements
 
-- **FR-001**: System MUST enforce uniqueness on primary_email across all Person records.
+- **FR-001**: System MUST enforce uniqueness on primary_email across all Person records, rejecting creation or update attempts with a clear duplicate email error.
 - **FR-002**: System MUST enforce uniqueness on keycloak_user_id when set (null values are allowed, but non-null values must be unique).
 - **FR-003**: System MUST enforce uniqueness on frappe_user link when set (null values are allowed, but non-null values must be unique).
 - **FR-004**: System MUST capture source of Person creation (signup, invite, or import).
@@ -94,7 +94,7 @@ When duplicate Person records are detected (e.g., same email or Keycloak ID), th
 - **FR-010**: System MUST validate mobile_no format when provided (country-aware validation).
 - **FR-011**: System MUST auto-create a Frappe User with default "Dartwing User" role when keycloak_user_id is present, no frappe_user exists, and auto-creation is enabled by site configuration.
 - **FR-014**: System MUST save Person record even if Frappe User auto-creation fails, marking user_sync_status as "pending" and queuing a background job for retry.
-- **FR-012**: System MUST reject Person creation or update if primary_email already exists on another Person record.
+- **FR-012**: *(Merged into FR-001)*
 
 ### Key Entities
 

@@ -1,0 +1,259 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2025-12-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_identity",
+  "primary_email",
+  "column_break_identity",
+  "keycloak_user_id",
+  "frappe_user",
+  "naming_series",
+  "section_personal",
+  "first_name",
+  "last_name",
+  "full_name",
+  "column_break_personal",
+  "mobile_no",
+  "section_organization",
+  "personal_org",
+  "section_privacy",
+  "is_minor",
+  "consent_captured",
+  "consent_timestamp",
+  "section_status",
+  "source",
+  "status",
+  "column_break_status",
+  "user_sync_status",
+  "sync_error_message",
+  "last_sync_at",
+  "section_audit",
+  "merge_logs"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_identity",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "primary_email",
+   "fieldtype": "Data",
+   "options": "Email",
+   "label": "Primary Email",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "keycloak_user_id",
+   "fieldtype": "Data",
+   "label": "Keycloak User ID",
+   "unique": 1,
+   "description": "Keycloak subject ID (nullable unique)"
+  },
+  {
+   "fieldname": "frappe_user",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Frappe User",
+   "unique": 1,
+   "description": "Link to Frappe User (nullable unique)"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "PERSON-.YYYY.-",
+   "default": "PERSON-.YYYY.-"
+  },
+  {
+   "fieldname": "section_personal",
+   "fieldtype": "Section Break",
+   "label": "Personal Information"
+  },
+  {
+   "fieldname": "first_name",
+   "fieldtype": "Data",
+   "label": "First Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "last_name",
+   "fieldtype": "Data",
+   "label": "Last Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name",
+   "read_only": 1,
+   "description": "Computed: first_name + last_name"
+  },
+  {
+   "fieldname": "column_break_personal",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mobile_no",
+   "fieldtype": "Data",
+   "options": "Phone",
+   "label": "Mobile Number",
+   "description": "Mobile number (E.164 format)"
+  },
+  {
+   "fieldname": "section_organization",
+   "fieldtype": "Section Break",
+   "label": "Organization",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "personal_org",
+   "fieldtype": "Link",
+   "options": "Organization",
+   "label": "Personal Organization",
+   "description": "Personal/family organization"
+  },
+  {
+   "fieldname": "section_privacy",
+   "fieldtype": "Section Break",
+   "label": "Privacy & Consent",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "is_minor",
+   "fieldtype": "Check",
+   "label": "Is Minor",
+   "default": "0",
+   "description": "Person is a minor"
+  },
+  {
+   "fieldname": "consent_captured",
+   "fieldtype": "Check",
+   "label": "Consent Captured",
+   "default": "0",
+   "description": "Consent has been captured"
+  },
+  {
+   "fieldname": "consent_timestamp",
+   "fieldtype": "Datetime",
+   "label": "Consent Timestamp",
+   "read_only": 1,
+   "description": "When consent was captured"
+  },
+  {
+   "fieldname": "section_status",
+   "fieldtype": "Section Break",
+   "label": "Status"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "signup\ninvite\nimport",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "description": "How Person was created"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive\nMerged",
+   "default": "Active",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "user_sync_status",
+   "fieldtype": "Select",
+   "label": "User Sync Status",
+   "options": "\nsynced\npending\nfailed",
+   "read_only": 1,
+   "description": "Frappe User creation status"
+  },
+  {
+   "fieldname": "sync_error_message",
+   "fieldtype": "Text",
+   "label": "Sync Error Message",
+   "read_only": 1,
+   "description": "Last sync error message"
+  },
+  {
+   "fieldname": "last_sync_at",
+   "fieldtype": "Datetime",
+   "label": "Last Sync At",
+   "read_only": 1,
+   "description": "Last successful sync timestamp"
+  },
+  {
+   "fieldname": "section_audit",
+   "fieldtype": "Section Break",
+   "label": "Audit History",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "merge_logs",
+   "fieldtype": "Table",
+   "options": "Person Merge Log",
+   "label": "Merge History",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Dartwing Core",
+ "name": "Person",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dartwing User",
+   "share": 0,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
