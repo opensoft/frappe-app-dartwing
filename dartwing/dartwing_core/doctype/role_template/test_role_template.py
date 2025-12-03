@@ -216,31 +216,33 @@ class TestRoleTemplate(IntegrationTestCase):
 
     def test_hourly_rate_cleared_for_non_company(self):
         """T037: Verify hourly rate is cleared for non-Company roles."""
-        # Create a test role with hourly rate, then change to Family
-        test_role = frappe.get_doc(
-            {
-                "doctype": "Role Template",
-                "role_name": "Test Hourly Rate Role",
-                "applies_to_org_type": "Company",
-                "default_hourly_rate": 50.00,
-            }
-        )
-        test_role.insert()
+        test_role = None
+        try:
+            # Create a test role with hourly rate, then change to Family
+            test_role = frappe.get_doc(
+                {
+                    "doctype": "Role Template",
+                    "role_name": "Test Hourly Rate Role",
+                    "applies_to_org_type": "Company",
+                    "default_hourly_rate": 50.00,
+                }
+            )
+            test_role.insert()
 
-        # Change to Family type and save
-        test_role.applies_to_org_type = "Family"
-        test_role.save()
+            # Change to Family type and save
+            test_role.applies_to_org_type = "Family"
+            test_role.save()
 
-        # Reload and verify hourly rate was cleared
-        test_role.reload()
-        self.assertEqual(
-            test_role.default_hourly_rate,
-            0,
-            "Hourly rate should be cleared for non-Company roles",
-        )
-
-        # Cleanup
-        test_role.delete()
+            # Reload and verify hourly rate was cleared
+            test_role.reload()
+            self.assertEqual(
+                test_role.default_hourly_rate,
+                0,
+                "Hourly rate should be cleared for non-Company roles",
+            )
+        finally:
+            if test_role and frappe.db.exists("Role Template", test_role.name):
+                test_role.delete()
 
     # =========================================================================
     # Phase 7: Edge Cases & Deletion Prevention (T042-T044b)
@@ -275,25 +277,31 @@ class TestRoleTemplate(IntegrationTestCase):
         For now, it verifies the on_trash hook exists and runs without error
         when no Org Member DocType exists.
         """
-        # Create a test role
-        test_role = frappe.get_doc(
-            {
-                "doctype": "Role Template",
-                "role_name": "Test Deletion Role",
-                "applies_to_org_type": "Family",
-            }
-        )
-        test_role.insert()
+        test_role = None
+        try:
+            # Create a test role
+            test_role = frappe.get_doc(
+                {
+                    "doctype": "Role Template",
+                    "role_name": "Test Deletion Role",
+                    "applies_to_org_type": "Family",
+                }
+            )
+            test_role.insert()
 
-        # Should be able to delete when no Org Members reference it
-        # (and when Org Member DocType doesn't exist yet)
-        test_role.delete()
+            # Should be able to delete when no Org Members reference it
+            # (and when Org Member DocType doesn't exist yet)
+            test_role.delete()
 
-        # Verify it was deleted
-        self.assertFalse(
-            frappe.db.exists("Role Template", "Test Deletion Role"),
-            "Test role should be deleted",
-        )
+            # Verify it was deleted
+            self.assertFalse(
+                frappe.db.exists("Role Template", "Test Deletion Role"),
+                "Test role should be deleted",
+            )
+        finally:
+            # Cleanup if test failed before delete or delete failed
+            if test_role and frappe.db.exists("Role Template", "Test Deletion Role"):
+                frappe.delete_doc("Role Template", "Test Deletion Role", force=True)
 
     def test_read_access_for_dartwing_user(self):
         """T044a: Verify Dartwing User role has read access to Role Templates."""
