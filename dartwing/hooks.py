@@ -143,6 +143,10 @@ fixtures = [
 			"Family Child",
 			"Family Extended"
 		]]]
+	},
+	{
+		"doctype": "Role Template",
+		"filters": []
 	}
 ]
 
