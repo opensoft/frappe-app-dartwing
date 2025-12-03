@@ -1,0 +1,603 @@
+openapi: 3.0.3
+info:
+  title: Dartwing Person API
+  description: |
+    API contracts for Person DocType operations.
+    All endpoints follow Frappe's REST API conventions.
+  version: 1.0.0
+  contact:
+    name: Dartwing Development Team
+
+servers:
+  - url: /api
+    description: Frappe API base path
+
+tags:
+  - name: Person CRUD
+    description: Standard Frappe resource operations
+  - name: Person Methods
+    description: Custom whitelisted methods
+
+paths:
+  # ============================================
+  # STANDARD FRAPPE CRUD ENDPOINTS
+  # ============================================
+
+  /resource/Person:
+    get:
+      tags:
+        - Person CRUD
+      summary: List Person records
+      description: |
+        Retrieve a paginated list of Person records.
+        Uses Frappe's standard list filters.
+      operationId: listPersons
+      parameters:
+        - $ref: '#/components/parameters/filters'
+        - $ref: '#/components/parameters/fields'
+        - $ref: '#/components/parameters/limit_start'
+        - $ref: '#/components/parameters/limit_page_length'
+        - $ref: '#/components/parameters/order_by'
+      responses:
+        '200':
+          description: List of Person records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PersonSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags:
+        - Person CRUD
+      summary: Create a Person
+      description: |
+        Create a new Person record.
+        Required fields: primary_email, first_name, last_name, source
+      operationId: createPerson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+      responses:
+        '200':
+          description: Person created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Person'
+        '409':
+          description: Duplicate email or Keycloak ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '417':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /resource/Person/{name}:
+    get:
+      tags:
+        - Person CRUD
+      summary: Get a Person
+      description: Retrieve a single Person record by name
+      operationId: getPerson
+      parameters:
+        - $ref: '#/components/parameters/name'
+      responses:
+        '200':
+          description: Person record
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Person'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Person CRUD
+      summary: Update a Person
+      description: |
+        Update an existing Person record.
+        Note: Updates blocked for minors without consent (FR-013).
+      operationId: updatePerson
+      parameters:
+        - $ref: '#/components/parameters/name'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonUpdate'
+      responses:
+        '200':
+          description: Person updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Person'
+        '403':
+          description: Update blocked (minor without consent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Duplicate constraint violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Person CRUD
+      summary: Delete a Person
+      description: |
+        Delete a Person record.
+        Note: Deletion blocked if linked to Org Member (FR-006).
+      operationId: deletePerson
+      parameters:
+        - $ref: '#/components/parameters/name'
+      responses:
+        '200':
+          description: Person deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ok"
+        '403':
+          description: Deletion blocked (linked to Org Member)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # CUSTOM WHITELISTED METHODS
+  # ============================================
+
+  /method/dartwing.api.person.merge_persons:
+    post:
+      tags:
+        - Person Methods
+      summary: Merge two Person records
+      description: |
+        Merge a source Person into a target Person.
+        - Transfers all Org Member links to target
+        - Creates audit log entry
+        - Sets source status to "Merged"
+      operationId: mergePersons
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source_person
+                - target_person
+              properties:
+                source_person:
+                  type: string
+                  description: Name of Person to merge from (will be marked Merged)
+                target_person:
+                  type: string
+                  description: Name of Person to merge into (survives)
+                notes:
+                  type: string
+                  description: Optional notes about the merge
+      responses:
+        '200':
+          description: Merge completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      source:
+                        type: string
+                      target:
+                        type: string
+                      org_members_transferred:
+                        type: integer
+        '404':
+          description: Source or target Person not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Merge failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /method/dartwing.api.person.get_sync_status:
+    get:
+      tags:
+        - Person Methods
+      summary: Get Person sync status
+      description: Check the Frappe User sync status for a Person
+      operationId: getSyncStatus
+      parameters:
+        - name: person_name
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: object
+                    properties:
+                      person_name:
+                        type: string
+                      user_sync_status:
+                        type: string
+                        enum: [synced, pending, failed]
+                      frappe_user:
+                        type: string
+                        nullable: true
+                      sync_error_message:
+                        type: string
+                        nullable: true
+                      last_sync_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+
+  /method/dartwing.api.person.retry_sync:
+    post:
+      tags:
+        - Person Methods
+      summary: Retry Frappe User sync
+      description: |
+        Manually trigger a retry of Frappe User creation for a Person
+        with pending or failed sync status.
+      operationId: retrySync
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - person_name
+              properties:
+                person_name:
+                  type: string
+      responses:
+        '200':
+          description: Retry queued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      message:
+                        type: string
+        '400':
+          description: Cannot retry (already synced or no keycloak_user_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /method/dartwing.api.person.capture_consent:
+    post:
+      tags:
+        - Person Methods
+      summary: Capture consent for a minor
+      description: |
+        Record consent for a Person marked as a minor.
+        This is the only write operation allowed on a minor without consent.
+      operationId: captureConsent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - person_name
+              properties:
+                person_name:
+                  type: string
+      responses:
+        '200':
+          description: Consent captured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      consent_timestamp:
+                        type: string
+                        format: date-time
+        '400':
+          description: Person is not a minor or consent already captured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  parameters:
+    name:
+      name: name
+      in: path
+      required: true
+      description: Person document name
+      schema:
+        type: string
+
+    filters:
+      name: filters
+      in: query
+      description: JSON-encoded filter conditions
+      schema:
+        type: string
+        example: '[["status","=","Active"]]'
+
+    fields:
+      name: fields
+      in: query
+      description: JSON-encoded list of fields to return
+      schema:
+        type: string
+        example: '["name","primary_email","first_name","last_name"]'
+
+    limit_start:
+      name: limit_start
+      in: query
+      description: Offset for pagination
+      schema:
+        type: integer
+        default: 0
+
+    limit_page_length:
+      name: limit_page_length
+      in: query
+      description: Number of records per page
+      schema:
+        type: integer
+        default: 20
+
+    order_by:
+      name: order_by
+      in: query
+      description: Field to order by
+      schema:
+        type: string
+        example: "modified desc"
+
+  schemas:
+    Person:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Auto-generated document name
+        primary_email:
+          type: string
+          format: email
+        keycloak_user_id:
+          type: string
+          nullable: true
+        frappe_user:
+          type: string
+          nullable: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        full_name:
+          type: string
+        mobile_no:
+          type: string
+          nullable: true
+        personal_org:
+          type: string
+          nullable: true
+        is_minor:
+          type: integer
+          enum: [0, 1]
+        consent_captured:
+          type: integer
+          enum: [0, 1]
+        consent_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        source:
+          type: string
+          enum: [signup, invite, import]
+        status:
+          type: string
+          enum: [Active, Inactive, Merged]
+        user_sync_status:
+          type: string
+          enum: [synced, pending, failed]
+          nullable: true
+        sync_error_message:
+          type: string
+          nullable: true
+        last_sync_at:
+          type: string
+          format: date-time
+          nullable: true
+        merge_logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonMergeLog'
+        creation:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+        owner:
+          type: string
+        modified_by:
+          type: string
+
+    PersonSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        primary_email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        status:
+          type: string
+
+    PersonCreate:
+      type: object
+      required:
+        - primary_email
+        - first_name
+        - last_name
+        - source
+      properties:
+        primary_email:
+          type: string
+          format: email
+        keycloak_user_id:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        mobile_no:
+          type: string
+        personal_org:
+          type: string
+        is_minor:
+          type: integer
+          enum: [0, 1]
+          default: 0
+        consent_captured:
+          type: integer
+          enum: [0, 1]
+          default: 0
+        source:
+          type: string
+          enum: [signup, invite, import]
+
+    PersonUpdate:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        mobile_no:
+          type: string
+        personal_org:
+          type: string
+        status:
+          type: string
+          enum: [Active, Inactive]
+
+    PersonMergeLog:
+      type: object
+      properties:
+        name:
+          type: string
+        source_person:
+          type: string
+        target_person:
+          type: string
+        merged_at:
+          type: string
+          format: date-time
+        merged_by:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    Error:
+      type: object
+      properties:
+        exc_type:
+          type: string
+          description: Exception type name
+        exception:
+          type: string
+          description: Error message
+        _server_messages:
+          type: string
+          description: JSON-encoded server messages
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Permission denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

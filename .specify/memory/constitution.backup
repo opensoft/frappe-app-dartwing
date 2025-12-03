@@ -2,7 +2,7 @@
 
 ## Context Hierarchy (Read in this order)
 
-1. **Always read**: `docs/README.md`, `docs/architecture.md`, `docs/overview.md`, `docs/dartwing_core_arch.md` (project-wide)
+1. **Always read**: `docs/README.md`, `docs/architecture.md`, `docs/overview.md` (project-wide)
 2. **Current context**: When working on specific modules, also read `docs/[module-name]/` and submodules
 3. **Full scan**: `docs/**/*.md` (all docs when comprehensive understanding needed)
 

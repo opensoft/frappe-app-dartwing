@@ -135,6 +135,7 @@ fixtures = [
 	{
 		"doctype": "Role",
 		"filters": [["name", "in", [
+			"Dartwing User",
 			"Family Manager",
 			"Family Admin",
 			"Family Parent",
