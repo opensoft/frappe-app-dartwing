@@ -214,6 +214,19 @@ class TestRoleTemplate(IntegrationTestCase):
                 f"default_hourly_rate should be accessible for {role.role_name}",
             )
 
+    def test_hourly_rate_conditional_visibility(self):
+        """T036a: Verify hourly rate field has correct depends_on for Company-only visibility."""
+        meta = frappe.get_meta("Role Template")
+        field = meta.get_field("default_hourly_rate")
+
+        self.assertIsNotNone(field, "default_hourly_rate field should exist")
+        self.assertIsNotNone(field.depends_on, "Field should have depends_on attribute")
+        self.assertIn(
+            "Company",
+            field.depends_on,
+            "Field visibility should depend on Company org type",
+        )
+
     def test_hourly_rate_cleared_for_non_company(self):
         """T037: Verify hourly rate is cleared for non-Company roles."""
         test_role = None
