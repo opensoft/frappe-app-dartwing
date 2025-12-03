@@ -1,7 +1,7 @@
 # Tasks: Role Template DocType
 
 **Input**: Design documents from `/specs/002-role-template-doctype/`
-**Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/
+**Prerequisites**: plan.md (required), spec.md (required), research.md (optional), data-model.md (optional), contracts/ (optional)
 
 **Tests**: Tests are included as the plan.md indicates "tests required for business logic" per code quality standards.
 
@@ -26,7 +26,7 @@
 **Purpose**: Create DocType directory structure and initialize files
 
 - [x] T001 Create DocType directory at dartwing/dartwing_core/doctype/role_template/
-- [x] T002 [P] Create __init__.py in dartwing/dartwing_core/doctype/role_template/__init__.py
+- [x] T002 [P] Create **init**.py in dartwing/dartwing_core/doctype/role_template/**init**.py
 - [x] T003 [P] Create empty controller file at dartwing/dartwing_core/doctype/role_template/role_template.py
 
 ---
@@ -40,9 +40,9 @@
 - [x] T004 Update Organization DocType org_type options from "Club" to "Association" in dartwing/dartwing_core/doctype/organization/organization.json
 - [x] T005 Create data migration script to update existing "Club" records to "Association" in dartwing/patches/v0_0/update_org_type_club_to_association.py
 - [x] T006 Register migration patch in dartwing/patches.txt
-- [ ] T007 Run migration and verify Organization records updated via bench migrate (deferred to after DocType creation)
+- [ ] T007 Run migration and verify Organization records are updated via bench migrate (deferred: migration requires new DocType to exist before running; must complete before proceeding to user stories)
 
-**Checkpoint**: Organization DocType now uses "Association" - Role Template implementation can proceed
+**Checkpoint**: Organization DocType migration pending—must run T007 after DocType creation, then Role Template implementation can proceed
 
 ---
 
@@ -209,12 +209,14 @@
 ### Parallel Opportunities
 
 **Phase 1 (Setup)**:
+
 ```
 Task: T002 Create __init__.py
 Task: T003 Create empty controller
 ```
 
 **Phase 3 (US1 Tests)**:
+
 ```
 Task: T008 test_fixture_loads_all_roles
 Task: T009 test_family_roles_exist
@@ -224,6 +226,7 @@ Task: T012 test_association_roles_exist
 ```
 
 **Phase 4-6 (US2-4)**: Can run in parallel after US1 completes
+
 ```
 Developer A: User Story 2 (filtering)
 Developer B: User Story 3 (supervisor flags)
@@ -264,17 +267,17 @@ Developer C: User Story 4 (hourly rate)
 
 ## Task Summary
 
-| Phase | Story | Tasks | Parallel Tasks |
-|-------|-------|-------|----------------|
-| 1. Setup | - | 3 | 2 |
-| 2. Foundational | - | 4 | 0 |
-| 3. US1 (P1) | Seeds Role Data | 12 | 5 |
-| 4. US2 (P1) | Filter by Org Type | 8 | 4 |
-| 5. US3 (P2) | Supervisor Hierarchy | 8 | 4 |
-| 6. US4 (P3) | Hourly Rate | 6 | 2 |
-| 7. Edge Cases | - | 10 | 5 |
-| 8. Polish | - | 6 | 3 |
-| **Total** | | **57** | **25** |
+| Phase           | Story                | Tasks  | Parallel Tasks |
+| --------------- | -------------------- | ------ | -------------- |
+| 1. Setup        | -                    | 3      | 2              |
+| 2. Foundational | -                    | 4      | 0              |
+| 3. US1 (P1)     | Seeds Role Data      | 12     | 5              |
+| 4. US2 (P1)     | Filter by Org Type   | 8      | 4              |
+| 5. US3 (P2)     | Supervisor Hierarchy | 8      | 4              |
+| 6. US4 (P3)     | Hourly Rate          | 6      | 2              |
+| 7. Edge Cases   | -                    | 10     | 5              |
+| 8. Polish       | -                    | 6      | 3              |
+| **Total**       |                      | **57** | **25**         |
 
 ---
 

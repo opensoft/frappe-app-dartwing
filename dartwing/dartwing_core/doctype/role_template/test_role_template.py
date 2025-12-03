@@ -196,11 +196,13 @@ class TestRoleTemplate(IntegrationTestCase):
             )
 
     # =========================================================================
-    # User Story 4: Company Roles Include Hourly Rate (T036-T037)
+    # User Story 4: Paid Roles Include Hourly Rate (T036-T037)
+    # Hourly rate visible for Company, Nonprofit, Association; hidden for Family
     # =========================================================================
 
-    def test_hourly_rate_visible_for_company(self):
-        """T036: Verify hourly rate field is accessible on Company roles."""
+    def test_hourly_rate_visible_for_paid_org_types(self):
+        """T036: Verify hourly rate field is accessible on paid org types (Company, Nonprofit, Association)."""
+        # Test Company roles
         company_roles = frappe.get_all(
             "Role Template",
             filters={"applies_to_org_type": "Company"},
@@ -208,27 +210,57 @@ class TestRoleTemplate(IntegrationTestCase):
         )
         self.assertEqual(len(company_roles), 4, "Expected 4 Company roles")
         for role in company_roles:
-            # Field should exist and be accessible (value is 0 by default)
             self.assertIsNotNone(
                 role.default_hourly_rate,
-                f"default_hourly_rate should be accessible for {role.role_name}",
+                f"default_hourly_rate should be accessible for Company role {role.role_name}",
+            )
+
+        # Test Nonprofit roles (Staff can be paid)
+        nonprofit_roles = frappe.get_all(
+            "Role Template",
+            filters={"applies_to_org_type": "Nonprofit"},
+            fields=["role_name", "default_hourly_rate"],
+        )
+        self.assertEqual(len(nonprofit_roles), 3, "Expected 3 Nonprofit roles")
+        for role in nonprofit_roles:
+            self.assertIsNotNone(
+                role.default_hourly_rate,
+                f"default_hourly_rate should be accessible for Nonprofit role {role.role_name}",
+            )
+
+        # Test Association roles (may have paid staff)
+        association_roles = frappe.get_all(
+            "Role Template",
+            filters={"applies_to_org_type": "Association"},
+            fields=["role_name", "default_hourly_rate"],
+        )
+        self.assertEqual(len(association_roles), 3, "Expected 3 Association roles")
+        for role in association_roles:
+            self.assertIsNotNone(
+                role.default_hourly_rate,
+                f"default_hourly_rate should be accessible for Association role {role.role_name}",
             )
 
     def test_hourly_rate_conditional_visibility(self):
-        """T036a: Verify hourly rate field has correct depends_on for Company-only visibility."""
+        """T036a: Verify hourly rate field is hidden for Family roles only."""
         meta = frappe.get_meta("Role Template")
         field = meta.get_field("default_hourly_rate")
 
         self.assertIsNotNone(field, "default_hourly_rate field should exist")
         self.assertIsNotNone(field.depends_on, "Field should have depends_on attribute")
         self.assertIn(
-            "Company",
+            "Family",
             field.depends_on,
-            "Field visibility should depend on Company org type",
+            "Field visibility should exclude Family org type",
+        )
+        self.assertIn(
+            "!=",
+            field.depends_on,
+            "Field should be visible for all org types EXCEPT Family",
         )
 
-    def test_hourly_rate_cleared_for_non_company(self):
-        """T037: Verify hourly rate is cleared for non-Company roles."""
+    def test_hourly_rate_cleared_for_family(self):
+        """T037: Verify hourly rate is cleared for Family roles (non-employment)."""
         test_role = None
         try:
             # Create a test role with hourly rate, then change to Family
@@ -242,7 +274,7 @@ class TestRoleTemplate(IntegrationTestCase):
             )
             test_role.insert()
 
-            # Change to Family type and save
+            # Change to Family type and save - should clear hourly rate
             test_role.applies_to_org_type = "Family"
             test_role.save()
 
@@ -251,7 +283,37 @@ class TestRoleTemplate(IntegrationTestCase):
             self.assertEqual(
                 test_role.default_hourly_rate,
                 0,
-                "Hourly rate should be cleared for non-Company roles",
+                "Hourly rate should be cleared for Family roles",
+            )
+        finally:
+            if test_role and frappe.db.exists("Role Template", test_role.name):
+                test_role.delete()
+
+    def test_hourly_rate_preserved_for_nonprofit(self):
+        """T037a: Verify hourly rate is preserved when changing to Nonprofit (paid staff)."""
+        test_role = None
+        try:
+            # Create a Company role with hourly rate
+            test_role = frappe.get_doc(
+                {
+                    "doctype": "Role Template",
+                    "role_name": "Test Nonprofit Rate Role",
+                    "applies_to_org_type": "Company",
+                    "default_hourly_rate": 35.00,
+                }
+            )
+            test_role.insert()
+
+            # Change to Nonprofit type - should preserve hourly rate
+            test_role.applies_to_org_type = "Nonprofit"
+            test_role.save()
+
+            # Reload and verify hourly rate was NOT cleared
+            test_role.reload()
+            self.assertEqual(
+                test_role.default_hourly_rate,
+                35.00,
+                "Hourly rate should be preserved for Nonprofit roles (paid staff)",
             )
         finally:
             if test_role and frappe.db.exists("Role Template", test_role.name):

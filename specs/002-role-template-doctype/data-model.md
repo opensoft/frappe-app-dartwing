@@ -15,7 +15,7 @@ A system-wide role definition that specifies organization-type-specific roles fo
 | `role_name` | Data | Yes | Yes | Human-readable role identifier |
 | `applies_to_org_type` | Select | Yes | No | Organization type filter (Family, Company, Nonprofit, Association) |
 | `is_supervisor` | Check | No | No | Whether role has supervisory permissions |
-| `default_hourly_rate` | Currency | No | No | Default hourly rate (Company roles only, conditional) |
+| `default_hourly_rate` | Currency | No | No | Default hourly rate (visible for Company, Nonprofit, Association; hidden for Family) |
 
 ### Field Details
 
@@ -37,10 +37,10 @@ A system-wide role definition that specifies organization-type-specific roles fo
 - **Usage**: Future permission system will use this for hierarchy enforcement
 
 #### default_hourly_rate
-- **Visibility**: Only shown when `applies_to_org_type == 'Company'`
+- **Visibility**: Shown for organization types with paid staff (Company, Nonprofit, Association); hidden for Family
 - **Precision**: Currency field with 2 decimal places
 - **Default**: 0.00
-- **Purpose**: Default value for payroll calculations when assigning employees/contractors
+- **Purpose**: Default value for payroll calculations when assigning paid staff (employees, contractors, paid nonprofit staff)
 
 ### Naming Convention
 
@@ -135,7 +135,7 @@ Role Template has no state machine - it is static reference data.
 
 1. `role_name` must be unique (enforced at DB level)
 2. `applies_to_org_type` must be one of: Family, Company, Nonprofit, Association
-3. `default_hourly_rate` should only be set when `applies_to_org_type == 'Company'`
+3. `default_hourly_rate` should be cleared (set to 0) when `applies_to_org_type == 'Family'` (families don't have paid roles)
 
 ### On Delete
 

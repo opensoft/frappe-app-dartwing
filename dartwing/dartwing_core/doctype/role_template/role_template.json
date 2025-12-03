@@ -45,14 +45,14 @@
   },
   {
    "collapsible": 1,
-   "depends_on": "eval:doc.applies_to_org_type=='Company'",
+   "depends_on": "eval:doc.applies_to_org_type!='Family'",
    "fieldname": "section_break_company",
    "fieldtype": "Section Break",
-   "label": "Company Settings"
+   "label": "Employment Settings"
   },
   {
-   "depends_on": "eval:doc.applies_to_org_type=='Company'",
-   "description": "Default hourly rate for this role",
+   "depends_on": "eval:doc.applies_to_org_type!='Family'",
+   "description": "Default hourly rate for paid staff roles",
    "fieldname": "default_hourly_rate",
    "fieldtype": "Currency",
    "label": "Default Hourly Rate"

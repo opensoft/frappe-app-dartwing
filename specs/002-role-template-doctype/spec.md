@@ -71,19 +71,20 @@ As a system, I need to distinguish between supervisor and non-supervisor roles s
 
 ---
 
-### User Story 4 - Company Roles Include Hourly Rate (Priority: P3)
+### User Story 4 - Paid Roles Include Hourly Rate (Priority: P3)
 
-As a company administrator, I want roles to optionally include a default hourly rate so that payroll calculations have sensible defaults when adding employees or contractors.
+As an organization administrator, I want roles to optionally include a default hourly rate so that payroll calculations have sensible defaults when adding paid staff members.
 
-**Why this priority**: This is a conditional enhancement specific to Company org types. The system works without hourly rates but this improves the user experience for employment-related workflows.
+**Why this priority**: This is a conditional enhancement for organizations with paid staff. The system works without hourly rates but this improves the user experience for employment-related workflows.
 
-**Independent Test**: Can be tested by viewing Company roles and verifying hourly rate field is visible, while verifying it's hidden for other org types.
+**Independent Test**: Can be tested by viewing roles for Company, Nonprofit, and Association org types and verifying hourly rate field is visible, while verifying it's hidden for Family org types.
 
 **Acceptance Scenarios**:
 
 1. **Given** a Company role (Employee or Contractor), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable
-2. **Given** a Family role (Parent or Child), **When** viewing the role definition, **Then** the default hourly rate field is hidden
-3. **Given** a nonprofit role (Staff), **When** viewing the role definition, **Then** the default hourly rate field is hidden
+2. **Given** a Nonprofit role (Staff), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable (paid staff)
+3. **Given** an Association role (any), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable (associations may have paid staff)
+4. **Given** a Family role (Parent or Child), **When** viewing the role definition, **Then** the default hourly rate field is hidden (family relationships are not employment)
 
 ---
 
@@ -102,7 +103,7 @@ As a company administrator, I want roles to optionally include a default hourly 
 - **FR-002**: System MUST enforce uniqueness on the role_name field to prevent duplicate role definitions
 - **FR-003**: System MUST support four organization types for role filtering: Family, Company, Nonprofit, and Association
 - **FR-004**: System MUST include a boolean is_supervisor flag on each role to indicate supervisory capabilities
-- **FR-005**: System MUST conditionally display the default_hourly_rate field only when applies_to_org_type is Company
+- **FR-005**: System MUST conditionally display the default_hourly_rate field for organization types with potential paid staff (Company, Nonprofit, Association) and hide it for Family roles
 - **FR-006**: System MUST include seed data fixtures for all predefined roles across all organization types
 - **FR-007**: System MUST filter role options in Org Member forms based on the parent organization's org_type
 - **FR-008**: System MUST prevent deletion of Role Templates that are currently referenced by Org Member records
@@ -118,7 +119,7 @@ As a company administrator, I want roles to optionally include a default hourly 
 
 ### Key Entities
 
-- **Role Template**: A system-wide role definition that specifies: role_name (unique identifier), applies_to_org_type (which organization types can use this role), is_supervisor (whether this role has supervisory permissions), and default_hourly_rate (optional, for Company roles only)
+- **Role Template**: A system-wide role definition that specifies: role_name (unique identifier), applies_to_org_type (which organization types can use this role), is_supervisor (whether this role has supervisory permissions), and default_hourly_rate (optional, for paid roles in Company, Nonprofit, and Association organizations)
 - **Organization Type**: An enumeration of valid organization types (Family, Company, Nonprofit, Association) that determines which Role Templates are applicable. Note: Association is the parent type with subtypes including Club, HOA (Home Owners Association), and others. All Association subtypes share the same Role Templates.
 
 ## Success Criteria *(mandatory)*
@@ -129,7 +130,7 @@ As a company administrator, I want roles to optionally include a default hourly 
 - **SC-002**: Role filtering by org_type reduces irrelevant options by 75%+ (showing only 3-4 roles instead of all 14 total)
 - **SC-003**: Administrators can assign a role to a new member in under 5 seconds (measured from dropdown open to selection confirmation)
 - **SC-004**: System prevents 100% of attempts to delete in-use Role Templates
-- **SC-005**: Conditional field visibility (hourly_rate) works correctly for 100% of role views based on org_type
+- **SC-005**: Conditional field visibility (hourly_rate) works correctly for 100% of role views: visible for Company/Nonprofit/Association, hidden for Family
 - **SC-006**: Role Template data loads and displays in under 500ms (server response time, excluding network latency)
 
 ## Assumptions
@@ -137,6 +138,6 @@ As a company administrator, I want roles to optionally include a default hourly 
 - Role Templates are system-wide and not customizable per organization (organizations select from predefined roles)
 - The Organization DocType already exists with an org_type field containing the valid organization types
 - The Org Member DocType (Feature 3) will consume Role Templates via a Link field
-- Staff role in Nonprofit is non-supervisor (paid staff without board oversight responsibilities)
+- Staff role in Nonprofit is non-supervisor (paid staff without board oversight responsibilities); hourly rate field is available for Staff since they are compensated employees
 - "Association" is the canonical organization type; Club and HOA are subtypes of Association (PRD update required to reflect this hierarchy)
 - Seed data will be installed during app installation or via fixtures

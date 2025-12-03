@@ -113,7 +113,7 @@ dartwing/
 | Decision | Chosen Approach | Alternative Rejected | Rationale |
 |----------|-----------------|---------------------|-----------|
 | Role naming | Unique across all org types | Unique per org_type | Simpler queries, clearer admin experience, prevents confusion |
-| Hourly rate field | Conditional via `depends_on` | Separate Company-only DocType | Keeps single DocType; standard Frappe pattern |
+| Hourly rate field | Conditional via `depends_on` | Separate DocType per org type | Keeps single DocType; shows for Company/Nonprofit/Association, hidden for Family |
 | Supervisor flag | Simple boolean | Permission level integer | Boolean covers known use cases; can extend later |
 | Fixture format | JSON in dartwing/fixtures | Python fixtures or migration | Standard Frappe approach, automatic loading |
 

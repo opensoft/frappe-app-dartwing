@@ -18,8 +18,8 @@ class RoleTemplate(Document):
         self.validate_hourly_rate()
 
     def validate_hourly_rate(self):
-        """Clear hourly rate if not a Company role."""
-        if self.applies_to_org_type != "Company":
+        """Clear hourly rate for Family roles (non-employment relationships)."""
+        if self.applies_to_org_type == "Family":
             self.default_hourly_rate = 0
 
     def on_trash(self):
@@ -57,7 +57,13 @@ def get_roles_for_org_type(org_type: str) -> list:
     return frappe.get_all(
         "Role Template",
         filters={"applies_to_org_type": org_type},
-        fields=["name", "role_name", "applies_to_org_type", "is_supervisor", "default_hourly_rate"],
+        fields=[
+            "name",
+            "role_name",
+            "applies_to_org_type",
+            "is_supervisor",
+            "default_hourly_rate",
+        ],
         order_by="role_name asc",
     )
 
