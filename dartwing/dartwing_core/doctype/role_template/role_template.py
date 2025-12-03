@@ -18,9 +18,18 @@ class RoleTemplate(Document):
         self.validate_hourly_rate()
 
     def validate_hourly_rate(self):
-        """Clear hourly rate for Family roles (non-employment relationships)."""
+        """Validate hourly rate field.
+
+        - Clears hourly rate for Family roles (non-employment relationships)
+        - Rejects negative hourly rates for all other org types
+        """
         if self.applies_to_org_type == "Family":
             self.default_hourly_rate = 0
+        elif self.default_hourly_rate and self.default_hourly_rate < 0:
+            frappe.throw(
+                "Hourly rate cannot be negative.",
+                frappe.ValidationError,
+            )
 
     def on_trash(self):
         """Prevent deletion if role is in use by Org Members."""

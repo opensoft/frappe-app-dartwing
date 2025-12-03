@@ -319,6 +319,18 @@ class TestRoleTemplate(IntegrationTestCase):
             if test_role and frappe.db.exists("Role Template", test_role.name):
                 test_role.delete()
 
+    def test_negative_hourly_rate_rejected(self):
+        """T037b: Verify negative hourly rates are rejected."""
+        with self.assertRaises(frappe.ValidationError):
+            frappe.get_doc(
+                {
+                    "doctype": "Role Template",
+                    "role_name": "Test Negative Rate Role",
+                    "applies_to_org_type": "Company",
+                    "default_hourly_rate": -25.00,
+                }
+            ).insert()
+
     # =========================================================================
     # Phase 7: Edge Cases & Deletion Prevention (T042-T044b)
     # =========================================================================
