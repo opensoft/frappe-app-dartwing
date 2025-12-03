@@ -77,6 +77,15 @@ def is_supervisor_role(role_name: str) -> bool:
 
     Returns:
         True if the role is a supervisor role, False otherwise
+
+    Raises:
+        frappe.ValidationError: If the role_name does not exist
     """
-    role = frappe.get_doc("Role Template", role_name)
-    return bool(role.is_supervisor)
+    try:
+        role = frappe.get_doc("Role Template", role_name)
+        return bool(role.is_supervisor)
+    except frappe.DoesNotExistError:
+        frappe.throw(
+            f"Role Template '{role_name}' does not exist.",
+            frappe.ValidationError,
+        )
