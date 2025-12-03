@@ -15,12 +15,14 @@ from frappe.utils import now
 # Import database-specific exceptions for proper error classification
 try:
     import pymysql.err as db_errors
+
     HAS_PYMYSQL = True
 except ImportError:
     HAS_PYMYSQL = False
 
 try:
     import redis.exceptions as redis_errors
+
     HAS_REDIS = True
 except ImportError:
     HAS_REDIS = False
@@ -46,12 +48,15 @@ class NonRetryableError(Exception):
 def is_retryable_error(exception: Exception) -> bool:
     """Determine if an exception represents a transient, retryable error.
 
-    Classifies the following specific exception types as retryable:
-    - pymysql: OperationalError (connection issues, server gone away),
-               InterfaceError (protocol errors)
-    - redis: ConnectionError, TimeoutError
-    - Frappe: QueryTimeoutError
+    Retryable errors are typically transient issues that may succeed if retried,
+    such as network interruptions, temporary database outages, or server timeouts.
+    Non-retryable errors are permanent failures (e.g., validation errors, missing data)
+    that will not succeed on retry and should be surfaced immediately.
 
+    The following exception types are classified as retryable:
+        - pymysql: OperationalError, InterfaceError
+        - redis: ConnectionError, TimeoutError
+        - Frappe: QueryTimeoutError
     All other exceptions are considered non-retryable to avoid wasting
     retries on permanent errors (validation failures, bad data, etc.).
 
@@ -64,12 +69,16 @@ def is_retryable_error(exception: Exception) -> bool:
     # Check for database connection errors
     if HAS_PYMYSQL:
         # OperationalError: connection issues, server gone away, etc.
-        if isinstance(exception, (db_errors.OperationalError, db_errors.InterfaceError)):
+        if isinstance(
+            exception, (db_errors.OperationalError, db_errors.InterfaceError)
+        ):
             return True
 
     # Check for Redis connection errors
     if HAS_REDIS:
-        if isinstance(exception, (redis_errors.ConnectionError, redis_errors.TimeoutError)):
+        if isinstance(
+            exception, (redis_errors.ConnectionError, redis_errors.TimeoutError)
+        ):
             return True
 
     # Check for Frappe-specific transient errors
@@ -211,8 +220,8 @@ def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
         NonRetryableError: For validation errors, duplicate entries
         RetryableError: For connection/service errors
     """
-    # Check if user already exists with this email
-    if frappe.db.exists("User", {"email": person.primary_email}):
+    # Try to get existing user first (avoids race condition)
+    try:
         existing_user = frappe.get_doc("User", {"email": person.primary_email})
 
         # Ensure the user has the required 'Dartwing User' role
@@ -230,6 +239,11 @@ def create_frappe_user(person) -> "frappe.core.doctype.user.user.User":
 
         return existing_user
 
+    except frappe.DoesNotExistError:
+        # User doesn't exist, proceed to create new one
+        pass
+
+    # Create new user
     try:
         user = frappe.get_doc(
             {

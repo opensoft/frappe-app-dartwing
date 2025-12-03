@@ -1,9 +1,13 @@
 # Copyright (c) 2025, Opensoft and contributors
 # For license information, please see license.txt
 
+import functools
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
+
+from dartwing.utils.person_utils import is_self_modification_attempt
 
 try:
     import phonenumbers
@@ -13,24 +17,18 @@ try:
 except ImportError:
     HAS_PHONENUMBERS = False
 
-# Module-level cache for Org Member DocType existence
-# Avoids repeated database queries on every Person deletion
-_org_member_doctype_exists_cache = None
 
-
+@functools.lru_cache(maxsize=1)
 def _has_org_member_doctype() -> bool:
-    """Check if Org Member DocType exists (cached).
+    """Check if Org Member DocType exists (cached, thread-safe).
 
-    Caches the result at module level to avoid repeated database queries.
+    Uses LRU cache for thread-safe caching to avoid repeated database queries.
     DocType existence is unlikely to change during runtime.
 
     Returns:
         bool: True if Org Member DocType exists, False otherwise
     """
-    global _org_member_doctype_exists_cache
-    if _org_member_doctype_exists_cache is None:
-        _org_member_doctype_exists_cache = frappe.db.exists("DocType", "Org Member")
-    return bool(_org_member_doctype_exists_cache)
+    return bool(frappe.db.exists("DocType", "Org Member"))
 
 
 class Person(Document):
@@ -193,11 +191,7 @@ class Person(Document):
             # Exception 1: Check if this is a consent capture operation
             if self.has_value_changed("consent_captured") and self.consent_captured:
                 # Authentication check: Only allow if current user is NOT the minor
-                if (
-                    hasattr(self, "frappe_user")
-                    and self.frappe_user is not None
-                    and frappe.session.user == self.frappe_user
-                ):
+                if is_self_modification_attempt(self):
                     frappe.throw(
                         _(
                             "Minors cannot capture their own consent. Only an authorized parent or guardian may perform this operation."
@@ -206,7 +200,9 @@ class Person(Document):
                     )
                 # Validate that ONLY consent-related fields are being modified
                 allowed_consent_fields = {"consent_captured", "consent_timestamp"}
-                unauthorized_changes = changed_fields_without_audit - allowed_consent_fields
+                unauthorized_changes = (
+                    changed_fields_without_audit - allowed_consent_fields
+                )
                 if unauthorized_changes:
                     frappe.throw(
                         _(
@@ -225,7 +221,9 @@ class Person(Document):
                 "last_sync_at",
                 "sync_error_message",
             }
-            if changed_fields_without_audit and changed_fields_without_audit.issubset(allowed_sync_fields):
+            if changed_fields_without_audit and changed_fields_without_audit.issubset(
+                allowed_sync_fields
+            ):
                 # This is a system sync operation - allow it
                 return
 

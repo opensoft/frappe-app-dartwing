@@ -13,6 +13,7 @@ from frappe import _
 from frappe.utils import now
 
 from dartwing.dartwing_core.doctype.person.person import _has_org_member_doctype
+from dartwing.utils.person_utils import is_self_modification_attempt
 
 # Note: Using cached DocType existence checks for performance.
 # The doctype_table_exists() utility is for low-level table existence checks.
@@ -67,7 +68,7 @@ def capture_consent(person_name: str) -> dict:
 
     # Guardian/role gate: Enforce that only authorized users can capture consent
     # 1. Block self-capture: Minor cannot consent themselves
-    if person.frappe_user and frappe.session.user == person.frappe_user:
+    if is_self_modification_attempt(person):
         frappe.throw(
             _(
                 "Minors cannot capture their own consent. "
@@ -79,15 +80,25 @@ def capture_consent(person_name: str) -> dict:
     # 2. Role gate: User must have an authorized role for consent capture
     # Read allowed roles from Settings (defaults to System Manager if not configured)
     try:
-        allowed_roles_config = frappe.db.get_single_value("Settings", "consent_capture_roles")
+        allowed_roles_config = frappe.db.get_single_value(
+            "Settings", "consent_capture_roles"
+        )
         if allowed_roles_config:
             # Parse comma-separated roles and strip whitespace
-            authorized_roles = {role.strip() for role in allowed_roles_config.split(",") if role.strip()}
+            authorized_roles = {
+                role.strip() for role in allowed_roles_config.split(",") if role.strip()
+            }
         else:
             # Default to System Manager only if Settings field is empty
             authorized_roles = {"System Manager"}
-    except Exception:
-        # Field doesn't exist yet - default to System Manager only
+    except Exception as e:
+        # Log the error for diagnostics, then default to System Manager
+        frappe.log_error(
+            title="Consent Capture Configuration Error",
+            message=f"Failed to read consent_capture_roles from Settings: {e}\n\n"
+            f"Defaulting to System Manager only. To configure custom roles, "
+            f"add the 'consent_capture_roles' field to Settings DocType or run 'bench migrate'.",
+        )
         authorized_roles = {"System Manager"}
 
     # System Manager is always allowed (security fallback)
@@ -273,7 +284,9 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
 
     if target.status == "Merged":
         frappe.throw(
-            _("Target Person {0} has already been merged. Cannot merge into a merged Person.").format(target_person),
+            _(
+                "Target Person {0} has already been merged. Cannot merge into a merged Person."
+            ).format(target_person),
             frappe.ValidationError,
         )
 
@@ -290,7 +303,6 @@ def merge_persons(source_person: str, target_person: str, notes: str = None) -> 
                 values={"person": target_person},
             )
             org_members_transferred = len(org_members)
-
     # Create merge log entry on target
     # ignore_permissions=True is necessary here because:
     # 1. We've already verified write permission on both source and target above

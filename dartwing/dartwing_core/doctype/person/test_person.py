@@ -565,18 +565,20 @@ class TestPerson(FrappeTestCase):
         person_name = person.name
 
         # Mock the cache to simulate Org Member DocType not existing
-        from dartwing.dartwing_core.doctype.person import person as person_module
-        original_cache = person_module._org_member_doctype_exists_cache
-        try:
-            person_module._org_member_doctype_exists_cache = False
+        from dartwing.dartwing_core.doctype.person.person import _has_org_member_doctype
 
-            # Delete should succeed without errors
+        # Clear the lru_cache and mock _has_org_member_doctype directly
+        _has_org_member_doctype.cache_clear()
+
+        with patch("dartwing.dartwing_core.doctype.person.person._has_org_member_doctype", return_value=False):
+            # Delete should succeed without errors (no Org Member check)
             person.delete()
-            self.assertFalse(frappe.db.exists("Person", person_name))
 
-        finally:
-            # Restore original cache state
-            person_module._org_member_doctype_exists_cache = original_cache
+        # Clear cache again to restore normal state
+        _has_org_member_doctype.cache_clear()
+
+        # Verify Person was deleted
+        self.assertFalse(frappe.db.exists("Person", person_name))
 
     # =========================================================================
     # User Story 4: Merge Duplicate Persons - Tests (T030-T031)

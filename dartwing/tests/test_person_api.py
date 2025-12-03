@@ -130,6 +130,94 @@ class TestPersonAPI(FrappeTestCase):
                 person_name=person.name
             )
 
+    def test_capture_consent_self_capture_denied_integration(self):
+        """Integration test: Verify minors cannot capture their own consent (full flow without mocks)."""
+        # Create a real user with System Manager role
+        test_user = frappe.get_doc({
+            "doctype": "User",
+            "email": "integration.minor@api-test.example.com",
+            "first_name": "Integration",
+            "last_name": "Minor",
+            "enabled": 1,
+            "user_type": "System User",
+            "roles": [{"role": "System Manager"}]  # Ensure authorized role
+        })
+        test_user.flags.ignore_permissions = True
+        test_user.insert()
+
+        try:
+            # Create a minor linked to this user
+            person = self._create_test_person(
+                "integration-minor",
+                is_minor=1,
+                consent_captured=0,
+                frappe_user=test_user.name
+            )
+
+            # Switch to the minor's user session
+            original_user = frappe.session.user
+            try:
+                frappe.set_user(test_user.name)
+
+                # Attempt to capture own consent - should fail with PermissionError
+                with self.assertRaises(frappe.PermissionError) as context:
+                    frappe.call(
+                        "dartwing.api.person.capture_consent",
+                        person_name=person.name
+                    )
+
+                self.assertIn("Minors cannot capture their own consent", str(context.exception))
+
+            finally:
+                frappe.set_user(original_user)
+                frappe.delete_doc("Person", person.name, force=True)
+
+        finally:
+            frappe.delete_doc("User", test_user.name, force=True)
+
+    def test_capture_consent_permission_denied_integration(self):
+        """Integration test: Verify users without write permission cannot capture consent."""
+        # Create a user with only basic Website User role (no write permission on Person)
+        test_user = frappe.get_doc({
+            "doctype": "User",
+            "email": "unauthorized.user@api-test.example.com",
+            "first_name": "Unauthorized",
+            "last_name": "User",
+            "enabled": 1,
+            "user_type": "Website User",
+            "roles": [{"role": "Guest"}]  # No write permission on Person
+        })
+        test_user.flags.ignore_permissions = True
+        test_user.insert()
+
+        try:
+            # Create a minor (not linked to test_user)
+            person = self._create_test_person(
+                "permission-denied-minor",
+                is_minor=1,
+                consent_captured=0
+            )
+
+            # Switch to the unauthorized user
+            original_user = frappe.session.user
+            try:
+                frappe.set_user(test_user.name)
+
+                # Attempt to capture consent - should fail with PermissionError
+                # due to lack of write permission on Person document
+                with self.assertRaises(frappe.PermissionError):
+                    frappe.call(
+                        "dartwing.api.person.capture_consent",
+                        person_name=person.name
+                    )
+
+            finally:
+                frappe.set_user(original_user)
+                frappe.delete_doc("Person", person.name, force=True)
+
+        finally:
+            frappe.delete_doc("User", test_user.name, force=True)
+
     # =========================================================================
     # get_sync_status API Tests
     # =========================================================================
