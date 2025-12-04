@@ -25,7 +25,7 @@ class RoleTemplate(Document):
         """
         if self.applies_to_org_type == "Family":
             self.default_hourly_rate = 0
-        elif self.default_hourly_rate and self.default_hourly_rate < 0:
+        elif self.default_hourly_rate is not None and self.default_hourly_rate < 0:
             frappe.throw(
                 "Hourly rate cannot be negative.",
                 frappe.ValidationError,
@@ -50,6 +50,9 @@ class RoleTemplate(Document):
             )
 
 
+VALID_ORG_TYPES = {"Family", "Company", "Nonprofit", "Association"}
+
+
 @frappe.whitelist()
 def get_roles_for_org_type(org_type: str) -> list:
     """Get all Role Templates for a specific organization type.
@@ -62,7 +65,17 @@ def get_roles_for_org_type(org_type: str) -> list:
 
     Returns:
         List of Role Template documents matching the org_type
+
+    Raises:
+        frappe.ValidationError: If org_type is not a valid organization type
     """
+    if org_type not in VALID_ORG_TYPES:
+        frappe.throw(
+            f"Invalid organization type '{org_type}'. "
+            f"Must be one of: {', '.join(sorted(VALID_ORG_TYPES))}",
+            frappe.ValidationError,
+        )
+
     return frappe.get_all(
         "Role Template",
         filters={"applies_to_org_type": org_type},
