@@ -55,36 +55,42 @@
     "doctype": "Role Template",
     "role_name": "Board Member",
     "applies_to_org_type": "Nonprofit",
-    "is_supervisor": 1
+    "is_supervisor": 1,
+    "default_hourly_rate": 0
   },
   {
     "doctype": "Role Template",
     "role_name": "Volunteer",
     "applies_to_org_type": "Nonprofit",
-    "is_supervisor": 0
+    "is_supervisor": 0,
+    "default_hourly_rate": 0
   },
   {
     "doctype": "Role Template",
     "role_name": "Staff",
     "applies_to_org_type": "Nonprofit",
-    "is_supervisor": 0
+    "is_supervisor": 0,
+    "default_hourly_rate": 0
   },
   {
     "doctype": "Role Template",
     "role_name": "President",
     "applies_to_org_type": "Association",
-    "is_supervisor": 1
+    "is_supervisor": 1,
+    "default_hourly_rate": 0
   },
   {
     "doctype": "Role Template",
     "role_name": "Member",
     "applies_to_org_type": "Association",
-    "is_supervisor": 0
+    "is_supervisor": 0,
+    "default_hourly_rate": 0
   },
   {
     "doctype": "Role Template",
     "role_name": "Honorary",
     "applies_to_org_type": "Association",
-    "is_supervisor": 0
+    "is_supervisor": 0,
+    "default_hourly_rate": 0
   }
 ]
