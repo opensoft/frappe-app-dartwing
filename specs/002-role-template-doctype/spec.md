@@ -18,7 +18,7 @@ Role Templates are system-wide definitions (not per-organization) that categoriz
 - Q: What is the canonical name for the "Club/Association" organization type? → A: "Association" is the canonical org type. Club is a subtype of Association (along with HOA, etc.). PRD needs update to show Association has multiple subtypes.
 - Q: Should Association subtypes (Club, HOA) have their own role sets or share roles? → A: All Association subtypes share the same Role Templates (President, Member, Honorary).
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - System Administrator Seeds Role Data (Priority: P1)
 
@@ -71,13 +71,13 @@ As a system, I need to distinguish between supervisor and non-supervisor roles s
 
 ---
 
-### User Story 4 - Paid Roles Include Hourly Rate (Priority: P3)
+### User Story 4 - Paid Organization Roles Include Hourly Rate (Priority: P3)
 
 As an organization administrator, I want roles to optionally include a default hourly rate so that payroll calculations have sensible defaults when adding paid staff members.
 
 **Why this priority**: This is a conditional enhancement for organizations with paid staff. The system works without hourly rates but this improves the user experience for employment-related workflows.
 
-**Independent Test**: Can be tested by viewing roles for Company, Nonprofit, and Association org types and verifying hourly rate field is visible, while verifying it's hidden for Family org types.
+**Independent Test**: Can be tested by viewing roles for any non-Family org type and verifying hourly rate field is visible, while verifying it's hidden for Family org types (which represent unpaid family relationships).
 
 **Acceptance Scenarios**:
 
@@ -95,7 +95,7 @@ As an organization administrator, I want roles to optionally include a default h
 - What happens when a Role Template is deleted while Org Members reference it? System must prevent deletion of in-use roles.
 - What if a user tries to create a role without specifying organization type? System must require org_type as mandatory.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -103,7 +103,7 @@ As an organization administrator, I want roles to optionally include a default h
 - **FR-002**: System MUST enforce uniqueness on the role_name field to prevent duplicate role definitions
 - **FR-003**: System MUST support four organization types for role filtering: Family, Company, Nonprofit, and Association
 - **FR-004**: System MUST include a boolean is_supervisor flag on each role to indicate supervisory capabilities
-- **FR-005**: System MUST conditionally display the default_hourly_rate field for organization types with potential paid staff (Company, Nonprofit, Association) and hide it for Family roles
+- **FR-005**: System MUST conditionally display the default_hourly_rate field for all organization types except Family (which represents unpaid family relationships)
 - **FR-006**: System MUST include seed data fixtures for all predefined roles across all organization types
 - **FR-007**: System MUST filter role options in Org Member forms based on the parent organization's org_type
 - **FR-008**: System MUST prevent deletion of Role Templates that are currently referenced by Org Member records
@@ -122,7 +122,7 @@ As an organization administrator, I want roles to optionally include a default h
 - **Role Template**: A system-wide role definition that specifies: role_name (unique identifier), applies_to_org_type (which organization types can use this role), is_supervisor (whether this role has supervisory permissions), and default_hourly_rate (optional, for paid roles in Company, Nonprofit, and Association organizations)
 - **Organization Type**: An enumeration of valid organization types (Family, Company, Nonprofit, Association) that determines which Role Templates are applicable. Note: Association is the parent type with subtypes including Club, HOA (Home Owners Association), and others. All Association subtypes share the same Role Templates.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -130,7 +130,7 @@ As an organization administrator, I want roles to optionally include a default h
 - **SC-002**: Role filtering by org_type reduces irrelevant options by 75%+ (showing only 3-4 roles instead of all 14 total)
 - **SC-003**: Administrators can assign a role to a new member in under 5 seconds (measured from dropdown open to selection confirmation)
 - **SC-004**: System prevents 100% of attempts to delete in-use Role Templates
-- **SC-005**: Conditional field visibility (hourly_rate) works correctly for 100% of role views: visible for Company/Nonprofit/Association, hidden for Family
+- **SC-005**: Conditional field visibility (hourly_rate) works correctly for 100% of role views: visible for all non-Family org types, hidden for Family
 - **SC-006**: Role Template data loads and displays in under 500ms (server response time, excluding network latency)
 
 ## Assumptions
