@@ -73,7 +73,7 @@ As a system, I need to distinguish between supervisor and non-supervisor roles s
 
 ### User Story 4 - Paid Organization Roles Include Hourly Rate (Priority: P3)
 
-As an organization administrator, I want roles to optionally include a default hourly rate so that payroll calculations have sensible defaults when adding paid staff members.
+As an organization administrator, I want roles to include a default hourly rate field for paid organization types (Company, Nonprofit, Association), so that payroll calculations have sensible defaults when adding paid staff members. The hourly rate field should be hidden for Family organization types, which represent unpaid relationships.
 
 **Why this priority**: This is a conditional enhancement for organizations with paid staff. The system works without hourly rates but this improves the user experience for employment-related workflows.
 

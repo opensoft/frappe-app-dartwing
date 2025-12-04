@@ -1,7 +1,7 @@
 # Dartwing Associations Module
 
 **HOA, Country Clubs, Alumni Groups, Professional Societies & Every Membership Organization**  
-2026–2027 Feature Set – Built on the unified `Organization` core (`org_type = Club/Association`)
+2026–2027 Feature Set – Built on the unified `Organization` core (`org_type = Association`)
 
 | Feature                                | HOA / Condo Association Example                                                          | Country Club / Yacht Club Example                                     | Alumni Association / Professional Society Example                  | Implementation Notes (Frappe + DartwingFone)                                                  |
 | -------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@
 - **Capital Improvement Voting** – multi-million-dollar projects with quorum + 67 % approval
 - **State-Law Compliance Packs** – pre-loaded rules for Florida, California, Texas, Nevada, etc.
 
-All of the above lives in the **Dartwing Associations** module — activated the moment an `Organization` is created with `org_type = Club/Association`.  
+All of the above lives in the **Dartwing Associations** module — activated the moment an `Organization` is created with `org_type = Association`.  
 Same DartwingFone mobile app. Same AI engine. Same global `Person` records. Zero data silos.
 
 This module alone replaces every legacy HOA software (AppFolio Community, Buildium, TOPS, Vantaca, etc.) and every country-club system (Jonas, Clubessential, Northstar) — at 1/5th the price and with a 10× better mobile experience.

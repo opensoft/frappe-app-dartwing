@@ -249,14 +249,9 @@ class TestRoleTemplate(IntegrationTestCase):
         self.assertIsNotNone(field, "default_hourly_rate field should exist")
         self.assertIsNotNone(field.depends_on, "Field should have depends_on attribute")
         self.assertIn(
-            "Family",
+            "eval:applies_to_org_type!='Family'",
             field.depends_on,
-            "Field visibility should exclude Family org type",
-        )
-        self.assertIn(
-            "!=",
-            field.depends_on,
-            "Field should be visible for all org types EXCEPT Family",
+            "Field should be hidden for Family org type (depends_on should be \"eval:applies_to_org_type!='Family'\")",
         )
 
     def test_hourly_rate_cleared_for_family(self):

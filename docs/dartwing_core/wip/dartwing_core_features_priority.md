@@ -73,7 +73,7 @@
 **Required Fields:**
 ```
 - role_name (Data, reqd, unique)
-- applies_to_org_type (Select: Family/Company/Nonprofit/Club)
+- applies_to_org_type (Select: Family/Company/Nonprofit/Association)
 - is_supervisor (Check)
 - default_hourly_rate (Currency, depends_on Company)
 ```
@@ -83,7 +83,7 @@
 Family: Parent, Child, Guardian, Extended Family
 Company: Owner, Manager, Employee, Contractor
 Nonprofit: Board Member, Volunteer, Staff
-Club: President, Member, Honorary
+Association: President, Member, Honorary
 ```
 
 **Acceptance Criteria:**

@@ -153,14 +153,14 @@ The framework consists of these primary components:
 Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while maintaining the benefits of a unified `Organization` entity.
 
 1.  **Organization (Thin Reference):** A lightweight shell that holds shared identity (Name, Logo, Status) and acts as the target for all foreign keys (Invoices, Tasks, Notes).
-2.  **Concrete Types:** Separate 1:1 linked doctypes (`Family`, `Company`, `Club`, `Nonprofit`) that hold domain-specific data and validation logic.
+2.  **Concrete Types:** Separate 1:1 linked doctypes (`Family`, `Company`, `Association`, `Nonprofit`) that hold domain-specific data and validation logic.
 
 | Doctype          | Role                    | Fields                                                      |
 | :--------------- | :---------------------- | :---------------------------------------------------------- |
 | **Organization** | Polymorphic Identity    | `name`, `org_type`, `logo`, `linked_doctype`, `linked_name` |
 | **Family**       | Concrete Implementation | `nickname`, `residence`, `parental_controls`                |
 | **Company**      | Concrete Implementation | `tax_id`, `entity_type`, `jurisdiction`                     |
-| **Club**         | Concrete Implementation | `membership_tiers`, `dues`, `amenities`                     |
+| **Association**  | Concrete Implementation | `association_type`, `membership_tiers`, `dues`, `amenities` |
 | **Nonprofit**    | Concrete Implementation | `tax_exempt_status`, `board_members`, `mission`             |
 
 ```
@@ -173,13 +173,13 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
                             │ 1:1 Link (maintained by hooks)
           ┌─────────────────┼─────────────────┬─────────────────┐
           ▼                 ▼                 ▼                 ▼
-     ┌─────────┐      ┌──────────┐      ┌─────────┐      ┌───────────┐
-     │ Family  │      │ Company  │      │  Club   │      │ Nonprofit │
-     ├─────────┤      ├──────────┤      ├─────────┤      ├───────────┤
-     │nickname │      │ tax_id   │      │ tiers[] │      │ 501c_type │
-     │residence│      │ officers │      │ dues    │      │ board[]   │
-     │         │      │ partners │      │         │      │ mission   │
-     └─────────┘      └──────────┘      └─────────┘      └───────────┘
+     ┌─────────┐      ┌──────────┐      ┌───────────┐    ┌───────────┐
+     │ Family  │      │ Company  │      │Association│    │ Nonprofit │
+     ├─────────┤      ├──────────┤      ├───────────┤    ├───────────┤
+     │nickname │      │ tax_id   │      │assoc_type │    │ 501c_type │
+     │residence│      │ officers │      │ tiers[]   │    │ board[]   │
+     │         │      │ partners │      │ dues      │    │ mission   │
+     └─────────┘      └──────────┘      └───────────┘    └───────────┘
 ```
 
 ### 3.2 Implementation Pattern (Bidirectional Linking)
@@ -219,7 +219,7 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
       "fieldtype": "Select",
       "reqd": 1,
       "set_only_once": 1,
-      "options": "Family\nCompany\nNonprofit\nClub/Association"
+      "options": "Family\nCompany\nNonprofit\nAssociation"
     },
     { "fieldname": "logo", "label": "Logo", "fieldtype": "Attach Image" },
     {
@@ -413,13 +413,13 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
 }
 ```
 
-#### Club (Concrete)
+#### Association (Concrete)
 
 ```json
 {
-  "doctype": "Club",
+  "doctype": "Association",
   "module": "Dartwing Associations",
-  "autoname": "CLB-.#####",
+  "autoname": "ASSOC-.#####",
   "permissions": [
     {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
     {"role": "Dartwing User", "read": 1, "write": 1, "if_owner": 0}
@@ -433,6 +433,14 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
       "options": "Organization",
       "reqd": 1,
       "read_only": 1
+    },
+    {
+      "fieldname": "association_type",
+      "label": "Association Type",
+      "fieldtype": "Select",
+      "reqd": 1,
+      "options": "Club\nHOA\nAlumni Association\nProfessional Society\nTrade Association\nOther",
+      "description": "Determines which features and workflows are available"
     },
     {
       "fieldname": "section_membership",
@@ -461,8 +469,8 @@ To ensure data integrity, we use Frappe server-side hooks to maintain the relati
       "fieldtype": "Small Text"
     },
     {
-      "fieldname": "clubhouse_address",
-      "label": "Clubhouse Address",
+      "fieldname": "facility_address",
+      "label": "Primary Facility Address",
       "fieldtype": "Link",
       "options": "Address"
     }
@@ -669,7 +677,7 @@ ORG_TYPE_MAP = {
     "Family": "Family",
     "Company": "Company",
     "Nonprofit": "Nonprofit",
-    "Club/Association": "Club"
+    "Association": "Association"
 }
 
 class Organization(Document):
@@ -760,7 +768,7 @@ import frappe
 class OrganizationMixin:
     """
     Shared functionality for all concrete organization types.
-    Inherit this in Family, Company, Club, Nonprofit controllers.
+    Inherit this in Family, Company, Association, Nonprofit controllers.
     """
 
     @property
@@ -829,7 +837,7 @@ class Family(Document, OrganizationMixin):
       "label": "Applies To",
       "fieldtype": "Select",
       "reqd": 1,
-      "options": "Family\nCompany\nNonprofit\nClub/Association"
+      "options": "Family\nCompany\nNonprofit\nAssociation"
     },
     {
       "fieldname": "is_supervisor",
@@ -1257,7 +1265,7 @@ The hybrid Organization model requires careful permission handling to ensure use
 
 **Permission Flow:**
 ```
-User → Org Member → Organization → Concrete Type (Family/Company/Club/Nonprofit)
+User → Org Member → Organization → Concrete Type (Family/Company/Association/Nonprofit)
 ```
 
 **Implementation:**
@@ -1281,7 +1289,7 @@ def on_org_member_insert(doc, method):
 Each concrete type inherits access via its `organization` Link field. Add this permission rule to each concrete doctype:
 
 ```json
-// In Family, Company, Club, Nonprofit doctype JSON
+// In Family, Company, Association, Nonprofit doctype JSON
 "permissions": [
     {
         "role": "System Manager",
@@ -1368,7 +1376,7 @@ permission_query_conditions = {
     "Organization": "dartwing_core.permissions.get_permission_query_conditions",
     "Family": "dartwing_family.permissions.get_permission_query_conditions_family",
     "Company": "dartwing_company.permissions.get_permission_query_conditions_company",
-    "Club": "dartwing_associations.permissions.get_permission_query_conditions_club",
+    "Association": "dartwing_associations.permissions.get_permission_query_conditions_association",
     "Nonprofit": "dartwing_nonprofit.permissions.get_permission_query_conditions_nonprofit",
 }
 
@@ -1424,7 +1432,7 @@ has_permission = {
 
 ### 9.4 Phase 4: Scale & Polish (Q4 2026)
 
-1. Nonprofit and Club org_types
+1. Nonprofit and Association org_types
 2. Multi-jurisdiction support
 3. Advanced analytics and reporting
 4. App store submissions
@@ -1517,7 +1525,7 @@ Complete Frappe JSON definitions are organized by module:
 |---------|--------|---------------|
 | Family | dartwing_family | FAM-.##### |
 | Company | dartwing_company | CO-.##### |
-| Club | dartwing_associations | CLB-.##### |
+| Association | dartwing_associations | ASSOC-.##### |
 | Nonprofit | dartwing_nonprofit | NPO-.##### |
 
 ### Type-Specific Doctypes
@@ -1525,7 +1533,7 @@ Complete Frappe JSON definitions are organized by module:
 |---------|--------|----------|
 | Family Relationship | dartwing_family | Family (concrete) |
 | Employment Record | dartwing_hr | Company (concrete) |
-| Organization Membership Tier | dartwing_associations | Club (child table) |
+| Organization Membership Tier | dartwing_associations | Association (child table) |
 
 ---
 
@@ -1546,7 +1554,8 @@ Core packages required for the Flutter client:
 ## Appendix C: Glossary
 
 - **Doctype:** Frappe's equivalent of a database table with metadata and logic
-- **org_type:** The classification of an Organization (Family/Company/Nonprofit/Club)
+- **org_type:** The classification of an Organization (Family/Company/Nonprofit/Association)
+- **association_type:** Subtype of Association (Club, HOA, Alumni Association, Professional Society, Trade Association)
 - **Role Template:** Reusable role definitions filtered by org_type
 - **depends_on:** Frappe field attribute for conditional visibility
 - **Knowledge Vault:** Organization-specific document repository for AI context
