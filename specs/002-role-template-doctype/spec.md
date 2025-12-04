@@ -81,7 +81,7 @@ As an organization administrator, I want roles to optionally include a default h
 
 **Acceptance Scenarios**:
 
-1. **Given** a Company role (Employee or Contractor), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable
+1. **Given** a role in a non-Family organization type (Company, Nonprofit, or Association), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable
 2. **Given** a Nonprofit role (Staff), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable (paid staff)
 3. **Given** an Association role (any), **When** viewing the role definition, **Then** the default hourly rate field is visible and editable (associations may have paid staff)
 4. **Given** a Family role (Parent or Child), **When** viewing the role definition, **Then** the default hourly rate field is hidden (family relationships are not employment)

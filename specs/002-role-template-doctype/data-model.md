@@ -69,7 +69,7 @@ A system-wide role definition that specifies organization-type-specific roles fo
 │   Org Member        │  ← Feature 3
 │   (Future)          │
 │                     │
-│ - role (Link)       │
+│ - role_template (Link) │
 │ - organization      │
 └─────────────────────┘
           │
@@ -117,9 +117,9 @@ Role Template has no state machine - it is static reference data.
 
 | role_name    | is_supervisor | default_hourly_rate |
 | ------------ | ------------- | ------------------- |
-| Board Member | Yes           | -                   |
-| Volunteer    | No            | -                   |
-| Staff        | No            | -                   |
+| Board Member | Yes           | 0.00                |
+| Volunteer    | No            | 0.00                |
+| Staff        | No            | 0.00                |
 
 ### Association Roles (3)
 
