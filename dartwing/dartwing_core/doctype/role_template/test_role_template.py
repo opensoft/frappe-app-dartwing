@@ -320,8 +320,8 @@ class TestRoleTemplate(IntegrationTestCase):
                 test_role.delete()
 
     def test_negative_hourly_rate_rejected(self):
-        """T037b: Verify negative hourly rates are rejected."""
-        with self.assertRaises(frappe.ValidationError):
+        """T037b: Verify negative hourly rates are rejected with proper error message."""
+        with self.assertRaises(frappe.ValidationError) as context:
             frappe.get_doc(
                 {
                     "doctype": "Role Template",
@@ -330,6 +330,56 @@ class TestRoleTemplate(IntegrationTestCase):
                     "default_hourly_rate": -25.00,
                 }
             ).insert()
+        self.assertIn(
+            "negative",
+            str(context.exception).lower(),
+            "Error message should mention negative rate",
+        )
+
+    def test_zero_hourly_rate_allowed(self):
+        """T037c: Verify zero hourly rate is allowed (valid default)."""
+        test_role = None
+        try:
+            test_role = frappe.get_doc(
+                {
+                    "doctype": "Role Template",
+                    "role_name": "Test Zero Rate Role",
+                    "applies_to_org_type": "Company",
+                    "default_hourly_rate": 0.00,
+                }
+            )
+            test_role.insert()  # Should not raise
+            self.assertEqual(
+                test_role.default_hourly_rate,
+                0,
+                "Zero hourly rate should be saved",
+            )
+        finally:
+            if test_role and frappe.db.exists("Role Template", test_role.name):
+                test_role.delete()
+
+    def test_none_hourly_rate_allowed(self):
+        """T037d: Verify None hourly rate is allowed (optional field)."""
+        test_role = None
+        try:
+            test_role = frappe.get_doc(
+                {
+                    "doctype": "Role Template",
+                    "role_name": "Test None Rate Role",
+                    "applies_to_org_type": "Company",
+                    # default_hourly_rate not set (None)
+                }
+            )
+            test_role.insert()  # Should not raise
+            # Field defaults to 0 when not set
+            self.assertIn(
+                test_role.default_hourly_rate,
+                [None, 0],
+                "None or zero hourly rate should be accepted",
+            )
+        finally:
+            if test_role and frappe.db.exists("Role Template", test_role.name):
+                test_role.delete()
 
     # =========================================================================
     # Phase 7: Edge Cases & Deletion Prevention (T042-T044b)
