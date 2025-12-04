@@ -1,0 +1,291 @@
+openapi: 3.0.3
+info:
+  title: Role Template API
+  description: |
+    REST API for Role Template DocType in Dartwing.
+
+    Role Templates are system-wide role definitions that are assigned to
+    organization members. Roles are filtered by organization type.
+  version: 1.0.0
+  contact:
+    name: Dartwing Development
+
+servers:
+  - url: /api
+    description: Frappe API endpoint
+
+paths:
+  /resource/Role Template:
+    get:
+      summary: List Role Templates
+      description: |
+        Returns a list of Role Templates. Supports filtering by organization type.
+        All authenticated users can read role templates.
+      tags:
+        - Role Template
+      parameters:
+        - name: filters
+          in: query
+          description: JSON filter object
+          schema:
+            type: string
+            example: '[["applies_to_org_type","=","Family"]]'
+        - name: fields
+          in: query
+          description: Fields to return
+          schema:
+            type: string
+            example: '["role_name","applies_to_org_type","is_supervisor"]'
+        - name: limit_page_length
+          in: query
+          description: Number of records per page
+          schema:
+            type: integer
+            default: 20
+        - name: order_by
+          in: query
+          description: Sort order
+          schema:
+            type: string
+            default: role_name asc
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RoleTemplateSummary'
+              example:
+                data:
+                  - name: Parent
+                    role_name: Parent
+                    applies_to_org_type: Family
+                    is_supervisor: 1
+                  - name: Child
+                    role_name: Child
+                    applies_to_org_type: Family
+                    is_supervisor: 0
+        '403':
+          description: Permission denied (not authenticated)
+
+    post:
+      summary: Create Role Template
+      description: |
+        Creates a new Role Template. Only System Managers can create roles.
+      tags:
+        - Role Template
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleTemplateCreate'
+            example:
+              role_name: Custom Role
+              applies_to_org_type: Company
+              is_supervisor: 0
+              default_hourly_rate: 25.00
+      responses:
+        '200':
+          description: Role Template created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RoleTemplate'
+        '403':
+          description: Permission denied (not System Manager)
+        '409':
+          description: Duplicate role_name
+
+  /resource/Role Template/{name}:
+    get:
+      summary: Get Role Template
+      description: Returns a single Role Template by name
+      tags:
+        - Role Template
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Role Template name (same as role_name)
+          schema:
+            type: string
+          example: Parent
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RoleTemplate'
+        '404':
+          description: Role Template not found
+
+    put:
+      summary: Update Role Template
+      description: |
+        Updates an existing Role Template. Only System Managers can update roles.
+      tags:
+        - Role Template
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleTemplateUpdate'
+      responses:
+        '200':
+          description: Role Template updated
+        '403':
+          description: Permission denied
+        '404':
+          description: Role Template not found
+
+    delete:
+      summary: Delete Role Template
+      description: |
+        Deletes a Role Template. Only System Managers can delete roles.
+        Deletion fails if any Org Members reference this role.
+      tags:
+        - Role Template
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role Template deleted
+        '403':
+          description: Permission denied
+        '409':
+          description: Cannot delete - role is in use by Org Members
+        '404':
+          description: Role Template not found
+
+components:
+  schemas:
+    RoleTemplate:
+      type: object
+      required:
+        - name
+        - role_name
+        - applies_to_org_type
+      properties:
+        name:
+          type: string
+          description: Primary key (same as role_name)
+          example: Parent
+        role_name:
+          type: string
+          description: Human-readable role identifier
+          example: Parent
+        applies_to_org_type:
+          type: string
+          enum:
+            - Family
+            - Company
+            - Nonprofit
+            - Association
+          description: Organization type this role applies to
+          example: Family
+        is_supervisor:
+          type: integer
+          enum: [0, 1]
+          description: Whether role has supervisor permissions
+          example: 1
+        default_hourly_rate:
+          type: number
+          format: float
+          description: Default hourly rate (Company roles only)
+          example: 0.00
+        creation:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        modified:
+          type: string
+          format: date-time
+          description: Last modified timestamp
+
+    RoleTemplateSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        role_name:
+          type: string
+        applies_to_org_type:
+          type: string
+        is_supervisor:
+          type: integer
+
+    RoleTemplateCreate:
+      type: object
+      required:
+        - role_name
+        - applies_to_org_type
+      properties:
+        role_name:
+          type: string
+          maxLength: 140
+        applies_to_org_type:
+          type: string
+          enum:
+            - Family
+            - Company
+            - Nonprofit
+            - Association
+        is_supervisor:
+          type: integer
+          enum: [0, 1]
+          default: 0
+        default_hourly_rate:
+          type: number
+          format: float
+          description: Only applicable for Company roles
+
+    RoleTemplateUpdate:
+      type: object
+      properties:
+        is_supervisor:
+          type: integer
+          enum: [0, 1]
+        default_hourly_rate:
+          type: number
+          format: float
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sid
+      description: Frappe session cookie
+
+tags:
+  - name: Role Template
+    description: Organization role definitions

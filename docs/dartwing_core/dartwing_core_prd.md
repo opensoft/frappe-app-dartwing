@@ -29,7 +29,7 @@ Dartwing eliminates the need for separate CRM, HRIS, family-management, church-m
 
 | Differentiator | Description |
 |----------------|-------------|
-| **Universal Organization Model** | Hybrid architecture with unified identity layer and type-specific concrete implementations (Family, Company, Club, Nonprofit) |
+| **Universal Organization Model** | Hybrid architecture with unified identity layer and type-specific concrete implementations (Family, Company, Association, Nonprofit) |
 | **Cross-Platform Native** | Flutter provides true native performance on iOS, Android, Web, and Desktop from a single codebase |
 | **AI-First Design** | Built-in AI personas, smart routing, and LLM integration with optional local/edge processing for privacy |
 | **Low-Code Development** | Frappe's doctype system enables rapid app building; new verticals ship in ≤8 weeks |
@@ -134,7 +134,7 @@ Core multi-tenancy and membership management enabling unlimited organizations pe
 
 **Key Capabilities:**
 - Hybrid Organization model (thin reference + concrete types)
-- Four org_types: Family, Company, Club/Association, Nonprofit
+- Four org_types: Family, Company, Association, Nonprofit
 - Bidirectional linking between Organization and concrete doctypes
 - Member invitation via email, QR code, or direct link
 - Guest access with time-limited permissions
@@ -344,7 +344,7 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
 ### Design Pattern
 
 1. **Organization (Thin Reference):** A lightweight shell holding shared identity (Name, Logo, Status) that acts as the target for all foreign keys
-2. **Concrete Types:** Separate 1:1 linked doctypes (`Family`, `Company`, `Club`, `Nonprofit`) holding domain-specific data and validation logic
+2. **Concrete Types:** Separate 1:1 linked doctypes (`Family`, `Company`, `Association`, `Nonprofit`) holding domain-specific data and validation logic
 
 ### Architecture Diagram
 
@@ -358,13 +358,13 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
                             │ 1:1 Link (maintained by hooks)
           ┌─────────────────┼─────────────────┬─────────────────┐
           ▼                 ▼                 ▼                 ▼
-     ┌─────────┐      ┌──────────┐      ┌─────────┐      ┌───────────┐
-     │ Family  │      │ Company  │      │  Club   │      │ Nonprofit │
-     ├─────────┤      ├──────────┤      ├─────────┤      ├───────────┤
-     │nickname │      │ tax_id   │      │ tiers[] │      │ 501c_type │
-     │residence│      │ officers │      │ dues    │      │ board[]   │
-     │parental │      │ partners │      │amenities│      │ mission   │
-     └─────────┘      └──────────┘      └─────────┘      └───────────┘
+     ┌─────────┐      ┌──────────┐      ┌───────────┐    ┌───────────┐
+     │ Family  │      │ Company  │      │Association│    │ Nonprofit │
+     ├─────────┤      ├──────────┤      ├───────────┤    ├───────────┤
+     │nickname │      │ tax_id   │      │assoc_type │    │ 501c_type │
+     │residence│      │ officers │      │ tiers[]   │    │ board[]   │
+     │parental │      │ partners │      │ dues      │    │ mission   │
+     └─────────┘      └──────────┘      └───────────┘    └───────────┘
 ```
 
 ## 3.3 Organization Types
@@ -373,7 +373,7 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
 |------|--------|---------------|-------------------|
 | **Family** | dartwing_family | FAM-.##### | Households, personal life management, parental controls |
 | **Company** | dartwing_company | CO-.##### | Businesses, LLCs, corporations, partnerships |
-| **Club/Association** | dartwing_associations | CLB-.##### | HOAs, sports clubs, membership organizations |
+| **Association** | dartwing_associations | ASSOC-.##### | HOAs, clubs, alumni associations, professional societies |
 | **Nonprofit** | dartwing_nonprofit | NPO-.##### | 501(c)(3), foundations, charities |
 
 ## 3.4 Feature Requirements
@@ -422,10 +422,10 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
 |-------|------|----------|-------------|
 | naming_series | Select | Yes | ORG-.YYYY.- |
 | org_name | Data | Yes | Display name |
-| org_type | Select | Yes | Family, Company, Nonprofit, Club/Association (set_only_once) |
+| org_type | Select | Yes | Family, Company, Nonprofit, Association (set_only_once) |
 | logo | Attach Image | No | Organization logo |
 | status | Select | Yes | Active, Inactive, Dissolved (default: Active) |
-| linked_doctype | Data | No | Auto-set: Family, Company, Club, Nonprofit |
+| linked_doctype | Data | No | Auto-set: Family, Company, Association, Nonprofit |
 | linked_name | Data | No | Auto-set: concrete document name |
 
 ### Concrete Type Fields
@@ -457,15 +457,16 @@ Dartwing uses a **Hybrid Architecture** to solve the "God Object" problem while 
 | officers | Table → Organization Officer | Officers & Directors |
 | members_partners | Table → Organization Member Partner | LLC/Partnership ownership |
 
-#### Club (dartwing_associations)
+#### Association (dartwing_associations)
 
 | Field | Type | Description |
 |-------|------|-------------|
 | organization | Link → Organization | Back-reference |
+| association_type | Select | Club, HOA, Alumni Association, Professional Society, Trade Association, Other |
 | membership_tiers | Table → Organization Membership Tier | Tier definitions |
 | default_dues_amount | Currency | Default annual dues |
 | amenities | Small Text | Facilities description |
-| clubhouse_address | Link → Address | Primary facility |
+| facility_address | Link → Address | Primary facility (clubhouse, office, etc.) |
 
 #### Nonprofit (dartwing_nonprofit)
 
@@ -499,7 +500,7 @@ Links Person to Organization with role assignment.
 | Field | Type | Description |
 |-------|------|-------------|
 | role_name | Data | Unique role identifier |
-| applies_to_org_type | Select | Family, Company, Nonprofit, Club/Association |
+| applies_to_org_type | Select | Family, Company, Nonprofit, Association |
 | is_supervisor | Check | Has supervisory permissions |
 | default_hourly_rate | Currency | For Company type (depends_on) |
 
@@ -540,7 +541,7 @@ doc_events = {
 ### Permission Flow
 
 ```
-User → Org Member → Organization → Concrete Type (Family/Company/Club/Nonprofit)
+User → Org Member → Organization → Concrete Type (Family/Company/Association/Nonprofit)
 ```
 
 ### Implementation
@@ -3255,7 +3256,7 @@ dartwing_module = {
 | category | Select | communication, productivity, compliance, etc. |
 | tier | Select | free, pro, enterprise |
 | status | Select | installed, enabled, disabled |
-| compatible_org_types | MultiSelect | Family, Company, Nonprofit, Club |
+| compatible_org_types | MultiSelect | Family, Company, Nonprofit, Association |
 
 ### Organization Module Doctype
 
@@ -5438,7 +5439,7 @@ This section provides a comprehensive cross-reference between PRD features and a
 | Organization | dartwing_core | Architecture Doc 3.3 |
 | Family | dartwing_family | Architecture Doc 3.4 |
 | Company | dartwing_company | Architecture Doc 3.4 |
-| Club | dartwing_associations | Architecture Doc 3.4 |
+| Association | dartwing_associations | Architecture Doc 3.4 |
 | Nonprofit | dartwing_nonprofit | Architecture Doc 3.4 |
 | Person | dartwing_core | person_doctype_contract.md |
 | Org Member | dartwing_core | Architecture Doc 3.8 |
@@ -5643,7 +5644,7 @@ dartwing_core (base)
 
 | Feature | Priority | Dependencies |
 |---------|----------|--------------|
-| Nonprofit & Club Types | P1 | Hybrid Model |
+| Nonprofit & Association Types | P1 | Hybrid Model |
 | Multi-jurisdiction Support | P1 | Data Residency |
 | Compliance Mode (HIPAA/SOC2) | P0 | Audit Trail |
 | Advanced Analytics | P2 | All Data |
@@ -5676,11 +5677,12 @@ dartwing_core (base)
 
 | Term | Definition |
 |------|------------|
-| **Concrete Type** | Type-specific doctype (Family, Company, Club, Nonprofit) linked 1:1 to Organization |
+| **Concrete Type** | Type-specific doctype (Family, Company, Association, Nonprofit) linked 1:1 to Organization |
 | **DocType** | Frappe's equivalent of a database table with metadata and logic |
 | **Hybrid Model** | Architecture pattern using thin reference (Organization) + concrete implementations |
 | **Knowledge Vault** | Per-organization document repository for AI context via RAG |
-| **org_type** | The classification of an Organization (Family/Company/Nonprofit/Club) |
+| **org_type** | The classification of an Organization (Family/Company/Nonprofit/Association) |
+| **association_type** | Subtype of Association (Club, HOA, Alumni Association, Professional Society, Trade Association) |
 | **PKCE** | Proof Key for Code Exchange - OAuth2 extension for mobile apps |
 | **RAG** | Retrieval-Augmented Generation - AI technique combining search with LLM |
 | **Role Template** | Reusable role definitions filtered by org_type |

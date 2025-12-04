@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "autoname": "field:role_name",
+ "creation": "2025-12-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "role_name",
+  "applies_to_org_type",
+  "column_break_1",
+  "is_supervisor",
+  "section_break_company",
+  "default_hourly_rate"
+ ],
+ "fields": [
+  {
+   "fieldname": "role_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Role Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "applies_to_org_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Applies To Organization Type",
+   "options": "Family\nCompany\nNonprofit\nAssociation",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Role has supervisory permissions",
+   "fieldname": "is_supervisor",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Supervisor"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "eval:doc.applies_to_org_type!='Family'",
+   "fieldname": "section_break_company",
+   "fieldtype": "Section Break",
+   "label": "Employment Settings"
+  },
+  {
+   "depends_on": "eval:doc.applies_to_org_type!='Family'",
+   "description": "Default hourly rate for paid staff roles",
+   "fieldname": "default_hourly_rate",
+   "fieldtype": "Currency",
+   "label": "Default Hourly Rate"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Dartwing Core",
+ "name": "Role Template",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Dartwing User"
+  }
+ ],
+ "sort_field": "role_name",
+ "sort_order": "ASC",
+ "states": [],
+ "track_changes": 1
+}

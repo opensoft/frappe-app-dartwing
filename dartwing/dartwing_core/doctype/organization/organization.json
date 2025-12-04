@@ -30,7 +30,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Organization Type",
-   "options": "Family\nCompany\nClub\nNonprofit",
+   "options": "Family\nCompany\nAssociation\nNonprofit",
    "reqd": 1,
    "set_only_once": 1
   },
