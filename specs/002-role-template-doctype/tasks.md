@@ -26,7 +26,7 @@
 **Purpose**: Create DocType directory structure and initialize files
 
 - [x] T001 Create DocType directory at dartwing/dartwing_core/doctype/role_template/
-- [x] T002 [P] Create **init**.py in dartwing/dartwing_core/doctype/role_template/**init**.py
+- [x] T002 [P] Create `__init__.py` in dartwing/dartwing_core/doctype/role_template/`__init__.py`
 - [x] T003 [P] Create empty controller file at dartwing/dartwing_core/doctype/role_template/role_template.py
 
 ---

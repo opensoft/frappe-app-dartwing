@@ -9,34 +9,38 @@ A system-wide role definition that specifies organization-type-specific roles fo
 
 ### Fields
 
-| Field | Type | Required | Unique | Description |
-|-------|------|----------|--------|-------------|
-| `name` | Data | Yes | Yes | Primary key (auto-set from role_name) |
-| `role_name` | Data | Yes | Yes | Human-readable role identifier |
-| `applies_to_org_type` | Select | Yes | No | Organization type filter (Family, Company, Nonprofit, Association) |
-| `is_supervisor` | Check | No | No | Whether role has supervisory permissions |
-| `default_hourly_rate` | Currency | No | No | Default hourly rate (visible for Company, Nonprofit, Association; hidden for Family) |
+| Field                 | Type     | Required | Unique | Description                                                                          |
+| --------------------- | -------- | -------- | ------ | ------------------------------------------------------------------------------------ |
+| `name`                | Data     | Yes      | Yes    | Primary key (auto-set from role_name)                                                |
+| `role_name`           | Data     | Yes      | Yes    | Human-readable role identifier                                                       |
+| `applies_to_org_type` | Select   | Yes      | No     | Organization type filter (Family, Company, Nonprofit, Association)                   |
+| `is_supervisor`       | Check    | No       | No     | Whether role has supervisory permissions                                             |
+| `default_hourly_rate` | Currency | No       | No     | Default hourly rate (visible for Company, Nonprofit, Association; hidden for Family) |
 
 ### Field Details
 
 #### role_name
+
 - **Constraints**: Unique across all Role Templates
 - **Validation**: Required, max 140 characters
 - **Index**: Primary lookup field, in_list_view, in_standard_filter
 - **Examples**: "Parent", "Manager", "Board Member", "President"
 
 #### applies_to_org_type
+
 - **Options**: Family, Company, Nonprofit, Association
 - **Constraints**: Required, must match Organization.org_type values
 - **Behavior**: Used to filter roles when assigning to Org Members
 - **Note**: "Association" covers subtypes like Club, HOA, etc.
 
 #### is_supervisor
+
 - **Default**: 0 (false)
 - **Purpose**: Identifies roles with supervisory/administrative capabilities
 - **Usage**: Future permission system will use this for hierarchy enforcement
 
 #### default_hourly_rate
+
 - **Visibility**: Shown for organization types with paid staff (Company, Nonprofit, Association); hidden for Family
 - **Precision**: Currency field with 2 decimal places
 - **Default**: 0.00
@@ -93,37 +97,37 @@ Role Template has no state machine - it is static reference data.
 
 ### Family Roles (4)
 
-| role_name | is_supervisor | default_hourly_rate |
-|-----------|---------------|---------------------|
-| Parent | Yes | - |
-| Child | No | - |
-| Guardian | Yes | - |
-| Extended Family | No | - |
+| role_name       | is_supervisor | default_hourly_rate |
+| --------------- | ------------- | ------------------- |
+| Parent          | Yes           | -                   |
+| Child           | No            | -                   |
+| Guardian        | Yes           | -                   |
+| Extended Family | No            | -                   |
 
 ### Company Roles (4)
 
-| role_name | is_supervisor | default_hourly_rate |
-|-----------|---------------|---------------------|
-| Owner | Yes | 0.00 |
-| Manager | Yes | 0.00 |
-| Employee | No | 0.00 |
-| Contractor | No | 0.00 |
+| role_name  | is_supervisor | default_hourly_rate |
+| ---------- | ------------- | ------------------- |
+| Owner      | Yes           | 0.00                |
+| Manager    | Yes           | 0.00                |
+| Employee   | No            | 0.00                |
+| Contractor | No            | 0.00                |
 
 ### Nonprofit Roles (3)
 
-| role_name | is_supervisor | default_hourly_rate |
-|-----------|---------------|---------------------|
-| Board Member | Yes | - |
-| Volunteer | No | - |
-| Staff | No | - |
+| role_name    | is_supervisor | default_hourly_rate |
+| ------------ | ------------- | ------------------- |
+| Board Member | Yes           | -                   |
+| Volunteer    | No            | -                   |
+| Staff        | No            | -                   |
 
 ### Association Roles (3)
 
 | role_name | is_supervisor | default_hourly_rate |
-|-----------|---------------|---------------------|
-| President | Yes | - |
-| Member | No | - |
-| Honorary | No | - |
+| --------- | ------------- | ------------------- |
+| President | Yes           | -                   |
+| Member    | No            | -                   |
+| Honorary  | No            | -                   |
 
 **Total Seed Records**: 14 roles
 
@@ -147,10 +151,10 @@ Role Template has no state machine - it is static reference data.
 
 ## Indexes
 
-| Index | Fields | Purpose |
-|-------|--------|---------|
-| Primary | name (role_name) | Unique identifier |
-| Filter | applies_to_org_type | Fast filtering for role dropdowns |
+| Index   | Fields              | Purpose                           |
+| ------- | ------------------- | --------------------------------- |
+| Primary | name (role_name)    | Unique identifier                 |
+| Filter  | applies_to_org_type | Fast filtering for role dropdowns |
 
 ---
 
@@ -205,23 +209,27 @@ Role Template has no state machine - it is static reference data.
     {
       "fieldname": "section_break_company",
       "fieldtype": "Section Break",
-      "label": "Company Settings",
-      "depends_on": "eval:doc.applies_to_org_type=='Company'",
+      "label": "Employment Settings",
+      "depends_on": "eval:doc.applies_to_org_type!='Family'",
       "collapsible": 1
     },
     {
       "fieldname": "default_hourly_rate",
       "fieldtype": "Currency",
       "label": "Default Hourly Rate",
-      "depends_on": "eval:doc.applies_to_org_type=='Company'",
+      "depends_on": "eval:doc.applies_to_org_type!='Family'",
       "description": "Default hourly rate for this role"
     }
   ],
   "permissions": [
     {
       "role": "System Manager",
-      "read": 1, "write": 1, "create": 1, "delete": 1,
-      "export": 1, "report": 1
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "export": 1,
+      "report": 1
     },
     {
       "role": "Dartwing User",
