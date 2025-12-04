@@ -129,21 +129,6 @@ class TestRoleTemplate(IntegrationTestCase):
                 f"Role {role.role_name} should be Association type",
             )
 
-    def test_filter_invalid_org_type_rejected(self):
-        """T024: Verify invalid org_type raises ValidationError."""
-        from dartwing.dartwing_core.doctype.role_template.role_template import (
-            get_roles_for_org_type,
-        )
-
-        with self.assertRaises(frappe.ValidationError) as context:
-            get_roles_for_org_type("InvalidType")
-
-        self.assertIn(
-            "Invalid organization type",
-            str(context.exception),
-            "Error should mention invalid org type",
-        )
-
     # =========================================================================
     # User Story 3: System Enforces Supervisor Hierarchy (T028-T031)
     # =========================================================================
@@ -397,7 +382,7 @@ class TestRoleTemplate(IntegrationTestCase):
                 test_role.delete()
 
     # =========================================================================
-    # Phase 7: Edge Cases & Deletion Prevention (T042-T044b)
+    # Phase 7: Edge Cases & Deletion Prevention (T042-T044c)
     # =========================================================================
 
     def test_duplicate_role_name_rejected(self):
@@ -492,4 +477,19 @@ class TestRoleTemplate(IntegrationTestCase):
             dartwing_user_perms[0].get("create", 0),
             0,
             "Dartwing User should not have create access",
+        )
+
+    def test_invalid_org_type_rejected(self):
+        """T044c: Verify invalid org_type raises ValidationError."""
+        from dartwing.dartwing_core.doctype.role_template.role_template import (
+            get_roles_for_org_type,
+        )
+
+        with self.assertRaises(frappe.ValidationError) as context:
+            get_roles_for_org_type("InvalidType")
+
+        self.assertIn(
+            "Invalid organization type",
+            str(context.exception),
+            "Error should mention invalid org type",
         )

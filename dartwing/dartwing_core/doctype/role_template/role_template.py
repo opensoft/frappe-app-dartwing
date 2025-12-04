@@ -69,6 +69,11 @@ def get_roles_for_org_type(org_type: str) -> list:
     Raises:
         frappe.ValidationError: If org_type is not a valid organization type
     """
+    if org_type is None or not isinstance(org_type, str) or not org_type.strip():
+        frappe.throw(
+            "Organization type must be a non-empty string.",
+            frappe.ValidationError,
+        )
     if org_type not in VALID_ORG_TYPES:
         frappe.throw(
             f"Invalid organization type '{org_type}'. "
