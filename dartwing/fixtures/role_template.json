@@ -4,97 +4,111 @@
     "role_name": "Parent",
     "applies_to_org_type": "Family",
     "is_supervisor": 1,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Parent"
   },
   {
     "doctype": "Role Template",
     "role_name": "Child",
     "applies_to_org_type": "Family",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Child"
   },
   {
     "doctype": "Role Template",
     "role_name": "Guardian",
     "applies_to_org_type": "Family",
     "is_supervisor": 1,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Guardian"
   },
   {
     "doctype": "Role Template",
     "role_name": "Extended Family",
     "applies_to_org_type": "Family",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Extended Family"
   },
   {
     "doctype": "Role Template",
     "role_name": "Owner",
     "applies_to_org_type": "Company",
     "is_supervisor": 1,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Owner"
   },
   {
     "doctype": "Role Template",
     "role_name": "Manager",
     "applies_to_org_type": "Company",
     "is_supervisor": 1,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Manager"
   },
   {
     "doctype": "Role Template",
     "role_name": "Employee",
     "applies_to_org_type": "Company",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Employee"
   },
   {
     "doctype": "Role Template",
     "role_name": "Contractor",
     "applies_to_org_type": "Company",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Contractor"
   },
   {
     "doctype": "Role Template",
     "role_name": "Board Member",
     "applies_to_org_type": "Nonprofit",
     "is_supervisor": 1,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Board Member"
   },
   {
     "doctype": "Role Template",
     "role_name": "Volunteer",
     "applies_to_org_type": "Nonprofit",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Volunteer"
   },
   {
     "doctype": "Role Template",
     "role_name": "Staff",
     "applies_to_org_type": "Nonprofit",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Staff"
   },
   {
     "doctype": "Role Template",
     "role_name": "President",
     "applies_to_org_type": "Association",
     "is_supervisor": 1,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "President"
   },
   {
     "doctype": "Role Template",
     "role_name": "Member",
     "applies_to_org_type": "Association",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Member"
   },
   {
     "doctype": "Role Template",
     "role_name": "Honorary",
     "applies_to_org_type": "Association",
     "is_supervisor": 0,
-    "default_hourly_rate": 0
+    "default_hourly_rate": 0,
+    "name": "Honorary"
   }
 ]
