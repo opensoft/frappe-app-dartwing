@@ -293,7 +293,7 @@ class Organization(Document):
                 logger.warning(
                     f"Organization {self.name}: No field mapping configured for org_type: {self.org_type}"
                 )
-            # Set linked_doctype BEFORE concrete creation to prevent race condition (FR-015)
+            # Set linked_doctype BEFORE concrete creation to prevent race condition
             self.db_set("linked_doctype", concrete_doctype, update_modified=False)
 
             # Execute with system privileges (FR-013)
