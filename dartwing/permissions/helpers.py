@@ -13,8 +13,6 @@ Key functions:
 - handle_status_change: Called on Org Member on_update (FR-009)
 """
 
-import logging
-
 import frappe
 from dartwing.utils.permission_logger import log_permission_event
 
@@ -269,21 +267,19 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
                     for_value=concrete_name
                 )
                 # Log successful cleanup as info, not error
-                if logger.isEnabledFor(logging.INFO):
-                    logger.info(
-                        "Removed orphaned %s permission for '%s' during cleanup of Org Member '%s' "
-                        "(Organization '%s' not found).",
-                        org_type, concrete_name, org_member_doc.name, org_member_doc.organization
-                    )
+                logger.info(
+                    "Removed orphaned %s permission for '%s' during cleanup of Org Member '%s' "
+                    "(Organization '%s' not found).",
+                    org_type, concrete_name, org_member_doc.name, org_member_doc.organization
+                )
             
             if not concrete_docs:
                 # No concrete document found - may have been deleted already
-                if logger.isEnabledFor(logging.INFO):
-                    logger.info(
-                        "No %s document found linked to Organization '%s' during cleanup of Org Member '%s'. "
-                        "Concrete type permissions may have already been cleaned up.",
-                        org_type, org_member_doc.organization, org_member_doc.name
-                    )
+                logger.info(
+                    "No %s document found linked to Organization '%s' during cleanup of Org Member '%s'. "
+                    "Concrete type permissions may have already been cleaned up.",
+                    org_type, org_member_doc.organization, org_member_doc.name
+                )
         except Exception as e:
             # If querying the concrete type fails, log it but continue
             frappe.log_error(
