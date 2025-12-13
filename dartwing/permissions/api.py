@@ -148,17 +148,16 @@ def check_organization_access(organization: str):
 
     # System Manager and Administrator always have access
     has_access = False
-    if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+    if user == "Administrator":
+        has_access = True
+    elif "System Manager" in frappe.get_roles(user):
         has_access = True
     else:
         # Check User Permission
         has_access = frappe.db.exists(
-            "User Permission",
-            {
-                "user": user,
-                "allow": "Organization",
-                "for_value": organization,
-            }
+            "user": user,
+            "allow": "Organization",
+            "for_value": organization,
         )
 
     if not has_access:
