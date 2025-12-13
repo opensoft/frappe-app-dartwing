@@ -25,7 +25,7 @@ Based on plan.md, the Frappe project structure is:
 **Purpose**: Create DocType directory structure and initial files
 
 - [x] T001 Create org_member directory at dartwing/dartwing_core/doctype/org_member/
-- [x] T002 Create `__init__.py` at dartwing/dartwing_core/doctype/org_member/**init**.py
+- [x] T002 Create `__init__.py` at dartwing/dartwing_core/doctype/org_member/__init__.py
 
 ---
 
