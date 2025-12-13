@@ -119,12 +119,20 @@ app_version = "0.1.0"
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
+	"Organization": "dartwing.permissions.organization.get_permission_query_conditions",
 	"Family": "dartwing.permissions.family.get_permission_query_conditions",
 	"Family Member": "dartwing.permissions.family.get_member_permission_query_conditions",
+	"Company": "dartwing.permissions.company.get_permission_query_conditions",
+	"Association": "dartwing.permissions.association.get_permission_query_conditions",
+	"Nonprofit": "dartwing.permissions.nonprofit.get_permission_query_conditions",
 }
 
 has_permission = {
+	"Organization": "dartwing.permissions.organization.has_permission",
 	"Family": "dartwing.permissions.family.has_permission",
+	"Company": "dartwing.permissions.company.has_permission",
+	"Association": "dartwing.permissions.association.has_permission",
+	"Nonprofit": "dartwing.permissions.nonprofit.has_permission",
 }
 
 # Fixtures
@@ -162,13 +170,13 @@ fixtures = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Org Member": {
+		"after_insert": "dartwing.permissions.helpers.create_user_permissions",
+		"on_trash": "dartwing.permissions.helpers.remove_user_permissions",
+		"on_update": "dartwing.permissions.helpers.handle_status_change",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
