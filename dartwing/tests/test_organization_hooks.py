@@ -454,6 +454,63 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         family = frappe.get_doc("Family", org.linked_name)
         self.assertEqual(family.organization, org.name)
 
+    def test_us3_delete_org_cascades_to_company(self):
+        """Test deleting Organization cascades to delete Company record (Issue #7)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Hook Company Cascade",
+            "org_type": "Company"
+        })
+        org.insert()
+        org.reload()
+
+        company_name = org.linked_name
+        self.assertTrue(frappe.db.exists("Company", company_name))
+
+        # Delete organization
+        frappe.delete_doc("Organization", org.name, force=True)
+
+        # Verify Company was also deleted
+        self.assertFalse(frappe.db.exists("Company", company_name))
+
+    def test_us3_delete_org_cascades_to_association(self):
+        """Test deleting Organization cascades to delete Association record (Issue #7)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Hook Association Cascade",
+            "org_type": "Association"
+        })
+        org.insert()
+        org.reload()
+
+        association_name = org.linked_name
+        self.assertTrue(frappe.db.exists("Association", association_name))
+
+        # Delete organization
+        frappe.delete_doc("Organization", org.name, force=True)
+
+        # Verify Association was also deleted
+        self.assertFalse(frappe.db.exists("Association", association_name))
+
+    def test_us3_delete_org_cascades_to_nonprofit(self):
+        """Test deleting Organization cascades to delete Nonprofit record (Issue #7)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Hook Nonprofit Cascade",
+            "org_type": "Nonprofit"
+        })
+        org.insert()
+        org.reload()
+
+        nonprofit_name = org.linked_name
+        self.assertTrue(frappe.db.exists("Nonprofit", nonprofit_name))
+
+        # Delete organization
+        frappe.delete_doc("Organization", org.name, force=True)
+
+        # Verify Nonprofit was also deleted
+        self.assertFalse(frappe.db.exists("Nonprofit", nonprofit_name))
+
     # =========================================================================
     # User Story 4: Organization Type Immutability (P2)
     # =========================================================================
@@ -760,3 +817,58 @@ class TestOrganizationConcurrency(FrappeTestCase):
             f"Found {len(corrupted)} corrupted organizations:\n" + "\n".join(corrupted[:10])
         )
         self.assertEqual(len(created_orgs), num_orgs)
+
+
+class TestOrganizationAtomicity(FrappeTestCase):
+    """Test atomic transaction behavior for Organization creation (Issue #7)."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        frappe.set_user("Administrator")
+        cleanup_test_organizations(name_pattern="Test Atomic%", edge_pattern="")
+
+    def tearDown(self):
+        """Clean up test data."""
+        cleanup_test_organizations(name_pattern="Test Atomic%", edge_pattern="")
+
+    def test_t015_atomic_rollback_on_concrete_creation_failure(self):
+        """T015: Test atomic rollback when concrete type creation fails (Issue #7)."""
+        from unittest.mock import patch
+
+        # Create organization document
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Atomic Rollback",
+            "org_type": "Family"
+        })
+
+        # Mock frappe.new_doc to raise error when creating Family
+        original_new_doc = frappe.new_doc
+
+        def mock_new_doc(doctype):
+            if doctype == "Family":
+                raise frappe.ValidationError("Simulated concrete type creation failure")
+            return original_new_doc(doctype)
+
+        # Attempt to insert organization with mocked failure
+        with patch("frappe.new_doc", side_effect=mock_new_doc):
+            with self.assertRaises(frappe.ValidationError) as context:
+                org.insert()
+
+            self.assertIn("Simulated concrete type creation failure", str(context.exception))
+
+        # Verify Organization was NOT created (rollback occurred)
+        orgs_created = frappe.get_all(
+            "Organization",
+            filters={"org_name": "Test Atomic Rollback"},
+            pluck="name"
+        )
+        self.assertEqual(len(orgs_created), 0, "Organization should be rolled back after concrete creation failure")
+
+        # Verify no orphaned Organization records exist
+        all_test_orgs = frappe.get_all(
+            "Organization",
+            filters={"org_name": ["like", "Test Atomic%"]},
+            pluck="name"
+        )
+        self.assertEqual(len(all_test_orgs), 0, "No test organizations should exist after rollback")
