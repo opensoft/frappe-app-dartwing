@@ -268,7 +268,7 @@ class Organization(Document):
             if field_config:
                 # Set name field
                 name_field = field_config.get("name_field")
-            # Set linked_doctype BEFORE concrete creation to prevent race condition
+                if name_field and hasattr(concrete, name_field):
                     setattr(concrete, name_field, self.org_name)
                 else:
                     raise frappe.ValidationError(
