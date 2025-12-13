@@ -55,8 +55,9 @@ class Person(Document):
         self._trigger_user_auto_creation()
 
     def before_delete(self):
-        """Prevent deletion if linked to Org Member (FR-006)."""
+        """Prevent deletion if linked to Org Member or Company officer/member (FR-006)."""
         self._check_org_member_links()
+        self._check_company_links()
 
     def _check_org_member_links(self):
         """Check for Org Member links and block deletion if found.
@@ -83,6 +84,62 @@ class Person(Document):
                 ),
                 frappe.LinkExistsError,
             )
+
+    def _check_company_links(self):
+        """Check for Company officer/member links and block deletion if found.
+
+        Prevents deletion of Person records that are linked as:
+        - Officers in Organization Officer child table
+        - Members/Partners in Organization Member Partner child table
+        - Registered Agent on Company
+        """
+        # Check if Organization Officer exists and has links to this Person
+        if frappe.db.exists("DocType", "Organization Officer"):
+            officer_links = frappe.get_all(
+                "Organization Officer",
+                filters={"person": self.name},
+                limit=1
+            )
+            if officer_links:
+                frappe.throw(
+                    _(
+                        "Cannot delete Person who is listed as an officer. "
+                        "Please remove them from the officers list first."
+                    ),
+                    frappe.LinkExistsError,
+                )
+
+        # Check if Organization Member Partner exists and has links to this Person
+        if frappe.db.exists("DocType", "Organization Member Partner"):
+            member_links = frappe.get_all(
+                "Organization Member Partner",
+                filters={"person": self.name},
+                limit=1
+            )
+            if member_links:
+                frappe.throw(
+                    _(
+                        "Cannot delete Person who is listed as a member/partner. "
+                        "Please remove them from the members list first."
+                    ),
+                    frappe.LinkExistsError,
+                )
+
+        # Check if Company exists and this Person is a registered agent
+        if frappe.db.exists("DocType", "Company"):
+            agent_links = frappe.get_all(
+                "Company",
+                filters={"registered_agent": self.name},
+                limit=1
+            )
+            if agent_links:
+                frappe.throw(
+                    _(
+                        "Cannot delete Person who is a registered agent for a Company. "
+                        "Please update the Company's registered agent first."
+                    ),
+                    frappe.LinkExistsError,
+                )
 
     def _trigger_user_auto_creation(self):
         """Auto-create Frappe User when keycloak_user_id is set and enabled.

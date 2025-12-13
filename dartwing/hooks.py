@@ -121,10 +121,12 @@ app_version = "0.1.0"
 permission_query_conditions = {
 	"Family": "dartwing.permissions.family.get_permission_query_conditions",
 	"Family Member": "dartwing.permissions.family.get_member_permission_query_conditions",
+	"Company": "dartwing.dartwing_company.permissions.get_permission_query_conditions_company",
 }
 
 has_permission = {
 	"Family": "dartwing.permissions.family.has_permission",
+	"Company": "dartwing.dartwing_company.permissions.has_permission_company",
 }
 
 # Fixtures
@@ -162,13 +164,12 @@ fixtures = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+# CR-011 FIX: Address deletion protection for Company links
+doc_events = {
+	"Address": {
+		"on_trash": "dartwing.dartwing_company.utils.check_address_company_links"
+	}
+}
 
 # Scheduled Tasks
 # ---------------

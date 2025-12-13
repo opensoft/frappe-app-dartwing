@@ -1,0 +1,205 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2025-12-13 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "organization",
+  "column_break_basic",
+  "section_legal_information",
+  "legal_name",
+  "tax_id",
+  "column_break_legal",
+  "entity_type",
+  "formation_date",
+  "section_jurisdiction",
+  "jurisdiction_country",
+  "jurisdiction_state",
+  "section_addresses",
+  "registered_address",
+  "registered_agent",
+  "column_break_addresses",
+  "physical_address",
+  "section_officers",
+  "officers",
+  "section_ownership",
+  "members_partners"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "CO-.#####",
+   "default": "CO-.#####"
+  },
+  {
+   "fieldname": "organization",
+   "fieldtype": "Link",
+   "label": "Organization",
+   "options": "Organization",
+   "reqd": 1,
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Parent organization for multi-tenant isolation"
+  },
+  {
+   "fieldname": "column_break_basic",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_legal_information",
+   "fieldtype": "Section Break",
+   "label": "Legal Information"
+  },
+  {
+   "fieldname": "legal_name",
+   "fieldtype": "Data",
+   "label": "Legal Name",
+   "in_list_view": 1,
+   "description": "Official legal entity name"
+  },
+  {
+   "fieldname": "tax_id",
+   "fieldtype": "Data",
+   "label": "Tax ID",
+   "description": "Tax ID / EIN / Unified Social Credit Code"
+  },
+  {
+   "fieldname": "column_break_legal",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "entity_type",
+   "fieldtype": "Select",
+   "label": "Entity Type",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "options": "\nC-Corp\nS-Corp\nLLC\nLimited Partnership (LP)\nGeneral Partnership\nLLP\nWFOE (China)\nBenefit Corporation\nCooperative",
+   "description": "Legal entity classification"
+  },
+  {
+   "fieldname": "formation_date",
+   "fieldtype": "Date",
+   "label": "Formation Date",
+   "description": "Date of formation/incorporation"
+  },
+  {
+   "fieldname": "section_jurisdiction",
+   "fieldtype": "Section Break",
+   "label": "Jurisdiction",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "jurisdiction_country",
+   "fieldtype": "Link",
+   "label": "Jurisdiction Country",
+   "options": "Country",
+   "description": "Country of formation"
+  },
+  {
+   "fieldname": "jurisdiction_state",
+   "fieldtype": "Data",
+   "label": "Jurisdiction State",
+   "description": "State/Province of formation"
+  },
+  {
+   "fieldname": "section_addresses",
+   "fieldtype": "Section Break",
+   "label": "Addresses",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "registered_address",
+   "fieldtype": "Link",
+   "label": "Registered Address",
+   "options": "Address",
+   "description": "Legal address for service of process"
+  },
+  {
+   "fieldname": "registered_agent",
+   "fieldtype": "Link",
+   "label": "Registered Agent",
+   "options": "Person",
+   "description": "Person designated as registered agent"
+  },
+  {
+   "fieldname": "column_break_addresses",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "physical_address",
+   "fieldtype": "Link",
+   "label": "Physical Address",
+   "options": "Address",
+   "description": "Principal/physical business address"
+  },
+  {
+   "fieldname": "section_officers",
+   "fieldtype": "Section Break",
+   "label": "Officers & Directors"
+  },
+  {
+   "fieldname": "officers",
+   "fieldtype": "Table",
+   "label": "Officers",
+   "options": "Organization Officer",
+   "description": "List of officers and directors"
+  },
+  {
+   "fieldname": "section_ownership",
+   "fieldtype": "Section Break",
+   "label": "Ownership (Members/Partners)",
+   "depends_on": "eval:in_list(['LLC', 'Limited Partnership (LP)', 'LLP', 'General Partnership'], doc.entity_type)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "members_partners",
+   "fieldtype": "Table",
+   "label": "Members/Partners",
+   "options": "Organization Member Partner",
+   "description": "LLC members or partnership partners"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-13 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Dartwing Company",
+ "name": "Company",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Dartwing User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "user_permission_dependant_doctype": "Organization"
+}
