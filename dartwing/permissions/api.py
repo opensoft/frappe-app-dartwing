@@ -79,7 +79,13 @@ def get_user_organizations():
         frappe.throw(_("Authentication required"), frappe.PermissionError)
 
     # System Manager and Administrator see all organizations
-    if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+    if user == "Administrator":
+        organizations = frappe.get_all(
+            "Organization",
+            fields=["name", "org_name", "org_type", "logo"],
+            order_by="org_name asc"
+        )
+    elif "System Manager" in frappe.get_roles(user):
         organizations = frappe.get_all(
             "Organization",
             fields=["name", "org_name", "org_type", "logo"],
