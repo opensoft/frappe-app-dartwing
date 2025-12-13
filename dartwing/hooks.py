@@ -162,13 +162,11 @@ fixtures = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Person": {
+		"on_trash": "dartwing.dartwing_core.doctype.org_member.org_member.handle_person_deletion"
+	}
+}
 
 # Scheduled Tasks
 # ---------------
