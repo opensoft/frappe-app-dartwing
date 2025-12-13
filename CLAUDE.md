@@ -24,6 +24,7 @@ Auto-generated from all feature plans. Last updated: 2025-12-01
 ## Active Technologies
 - Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures (002-role-template-doctype)
 - MariaDB 10.6+ via Frappe ORM (002-role-template-doctype)
+- Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger (004-org-bidirectional-hooks)
 
 - Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.background_jobs (001-person-doctype)
 
@@ -43,6 +44,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (Frappe 15.x backend): Follow standard conventions
 
 ## Recent Changes
+- 004-org-bidirectional-hooks: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger
 - 002-role-template-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
 
 - 001-person-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.background_jobs
