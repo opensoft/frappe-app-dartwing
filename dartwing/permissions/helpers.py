@@ -13,8 +13,13 @@ Key functions:
 - handle_status_change: Called on Org Member on_update (FR-009)
 """
 
+import logging
+
 import frappe
 from dartwing.utils.permission_logger import log_permission_event
+
+# Valid organization types for concrete DocType validation
+VALID_ORG_TYPES = {"Family", "Company", "Association", "Nonprofit"}
 
 
 def create_user_permissions(doc, method):
@@ -240,8 +245,6 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
     org_type = org_member_doc.organization_type
     
     # Validate org_type to prevent DocType injection attacks
-    VALID_ORG_TYPES = {"Family", "Company", "Association", "Nonprofit"}
-    
     if org_type and org_type in VALID_ORG_TYPES:
         # Try to find the concrete document linked to this organization
         # Concrete types (Family, Company, etc.) have an 'organization' field
@@ -263,19 +266,23 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
                     for_value=concrete_name
                 )
                 # Log successful cleanup as info, not error
-                frappe.logger().info(
-                    f"Removed orphaned {org_type} permission for '{concrete_name}' "
-                    f"during cleanup of Org Member '{org_member_doc.name}' "
-                    f"(Organization '{org_member_doc.organization}' not found)."
-                )
+                logger = frappe.logger()
+                if logger.isEnabledFor(logging.INFO):
+                    logger.info(
+                        "Removed orphaned %s permission for '%s' during cleanup of Org Member '%s' "
+                        "(Organization '%s' not found).",
+                        org_type, concrete_name, org_member_doc.name, org_member_doc.organization
+                    )
             
             if not concrete_docs:
                 # No concrete document found - may have been deleted already
-                frappe.logger().info(
-                    f"No {org_type} document found linked to Organization '{org_member_doc.organization}' "
-                    f"during cleanup of Org Member '{org_member_doc.name}'. "
-                    f"Concrete type permissions may have already been cleaned up."
-                )
+                logger = frappe.logger()
+                if logger.isEnabledFor(logging.INFO):
+                    logger.info(
+                        "No %s document found linked to Organization '%s' during cleanup of Org Member '%s'. "
+                        "Concrete type permissions may have already been cleaned up.",
+                        org_type, org_member_doc.organization, org_member_doc.name
+                    )
         except Exception as e:
             # If querying the concrete type fails, log it but continue
             frappe.log_error(
