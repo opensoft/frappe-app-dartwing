@@ -89,7 +89,8 @@ class TestPermissionPropagation(FrappeTestCase):
             if org.linked_doctype and org.linked_name:
                 try:
                     frappe.delete_doc(org.linked_doctype, org.linked_name, force=True, ignore_permissions=True)
-                except:
+                except (frappe.DoesNotExistError, frappe.LinkExistsError):
+                    # Concrete type may have already been deleted or has links
                     pass
             frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
 
