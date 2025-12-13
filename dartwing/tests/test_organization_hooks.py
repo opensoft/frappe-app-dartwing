@@ -634,6 +634,88 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         except frappe.exceptions.DuplicateEntryError:
             self.fail("Duplicate family names should be allowed (unique constraint removed)")
 
+    def test_validate_links_passes_for_valid_organization(self):
+        """Test that validate_links returns valid for properly linked Organization (Issue #12)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Edge Valid Links",
+            "org_type": "Family"
+        })
+        org.insert()
+        org.reload()
+
+        # Validate links
+        result = org.validate_links()
+
+        self.assertTrue(result["valid"])
+        self.assertEqual(len(result["errors"]), 0)
+
+    def test_validate_links_detects_orphaned_concrete_type(self):
+        """Test that validate_links detects when concrete type is missing (Issue #12)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Edge Orphaned",
+            "org_type": "Family"
+        })
+        org.insert()
+        org.reload()
+
+        family_name = org.linked_name
+
+        # Delete the Family manually (orphan scenario)
+        frappe.delete_doc("Family", family_name, force=True, ignore_permissions=True)
+        frappe.db.commit()
+
+        # Reload org and validate
+        org.reload()
+        result = org.validate_links()
+
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("does not exist" in error for error in result["errors"]))
+
+    def test_validate_links_detects_broken_bidirectional_link(self):
+        """Test that validate_links detects broken bidirectional link (Issue #12)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Edge Broken Link",
+            "org_type": "Family"
+        })
+        org.insert()
+        org.reload()
+
+        family_name = org.linked_name
+
+        # Break the bidirectional link by clearing organization field
+        frappe.db.set_value("Family", family_name, "organization", None)
+        frappe.db.commit()
+
+        # Reload org and validate
+        org.reload()
+        result = org.validate_links()
+
+        self.assertFalse(result["valid"])
+        self.assertTrue(any("Bidirectional link broken" in error for error in result["errors"]))
+
+    def test_validate_organization_links_api(self):
+        """Test the whitelisted validate_organization_links API (Issue #12)."""
+        from dartwing.dartwing_core.doctype.organization.organization import validate_organization_links
+
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Edge API Validate",
+            "org_type": "Family"
+        })
+        org.insert()
+        org.reload()
+
+        # Call API
+        result = validate_organization_links(org.name)
+
+        self.assertIn("valid", result)
+        self.assertIn("errors", result)
+        self.assertIn("warnings", result)
+        self.assertTrue(result["valid"])
+
 
 class TestOrganizationConcurrency(FrappeTestCase):
     """Test concurrent Organization creation (SC-006)."""

@@ -26,6 +26,51 @@ ORG_FIELD_MAP = {
 }
 
 
+def validate_org_field_map():
+    """
+    Validate that ORG_FIELD_MAP field names exist on their respective DocTypes (Issue #10).
+
+    This function checks configuration consistency at runtime to prevent errors
+    from misconfigured field mappings.
+    """
+    errors = []
+
+    for org_type, field_config in ORG_FIELD_MAP.items():
+        concrete_doctype = ORG_TYPE_MAP.get(org_type)
+
+        # Skip if DocType doesn't exist in system
+        if not concrete_doctype or not frappe.db.exists("DocType", concrete_doctype):
+            continue
+
+        try:
+            meta = frappe.get_meta(concrete_doctype)
+
+            # Check name_field exists
+            name_field = field_config.get("name_field")
+            if name_field and not meta.has_field(name_field):
+                errors.append(
+                    f"DocType {concrete_doctype}: field '{name_field}' not found "
+                    f"(required by ORG_FIELD_MAP for {org_type})"
+                )
+
+            # Check status_field exists
+            status_field = field_config.get("status_field")
+            if status_field and not meta.has_field(status_field):
+                errors.append(
+                    f"DocType {concrete_doctype}: field '{status_field}' not found "
+                    f"(required by ORG_FIELD_MAP for {org_type})"
+                )
+
+        except Exception as e:
+            errors.append(f"Error validating {concrete_doctype}: {str(e)}")
+
+    if errors:
+        logger.error("ORG_FIELD_MAP validation errors:\n" + "\n".join(errors))
+        return False
+
+    return True
+
+
 class Organization(Document):
     def validate(self):
         """Validate organization before save."""
@@ -33,6 +78,17 @@ class Organization(Document):
         self._validate_org_type()
         self._validate_org_type_immutability()
         self._set_defaults()
+
+        # Validate link integrity for existing records (Issue #12)
+        if not self.is_new():
+            link_validation = self.validate_links()
+            if not link_validation["valid"]:
+                for error in link_validation["errors"]:
+                    frappe.msgprint(
+                        msg=_("Link validation warning: {0}").format(error),
+                        indicator="orange",
+                        alert=True
+                    )
 
     def _validate_org_name(self):
         """Ensure org_name is provided."""
@@ -58,6 +114,55 @@ class Organization(Document):
         """Set default values."""
         if not self.status:
             self.status = "Active"
+
+    def validate_links(self):
+        """
+        Validate link integrity between Organization and concrete type (Issue #12).
+
+        Returns:
+            dict: {
+                "valid": bool,
+                "errors": List[str],
+                "warnings": List[str]
+            }
+        """
+        errors = []
+        warnings = []
+
+        # Check if linked_doctype is set
+        if not self.linked_doctype:
+            warnings.append("No linked_doctype set")
+            return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
+
+        # Check if linked_name is set
+        if not self.linked_name:
+            errors.append(f"linked_doctype is '{self.linked_doctype}' but linked_name is empty")
+            return {"valid": False, "errors": errors, "warnings": warnings}
+
+        # Check if concrete type exists
+        if not frappe.db.exists(self.linked_doctype, self.linked_name):
+            errors.append(
+                f"Concrete type {self.linked_doctype} '{self.linked_name}' does not exist"
+            )
+            return {"valid": False, "errors": errors, "warnings": warnings}
+
+        # Check bidirectional link
+        try:
+            concrete = frappe.get_doc(self.linked_doctype, self.linked_name)
+            if hasattr(concrete, "organization"):
+                if concrete.organization != self.name:
+                    errors.append(
+                        f"Bidirectional link broken: {self.linked_doctype} '{self.linked_name}' "
+                        f"points to Organization '{concrete.organization}' instead of '{self.name}'"
+                    )
+            else:
+                warnings.append(
+                    f"{self.linked_doctype} does not have 'organization' field for bidirectional link"
+                )
+        except Exception as e:
+            errors.append(f"Error checking bidirectional link: {str(e)}")
+
+        return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
     def after_insert(self):
         """Create concrete type document after organization is created (FR-001)."""
@@ -254,6 +359,31 @@ def get_organization_with_details(organization: str) -> dict:
         result["concrete_type"] = None
 
     return result
+
+
+@frappe.whitelist()
+def validate_organization_links(organization: str) -> dict:
+    """
+    Validate link integrity for an Organization (Issue #12).
+
+    This whitelisted API allows external validation of Organization links,
+    useful for data integrity checks and diagnostics.
+
+    Args:
+        organization: The Organization name/ID
+
+    Returns:
+        dict: {
+            "valid": bool,
+            "errors": List[str],
+            "warnings": List[str]
+        }
+
+    Raises:
+        DoesNotExistError: If the Organization does not exist
+    """
+    org = frappe.get_doc("Organization", organization)
+    return org.validate_links()
 
 
 # ============================================================================
