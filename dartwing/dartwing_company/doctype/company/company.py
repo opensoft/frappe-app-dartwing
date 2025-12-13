@@ -21,7 +21,34 @@ class Company(Document, OrganizationMixin):
 
     def validate(self):
         """Validate company before save."""
+        self.validate_members_partners()
         self.validate_ownership_percentage()
+
+    def validate_members_partners(self):
+        """Validate member/partner entries."""
+        for row in self.members_partners or []:
+            if row.ownership_percent is not None:
+                if row.ownership_percent < 0:
+                    frappe.throw(
+                        _("Ownership percentage cannot be negative"),
+                        exc=frappe.ValidationError
+                    )
+                if row.ownership_percent > 100:
+                    frappe.throw(
+                        _("Ownership percentage cannot exceed 100%"),
+                        exc=frappe.ValidationError
+                    )
+            if row.voting_rights is not None:
+                if row.voting_rights < 0:
+                    frappe.throw(
+                        _("Voting rights cannot be negative"),
+                        exc=frappe.ValidationError
+                    )
+                if row.voting_rights > 100:
+                    frappe.throw(
+                        _("Voting rights cannot exceed 100%"),
+                        exc=frappe.ValidationError
+                    )
 
     # CR-008 FIX: Removed after_insert, on_update, on_trash, and _log_audit_event
     # Frappe's track_changes: 1 in company.json handles audit logging via Version doctype

@@ -22,22 +22,22 @@ class OrganizationMemberPartner(Document):
             if self.ownership_percent < 0:
                 frappe.throw(
                     _("Ownership percentage cannot be negative"),
-                    title=_("Invalid Percentage")
+                    exc=frappe.ValidationError
                 )
             if self.ownership_percent > 100:
                 frappe.throw(
                     _("Ownership percentage cannot exceed 100%"),
-                    title=_("Invalid Percentage")
+                    exc=frappe.ValidationError
                 )
 
         if self.voting_rights is not None:
             if self.voting_rights < 0:
                 frappe.throw(
                     _("Voting rights percentage cannot be negative"),
-                    title=_("Invalid Percentage")
+                    exc=frappe.ValidationError
                 )
             if self.voting_rights > 100:
                 frappe.throw(
                     _("Voting rights percentage cannot exceed 100%"),
-                    title=_("Invalid Percentage")
+                    exc=frappe.ValidationError
                 )

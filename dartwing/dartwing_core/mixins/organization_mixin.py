@@ -40,7 +40,7 @@ class OrganizationMixin:
                 self._org_cache = frappe.db.get_value(
                     "Organization",
                     self.organization,
-                    ["org_name", "logo", "status"],
+                    ["org_name", "status"],
                     as_dict=True
                 )
         return self._org_cache

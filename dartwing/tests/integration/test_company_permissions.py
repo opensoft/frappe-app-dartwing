@@ -166,7 +166,8 @@ class TestCompanyPermissions(FrappeTestCase):
 
         try:
             # Get all companies user can see
-            companies = frappe.get_all(
+            # Note: Use get_list instead of get_all to apply permission hooks
+            companies = frappe.get_list(
                 "Company",
                 filters={"legal_name": ["like", f"{self.TEST_PREFIX}%"]},
                 pluck="name"

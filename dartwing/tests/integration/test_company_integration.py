@@ -215,8 +215,9 @@ class TestCompanyIntegration(FrappeTestCase):
         org.status = "Inactive"
         org.save()
 
-        # Company mixin should reflect the change
+        # Reload company and clear the mixin cache to reflect the change
         company.reload()
+        company._clear_organization_cache()
         self.assertEqual(company.org_status, "Inactive")
 
     def test_api_get_company_with_org_details(self):
@@ -242,12 +243,13 @@ class TestCompanyIntegration(FrappeTestCase):
         # Call API
         result = get_company_with_org_details(company.name)
 
-        # Verify response
-        self.assertEqual(result["name"], company.name)
-        self.assertEqual(result["legal_name"], "Integration Test API Inc.")
-        self.assertEqual(result["entity_type"], "C-Corp")
-        self.assertEqual(result["organization"]["org_name"], "Integration Test API Company")
-        self.assertEqual(result["organization"]["status"], "Active")
+        # Verify response (CR-007 FIX: Updated response structure)
+        self.assertEqual(result["message"], "success")
+        self.assertEqual(result["company"]["name"], company.name)
+        self.assertEqual(result["company"]["legal_name"], "Integration Test API Inc.")
+        self.assertEqual(result["company"]["entity_type"], "C-Corp")
+        self.assertEqual(result["org_details"]["org_name"], "Integration Test API Company")
+        self.assertEqual(result["org_details"]["status"], "Active")
 
     def test_api_validate_ownership(self):
         """
@@ -298,9 +300,9 @@ class TestCompanyIntegration(FrappeTestCase):
         # Call API
         result = validate_ownership(company.name)
 
-        # Verify response
+        # Verify response (CR-007 FIX: key renamed to total_ownership)
         self.assertFalse(result["valid"])
-        self.assertEqual(result["total_ownership_percent"], 110)
+        self.assertEqual(result["total_ownership"], 110)
         self.assertEqual(result["member_count"], 2)
         self.assertTrue(len(result["warnings"]) > 0)
 
