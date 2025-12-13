@@ -229,6 +229,9 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
         user: The Frappe User email
         org_member_doc: The Org Member document being deleted
     """
+    # Get logger once for reuse
+    logger = frappe.logger()
+    
     # Remove the Organization permission
     _delete_permission(user, "Organization", org_member_doc.organization)
     log_permission_event(
@@ -266,7 +269,6 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
                     for_value=concrete_name
                 )
                 # Log successful cleanup as info, not error
-                logger = frappe.logger()
                 if logger.isEnabledFor(logging.INFO):
                     logger.info(
                         "Removed orphaned %s permission for '%s' during cleanup of Org Member '%s' "
@@ -276,7 +278,6 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
             
             if not concrete_docs:
                 # No concrete document found - may have been deleted already
-                logger = frappe.logger()
                 if logger.isEnabledFor(logging.INFO):
                     logger.info(
                         "No %s document found linked to Organization '%s' during cleanup of Org Member '%s'. "
