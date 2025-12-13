@@ -22,6 +22,49 @@ from dartwing.dartwing_core.doctype.organization.organization import (
 )
 
 
+def cleanup_test_organizations(name_pattern: str = "Test Hook%", edge_pattern: str = "Test Edge%") -> None:
+    """
+    Shared utility for cleaning up test organizations and concrete types (Issue #20).
+
+    Args:
+        name_pattern: Pattern for main test data cleanup
+        edge_pattern: Pattern for edge case test data cleanup
+    """
+    # Clean up organizations matching patterns
+    for pattern in [name_pattern, edge_pattern]:
+        for org_name in frappe.get_all(
+            "Organization",
+            filters={"org_name": ["like", pattern]},
+            pluck="name"
+        ):
+            try:
+                frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
+            except Exception:
+                pass
+
+    # Clean up all concrete types for both patterns
+    concrete_types = [
+        ("Family", "family_name"),
+        ("Company", "company_name"),
+        ("Association", "association_name"),
+        ("Nonprofit", "nonprofit_name")
+    ]
+
+    for doctype, name_field in concrete_types:
+        for pattern in [name_pattern, edge_pattern]:
+            for doc_name in frappe.get_all(
+                doctype,
+                filters={name_field: ["like", pattern]},
+                pluck="name"
+            ):
+                try:
+                    frappe.delete_doc(doctype, doc_name, force=True, ignore_permissions=True)
+                except Exception:
+                    pass
+
+    frappe.db.commit()
+
+
 class TestOrganizationBidirectionalHooks(FrappeTestCase):
     """
     Test cases for Organization Bidirectional Hooks feature.
@@ -35,70 +78,11 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
     def setUp(self):
         """Set up test fixtures before each test."""
-        self._cleanup_test_data()
+        cleanup_test_organizations()
 
     def tearDown(self):
         """Clean up test data after each test."""
-        self._cleanup_test_data()
-
-    def _cleanup_test_data(self):
-        """Clean up all test organizations and families."""
-        # Clean up test organizations
-        for org_name in frappe.get_all(
-            "Organization",
-            filters={"org_name": ["like", "Test Hook%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        # Clean up test families
-        for family_name in frappe.get_all(
-            "Family",
-            filters={"family_name": ["like", "Test Hook%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Family", family_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        # Clean up test companies
-        for company_name in frappe.get_all(
-            "Company",
-            filters={"company_name": ["like", "Test Hook%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Company", company_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        # Clean up test associations
-        for assoc_name in frappe.get_all(
-            "Association",
-            filters={"association_name": ["like", "Test Hook%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Association", assoc_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        # Clean up test nonprofits
-        for nonprofit_name in frappe.get_all(
-            "Nonprofit",
-            filters={"nonprofit_name": ["like", "Test Hook%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Nonprofit", nonprofit_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        frappe.db.commit()
+        cleanup_test_organizations()
 
     # =========================================================================
     # User Story 1: Automatic Concrete Type Creation (P1)
@@ -537,38 +521,11 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def setUp(self):
         """Set up test fixtures."""
         frappe.set_user("Administrator")
-        self._cleanup_test_data()
+        cleanup_test_organizations()
 
     def tearDown(self):
         """Clean up test data."""
-        self._cleanup_test_data()
-
-    def _cleanup_test_data(self):
-        """Clean up all test data."""
-        for org_name in frappe.get_all(
-            "Organization",
-            filters={"org_name": ["like", "Test Edge%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        # Clean up all concrete types for edge case tests
-        for doctype, name_field in [("Family", "family_name"), ("Company", "company_name"),
-                                      ("Association", "association_name"), ("Nonprofit", "nonprofit_name")]:
-            for doc_name in frappe.get_all(
-                doctype,
-                filters={name_field: ["like", "Test Edge%"]},
-                pluck="name"
-            ):
-                try:
-                    frappe.delete_doc(doctype, doc_name, force=True, ignore_permissions=True)
-                except Exception:
-                    pass
-
-        frappe.db.commit()
+        cleanup_test_organizations()
 
     def test_organization_without_name_fails(self):
         """Test that Organization without org_name fails validation."""
@@ -748,38 +705,11 @@ class TestOrganizationConcurrency(FrappeTestCase):
     def setUp(self):
         """Set up test fixtures."""
         frappe.set_user("Administrator")
-        self._cleanup_test_data()
+        cleanup_test_organizations(name_pattern="Test Concurrent%", edge_pattern="")
 
     def tearDown(self):
         """Clean up test data."""
-        self._cleanup_test_data()
-
-    def _cleanup_test_data(self):
-        """Clean up all test data."""
-        for org_name in frappe.get_all(
-            "Organization",
-            filters={"org_name": ["like", "Test Concurrent%"]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
-
-        # Clean up all concrete types for concurrency tests
-        for doctype, name_field in [("Family", "family_name"), ("Company", "company_name"),
-                                      ("Association", "association_name"), ("Nonprofit", "nonprofit_name")]:
-            for doc_name in frappe.get_all(
-                doctype,
-                filters={name_field: ["like", "Test Concurrent%"]},
-                pluck="name"
-            ):
-                try:
-                    frappe.delete_doc(doctype, doc_name, force=True, ignore_permissions=True)
-                except Exception:
-                    pass
-
-        frappe.db.commit()
+        cleanup_test_organizations(name_pattern="Test Concurrent%", edge_pattern="")
 
     def test_sc006_concurrent_organization_creation(self):
         """T049: Test 100 concurrent Organization creations without data corruption.

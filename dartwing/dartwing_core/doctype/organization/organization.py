@@ -1,12 +1,21 @@
 # Copyright (c) 2025, Brett and contributors
 # For license information, please see license.txt
 
+from typing import Dict, Any, Optional
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
 # Configure logger for audit trail
 logger = frappe.logger("dartwing_core.hooks", allow_site=True, file_count=10)
+
+# DocType name constants (Issue #16)
+DOCTYPE_ORGANIZATION = "Organization"
+DOCTYPE_FAMILY = "Family"
+DOCTYPE_COMPANY = "Company"
+DOCTYPE_ASSOCIATION = "Association"
+DOCTYPE_NONPROFIT = "Nonprofit"
 
 # Mapping from org_type to concrete DocType (FR-010)
 ORG_TYPE_MAP = {
@@ -72,7 +81,7 @@ def validate_org_field_map():
 
 
 class Organization(Document):
-    def validate(self):
+    def validate(self) -> None:
         """Validate organization before save."""
         self._validate_org_name()
         self._validate_org_type()
@@ -90,12 +99,12 @@ class Organization(Document):
                         alert=True
                     )
 
-    def _validate_org_name(self):
+    def _validate_org_name(self) -> None:
         """Ensure org_name is provided."""
         if not self.org_name:
             frappe.throw(_("Organization Name is required"))
 
-    def _validate_org_type(self):
+    def _validate_org_type(self) -> None:
         """Validate org_type is one of the supported types (FR-010)."""
         if self.org_type and self.org_type not in ORG_TYPE_MAP:
             valid_types = ", ".join(ORG_TYPE_MAP.keys())
@@ -105,17 +114,17 @@ class Organization(Document):
                 )
             )
 
-    def _validate_org_type_immutability(self):
+    def _validate_org_type_immutability(self) -> None:
         """Prevent org_type changes after creation (FR-007)."""
         if not self.is_new() and self.has_value_changed("org_type"):
             frappe.throw(_("Organization type cannot be changed after creation"))
 
-    def _set_defaults(self):
+    def _set_defaults(self) -> None:
         """Set default values."""
         if not self.status:
             self.status = "Active"
 
-    def validate_links(self):
+    def validate_links(self) -> Dict[str, Any]:
         """
         Validate link integrity between Organization and concrete type (Issue #12).
 
@@ -335,7 +344,7 @@ class Organization(Document):
 # ============================================================================
 
 @frappe.whitelist()
-def get_concrete_doc(organization: str) -> dict | None:
+def get_concrete_doc(organization: str) -> Optional[dict]:
     """
     Return just the concrete type document for an Organization.
 
@@ -350,15 +359,25 @@ def get_concrete_doc(organization: str) -> dict | None:
     Raises:
         DoesNotExistError: If the Organization does not exist
     """
+    logger.info(f"API: get_concrete_doc called for Organization '{organization}'")
     org = frappe.get_doc("Organization", organization)
 
     if not org.linked_doctype or not org.linked_name:
+        logger.info(f"API: get_concrete_doc - No linked concrete type for '{organization}'")
         return None
 
     if not frappe.db.exists(org.linked_doctype, org.linked_name):
+        logger.warning(
+            f"API: get_concrete_doc - Concrete type {org.linked_doctype} "
+            f"'{org.linked_name}' not found for Organization '{organization}'"
+        )
         return None
 
     concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
+    logger.info(
+        f"API: get_concrete_doc - Returning {org.linked_doctype} '{org.linked_name}' "
+        f"for Organization '{organization}'"
+    )
     return concrete.as_dict()
 
 
@@ -378,6 +397,7 @@ def get_organization_with_details(organization: str) -> dict:
     Raises:
         DoesNotExistError: If the Organization does not exist
     """
+    logger.info(f"API: get_organization_with_details called for '{organization}'")
     org = frappe.get_doc("Organization", organization)
     result = org.as_dict()
 
@@ -387,9 +407,18 @@ def get_organization_with_details(organization: str) -> dict:
         try:
             concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
             result["concrete_type"] = concrete.as_dict()
+            logger.info(
+                f"API: get_organization_with_details - Including {org.linked_doctype} "
+                f"'{org.linked_name}' for Organization '{organization}'"
+            )
         except frappe.DoesNotExistError:
+            logger.warning(
+                f"API: get_organization_with_details - Concrete type {org.linked_doctype} "
+                f"'{org.linked_name}' not found for Organization '{organization}'"
+            )
             result["concrete_type"] = None
     else:
+        logger.info(f"API: get_organization_with_details - No linked concrete type for '{organization}'")
         result["concrete_type"] = None
 
     return result
@@ -424,7 +453,7 @@ def validate_organization_links(organization: str) -> dict:
 # Helper Functions
 # ============================================================================
 
-def get_organization_for_family(family_name: str) -> str | None:
+def get_organization_for_family(family_name: str) -> Optional[str]:
     """Get the Organization linked to a Family."""
     org = frappe.db.get_value(
         "Organization",
@@ -434,7 +463,7 @@ def get_organization_for_family(family_name: str) -> str | None:
     return org
 
 
-def create_organization_for_family(family_doc) -> str:
+def create_organization_for_family(family_doc: Document) -> str:
     """Create an Organization for an existing Family that doesn't have one."""
     if family_doc.organization:
         return family_doc.organization
