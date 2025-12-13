@@ -22,27 +22,31 @@ from dartwing.dartwing_core.doctype.organization.organization import (
 )
 
 
-def cleanup_test_organizations(name_pattern: str = "Test Hook%", edge_pattern: str = "Test Edge%") -> None:
+# Unique prefix for this test module to avoid collisions with other test suites
+TEST_PREFIX = "_OrgHooksTest_"
+
+
+def cleanup_test_organizations() -> None:
     """
     Shared utility for cleaning up test organizations and concrete types (Issue #20).
 
-    Args:
-        name_pattern: Pattern for main test data cleanup
-        edge_pattern: Pattern for edge case test data cleanup
+    Uses TEST_PREFIX to ensure only data created by this test module is removed,
+    avoiding accidental deletion of unrelated test data in shared environments.
     """
-    # Clean up organizations matching patterns
-    for pattern in [name_pattern, edge_pattern]:
-        for org_name in frappe.get_all(
-            "Organization",
-            filters={"org_name": ["like", pattern]},
-            pluck="name"
-        ):
-            try:
-                frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
-            except Exception:
-                pass
+    pattern = f"{TEST_PREFIX}%"
 
-    # Clean up all concrete types for both patterns
+    # Clean up organizations matching the test prefix
+    for org_name in frappe.get_all(
+        "Organization",
+        filters={"org_name": ["like", pattern]},
+        pluck="name"
+    ):
+        try:
+            frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
+        except Exception:
+            pass
+
+    # Clean up all concrete types matching the test prefix
     concrete_types = [
         ("Family", "family_name"),
         ("Company", "company_name"),
@@ -51,16 +55,15 @@ def cleanup_test_organizations(name_pattern: str = "Test Hook%", edge_pattern: s
     ]
 
     for doctype, name_field in concrete_types:
-        for pattern in [name_pattern, edge_pattern]:
-            for doc_name in frappe.get_all(
-                doctype,
-                filters={name_field: ["like", pattern]},
-                pluck="name"
-            ):
-                try:
-                    frappe.delete_doc(doctype, doc_name, force=True, ignore_permissions=True)
-                except Exception:
-                    pass
+        for doc_name in frappe.get_all(
+            doctype,
+            filters={name_field: ["like", pattern]},
+            pluck="name"
+        ):
+            try:
+                frappe.delete_doc(doctype, doc_name, force=True, ignore_permissions=True)
+            except Exception:
+                pass
 
     frappe.db.commit()
 
@@ -92,7 +95,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T008: Test Organization with org_type Family creates Family record."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Family",
+            "org_name": f"{TEST_PREFIX}Family",
             "org_type": "Family"
         })
         org.insert()
@@ -107,7 +110,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T012: Test linked_doctype is populated correctly."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Linked DocType",
+            "org_name": f"{TEST_PREFIX}Linked DocType",
             "org_type": "Family"
         })
         org.insert()
@@ -119,7 +122,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T012: Test linked_name is populated correctly."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Linked Name",
+            "org_name": f"{TEST_PREFIX}Linked Name",
             "org_type": "Family"
         })
         org.insert()
@@ -133,7 +136,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T013: Test concrete type's organization field points back to Organization."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Backlink",
+            "org_name": f"{TEST_PREFIX}Backlink",
             "org_type": "Family"
         })
         org.insert()
@@ -146,7 +149,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T014: Test invalid org_type is rejected with ValidationError."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Invalid Type",
+            "org_name": f"{TEST_PREFIX}Invalid Type",
             "org_type": "InvalidType"
         })
 
@@ -165,7 +168,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T009: Test Organization with org_type Company creates Company record."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Company",
+            "org_name": f"{TEST_PREFIX}Company",
             "org_type": "Company"
         })
         org.insert()
@@ -178,14 +181,14 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         # Verify Company has correct field values
         company = frappe.get_doc("Company", org.linked_name)
-        self.assertEqual(company.company_name, "Test Hook Company")
+        self.assertEqual(company.company_name, f"{TEST_PREFIX}Company")
         self.assertEqual(company.organization, org.name)
 
     def test_us1_org_type_association_creates_association_record(self):
         """T010: Test Organization with org_type Association creates Association record."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Association",
+            "org_name": f"{TEST_PREFIX}Association",
             "org_type": "Association"
         })
         org.insert()
@@ -198,14 +201,14 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         # Verify Association has correct field values
         association = frappe.get_doc("Association", org.linked_name)
-        self.assertEqual(association.association_name, "Test Hook Association")
+        self.assertEqual(association.association_name, f"{TEST_PREFIX}Association")
         self.assertEqual(association.organization, org.name)
 
     def test_us1_org_type_nonprofit_creates_nonprofit_record(self):
         """T011: Test Organization with org_type Nonprofit creates Nonprofit record."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Nonprofit",
+            "org_name": f"{TEST_PREFIX}Nonprofit",
             "org_type": "Nonprofit"
         })
         org.insert()
@@ -218,7 +221,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         # Verify Nonprofit has correct field values
         nonprofit = frappe.get_doc("Nonprofit", org.linked_name)
-        self.assertEqual(nonprofit.nonprofit_name, "Test Hook Nonprofit")
+        self.assertEqual(nonprofit.nonprofit_name, f"{TEST_PREFIX}Nonprofit")
         self.assertEqual(nonprofit.organization, org.name)
 
     # =========================================================================
@@ -229,7 +232,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T022: Test get_concrete_doc returns concrete type document."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Get Concrete",
+            "org_name": f"{TEST_PREFIX}Get Concrete",
             "org_type": "Family"
         })
         org.insert()
@@ -247,7 +250,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         # Create org with skip_concrete_type flag to avoid auto-creation
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook No Concrete",
+            "org_name": f"{TEST_PREFIX}No Concrete",
             "org_type": "Family"
         })
         org.flags.skip_concrete_type = True
@@ -260,7 +263,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T024: Test get_organization_with_details returns merged data."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook With Details",
+            "org_name": f"{TEST_PREFIX}With Details",
             "org_type": "Family"
         })
         org.insert()
@@ -270,7 +273,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         # Verify Organization fields
         self.assertEqual(result["name"], org.name)
-        self.assertEqual(result["org_name"], "Test Hook With Details")
+        self.assertEqual(result["org_name"], f"{TEST_PREFIX}With Details")
         self.assertEqual(result["org_type"], "Family")
 
         # Verify concrete_type is present
@@ -281,7 +284,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T025: Test get_organization_with_details includes concrete_type nested object."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Nested",
+            "org_name": f"{TEST_PREFIX}Nested",
             "org_type": "Family"
         })
         org.insert()
@@ -292,14 +295,14 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         # Verify concrete_type structure
         concrete = result["concrete_type"]
         self.assertEqual(concrete["doctype"], "Family")
-        self.assertEqual(concrete["family_name"], "Test Hook Nested")
+        self.assertEqual(concrete["family_name"], f"{TEST_PREFIX}Nested")
         self.assertEqual(concrete["organization"], org.name)
 
     def test_us2_retrieval_performance(self):
         """T026: Test retrieval completes within 500ms."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Performance",
+            "org_name": f"{TEST_PREFIX}Performance",
             "org_type": "Family"
         })
         org.insert()
@@ -316,7 +319,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """Test optimized get_organization_with_details handles missing concrete type (Issue #11)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Optimized Missing",
+            "org_name": f"{TEST_PREFIX}Optimized Missing",
             "org_type": "Family"
         })
         org.insert()
@@ -345,7 +348,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T030: Test deleting Organization cascades to delete Family record."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Cascade Delete",
+            "org_name": f"{TEST_PREFIX}Cascade Delete",
             "org_type": "Family"
         })
         org.insert()
@@ -364,7 +367,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T032: Test deletion succeeds when concrete type already missing."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Missing Concrete",
+            "org_name": f"{TEST_PREFIX}Missing Concrete",
             "org_type": "Family"
         })
         org.insert()
@@ -387,7 +390,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         # Create two organizations
         org1 = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Org One",
+            "org_name": f"{TEST_PREFIX}Org One",
             "org_type": "Family"
         })
         org1.insert()
@@ -395,7 +398,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         org2 = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Org Two",
+            "org_name": f"{TEST_PREFIX}Org Two",
             "org_type": "Family"
         })
         org2.insert()
@@ -418,7 +421,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         # will properly handle LinkExistsError if such constraints exist
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Link Constraint",
+            "org_name": f"{TEST_PREFIX}Link Constraint",
             "org_type": "Family"
         })
         org.insert()
@@ -437,7 +440,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """Test that linked_doctype is set before concrete type creation (Issue #15)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Race Condition",
+            "org_name": f"{TEST_PREFIX}Race Condition",
             "org_type": "Family"
         })
         org.insert()
@@ -458,7 +461,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """Test deleting Organization cascades to delete Company record (Issue #7)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Company Cascade",
+            "org_name": f"{TEST_PREFIX}Company Cascade",
             "org_type": "Company"
         })
         org.insert()
@@ -477,7 +480,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """Test deleting Organization cascades to delete Association record (Issue #7)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Association Cascade",
+            "org_name": f"{TEST_PREFIX}Association Cascade",
             "org_type": "Association"
         })
         org.insert()
@@ -496,7 +499,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """Test deleting Organization cascades to delete Nonprofit record (Issue #7)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Nonprofit Cascade",
+            "org_name": f"{TEST_PREFIX}Nonprofit Cascade",
             "org_type": "Nonprofit"
         })
         org.insert()
@@ -519,7 +522,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T039: Test changing org_type raises ValidationError."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Immutable",
+            "org_name": f"{TEST_PREFIX}Immutable",
             "org_type": "Family"
         })
         org.insert()
@@ -538,18 +541,18 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T040: Test modifying other fields (org_name, status) succeeds."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Modify Other",
+            "org_name": f"{TEST_PREFIX}Modify Other",
             "org_type": "Family"
         })
         org.insert()
 
         # Change other fields
-        org.org_name = "Test Hook Modified Name"
+        org.org_name = f"{TEST_PREFIX}Modified Name"
         org.status = "Inactive"
         org.save()
         org.reload()
 
-        self.assertEqual(org.org_name, "Test Hook Modified Name")
+        self.assertEqual(org.org_name, f"{TEST_PREFIX}Modified Name")
         self.assertEqual(org.status, "Inactive")
         self.assertEqual(org.org_type, "Family")  # Unchanged
 
@@ -557,7 +560,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T041: Test error message is clear and user-friendly."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Hook Clear Error",
+            "org_name": f"{TEST_PREFIX}Clear Error",
             "org_type": "Family"
         })
         org.insert()
@@ -598,7 +601,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that skip_concrete_type flag prevents concrete creation."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Skip Concrete",
+            "org_name": f"{TEST_PREFIX}Skip Concrete",
             "org_type": "Family"
         })
         org.flags.skip_concrete_type = True
@@ -611,7 +614,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that default status is 'Active'."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Default Status",
+            "org_name": f"{TEST_PREFIX}Default Status",
             "org_type": "Family"
         })
         org.insert()
@@ -622,7 +625,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that naming series is applied correctly."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Naming",
+            "org_name": f"{TEST_PREFIX}Naming",
             "org_type": "Family"
         })
         org.insert()
@@ -634,7 +637,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         # Create first organization with family
         org1 = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Duplicate Name Org1",
+            "org_name": f"{TEST_PREFIX}Duplicate Name Org1",
             "org_type": "Family"
         })
         org1.insert()
@@ -646,7 +649,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         # Create second organization with family using same family_name
         org2 = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Duplicate Name Org2",
+            "org_name": f"{TEST_PREFIX}Duplicate Name Org2",
             "org_type": "Family"
         })
         org2.insert()
@@ -677,7 +680,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that validate_links returns valid for properly linked Organization (Issue #12)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Valid Links",
+            "org_name": f"{TEST_PREFIX}Valid Links",
             "org_type": "Family"
         })
         org.insert()
@@ -693,7 +696,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that validate_links detects when concrete type is missing (Issue #12)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Orphaned",
+            "org_name": f"{TEST_PREFIX}Orphaned",
             "org_type": "Family"
         })
         org.insert()
@@ -716,7 +719,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that validate_links detects broken bidirectional link (Issue #12)."""
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge Broken Link",
+            "org_name": f"{TEST_PREFIX}Broken Link",
             "org_type": "Family"
         })
         org.insert()
@@ -741,7 +744,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
 
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Edge API Validate",
+            "org_name": f"{TEST_PREFIX}API Validate",
             "org_type": "Family"
         })
         org.insert()
