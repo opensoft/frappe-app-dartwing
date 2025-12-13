@@ -257,8 +257,10 @@ def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
     
     # Delete all matching permissions and log each one
     cleaned_count = 0
+    perm_types_set = set()
     for perm in orphaned_perms:
-        frappe.delete_doc("User Permission", perm.name, ignore_permissions=True)
+        # Use _delete_permission for consistency with rest of module
+        _delete_permission(user, perm.allow, perm.for_value)
         log_permission_event(
             "remove",
             doc,
@@ -266,10 +268,11 @@ def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
             doctype=perm.allow,
             for_value=perm.for_value
         )
+        perm_types_set.add(perm.allow)
         cleaned_count += 1
     
     # Log summary of cleanup
-    perm_types = ", ".join(sorted(set(perm.allow for perm in orphaned_perms)))
+    perm_types = ", ".join(sorted(perm_types_set))
     frappe.logger().info(
         f"Organization '{org_name}' not found during permission cleanup "
         f"for Org Member '{doc.name}'. Successfully removed {cleaned_count} "
