@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Brett and contributors
 # For license information, please see license.txt
 
+import threading
 from typing import Dict, Any, Optional
 
 import frappe
@@ -91,20 +92,27 @@ def validate_org_field_map() -> bool:
     return True
 
 
-# Cache flag to avoid repeated validation
+# Thread-safe cache for field map validation
 _field_map_validated = False
+_validation_lock = threading.Lock()
 
 
 def _ensure_field_map_validated() -> None:
-    """Validate ORG_FIELD_MAP once on first use (cached).
+    """Validate ORG_FIELD_MAP once on first use (thread-safe cached).
+
+    Uses double-checked locking pattern for thread safety while minimizing
+    lock contention after initial validation.
 
     Raises:
         frappe.ValidationError: If field mappings are invalid
     """
     global _field_map_validated
-    if not _field_map_validated:
-        validate_org_field_map()  # Raises on error
-        _field_map_validated = True
+    if _field_map_validated:
+        return  # Fast path, no lock needed
+    with _validation_lock:
+        if not _field_map_validated:  # Double-check after acquiring lock
+            validate_org_field_map()  # Raises on error
+            _field_map_validated = True
 
 
 class Organization(Document):
