@@ -80,9 +80,24 @@ def validate_org_field_map():
     return True
 
 
+# Cache flag to avoid repeated validation
+_field_map_validated = False
+
+
+def _ensure_field_map_validated() -> None:
+    """Validate ORG_FIELD_MAP once on first use (cached)."""
+    global _field_map_validated
+    if not _field_map_validated:
+        validate_org_field_map()
+        _field_map_validated = True
+
+
 class Organization(Document):
     def validate(self) -> None:
         """Validate organization before save."""
+        # Validate field mappings once on first use
+        _ensure_field_map_validated()
+
         self._validate_org_name()
         self._validate_org_type()
         self._validate_org_type_immutability()
