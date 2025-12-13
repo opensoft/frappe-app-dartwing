@@ -79,11 +79,7 @@
  "index_web_pages_for_search": 1,
  "indexes": [
   {
-   "unique": 0,
-   "fields": [
-    {"fieldname": "linked_doctype", "order": "ASC"},
-    {"fieldname": "linked_name", "order": "ASC"}
-   ]
+   "fields": ["linked_doctype", "linked_name"]
   }
  ],
  "links": [],
