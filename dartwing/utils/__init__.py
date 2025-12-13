@@ -13,5 +13,10 @@ This module contains reusable business logic that is not tied to specific DocTyp
 # from dartwing.utils.notifications import send_notification
 
 from dartwing.utils.doctype_utils import doctype_table_exists
+from dartwing.utils.permission_logger import log_permission_event, get_permission_logger
 
-__all__ = ["doctype_table_exists"]
+__all__ = [
+    "doctype_table_exists",
+    "log_permission_event",
+    "get_permission_logger",
+]
