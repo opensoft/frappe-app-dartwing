@@ -15,7 +15,7 @@ def execute():
         return
 
     # Update all Archived status values to Dissolved
-    updated_count = frappe.db.sql(
+    frappe.db.sql(
         """
         UPDATE `tabFamily`
         SET status = 'Dissolved'
