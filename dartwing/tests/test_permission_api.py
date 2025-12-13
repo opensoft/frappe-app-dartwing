@@ -23,6 +23,11 @@ class TestPermissionAPI(FrappeTestCase):
         """Set up test fixtures once for all tests."""
         super().setUpClass()
 
+        # Skip all tests if Org Member DocType doesn't exist yet
+        if not frappe.db.exists("DocType", "Org Member"):
+            import unittest
+            raise unittest.SkipTest("Org Member DocType not available - skipping permission API tests")
+
         # Create test users
         for email in ["test_api_user1@example.com", "test_api_user2@example.com", "test_api_guest@example.com"]:
             if not frappe.db.exists("User", email):

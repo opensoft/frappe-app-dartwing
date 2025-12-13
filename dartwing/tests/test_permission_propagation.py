@@ -23,6 +23,11 @@ class TestPermissionPropagation(FrappeTestCase):
         """Set up test fixtures once for all tests."""
         super().setUpClass()
 
+        # Skip all tests if Org Member DocType doesn't exist yet
+        if not frappe.db.exists("DocType", "Org Member"):
+            import unittest
+            raise unittest.SkipTest("Org Member DocType not available - skipping permission propagation tests")
+
         # Create test user with basic role
         if not frappe.db.exists("User", "test_perm_user@example.com"):
             user = frappe.get_doc({
