@@ -175,6 +175,8 @@ doc_events = {
 		"after_insert": "dartwing.permissions.helpers.create_user_permissions",
 		"on_trash": "dartwing.permissions.helpers.remove_user_permissions",
 		"on_update": "dartwing.permissions.helpers.handle_status_change",
+	"Person": {
+		"on_trash": "dartwing.dartwing_core.doctype.org_member.org_member.handle_person_deletion"
 	}
 }
 
