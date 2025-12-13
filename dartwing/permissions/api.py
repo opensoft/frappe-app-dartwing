@@ -226,30 +226,35 @@ def get_organization_members(organization: str, include_inactive=False):
         fields=["name", "person", "role", "status", "start_date"]
     )
 
-    # Enrich with Person name and Role supervisor flag
-    for member in members:
-        # Get person name
-        person = frappe.db.get_value(
+    # Batch-fetch Person names to avoid N+1 queries
+    person_ids = list({m["person"] for m in members if m.get("person")})
+    person_map = {}
+    if person_ids:
+        persons = frappe.get_all(
             "Person",
-            member["person"],
-            ["first_name", "last_name"],
-            as_dict=True
+            filters={"name": ["in", person_ids]},
+            fields=["name", "first_name", "last_name"]
         )
-        if person:
-            member["person_name"] = f"{person.first_name or ''} {person.last_name or ''}".strip()
-        else:
-            member["person_name"] = member["person"]
+        for p in persons:
+            full_name = f"{p.first_name or ''} {p.last_name or ''}".strip()
+            person_map[p.name] = full_name or p.name
 
-        # Get is_supervisor from Role Template
-        if member.get("role"):
-            is_supervisor = frappe.db.get_value(
-                "Role Template",
-                member["role"],
-                "is_supervisor"
-            )
-            member["is_supervisor"] = bool(is_supervisor)
-        else:
-            member["is_supervisor"] = False
+    # Batch-fetch Role Template supervisor flags to avoid N+1 queries
+    role_ids = list({m["role"] for m in members if m.get("role")})
+    role_map = {}
+    if role_ids:
+        roles = frappe.get_all(
+            "Role Template",
+            filters={"name": ["in", role_ids]},
+            fields=["name", "is_supervisor"]
+        )
+        for r in roles:
+            role_map[r.name] = bool(r.is_supervisor)
+
+    # Enrich members with batch-fetched data
+    for member in members:
+        member["person_name"] = person_map.get(member["person"], member["person"])
+        member["is_supervisor"] = role_map.get(member.get("role"), False)
 
     return members
 
