@@ -35,12 +35,18 @@ ORG_FIELD_MAP = {
 }
 
 
-def validate_org_field_map():
+def validate_org_field_map() -> bool:
     """
     Validate that ORG_FIELD_MAP field names exist on their respective DocTypes (Issue #10).
 
     This function checks configuration consistency at runtime to prevent errors
     from misconfigured field mappings.
+
+    Returns:
+        bool: True if validation passes
+
+    Raises:
+        frappe.ValidationError: If critical field mappings are invalid
     """
     errors = []
 
@@ -74,8 +80,13 @@ def validate_org_field_map():
             errors.append(f"Error validating {concrete_doctype}: {str(e)}")
 
     if errors:
-        logger.error("ORG_FIELD_MAP validation errors:\n" + "\n".join(errors))
-        return False
+        error_msg = "ORG_FIELD_MAP validation errors:\n" + "\n".join(errors)
+        logger.error(error_msg)
+        # Fail fast: raise exception to prevent silent failures at runtime
+        raise frappe.ValidationError(
+            _("Organization field mapping configuration is invalid. "
+              "Check error log for details: {0}").format(errors[0])
+        )
 
     return True
 
@@ -85,10 +96,14 @@ _field_map_validated = False
 
 
 def _ensure_field_map_validated() -> None:
-    """Validate ORG_FIELD_MAP once on first use (cached)."""
+    """Validate ORG_FIELD_MAP once on first use (cached).
+
+    Raises:
+        frappe.ValidationError: If field mappings are invalid
+    """
     global _field_map_validated
     if not _field_map_validated:
-        validate_org_field_map()
+        validate_org_field_map()  # Raises on error
         _field_map_validated = True
 
 
@@ -253,7 +268,7 @@ class Organization(Document):
             if field_config:
                 # Set name field
                 name_field = field_config.get("name_field")
-                if name_field and hasattr(concrete, name_field):
+            # Set linked_doctype BEFORE concrete creation to prevent race condition
                     setattr(concrete, name_field, self.org_name)
                 else:
                     raise frappe.ValidationError(
