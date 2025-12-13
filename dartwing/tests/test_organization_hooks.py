@@ -328,6 +328,31 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         self.assertIsNotNone(result)
         self.assertLess(elapsed_ms, 500, f"Retrieval took {elapsed_ms:.2f}ms, expected < 500ms")
 
+    def test_get_organization_with_details_handles_missing_concrete(self):
+        """Test optimized get_organization_with_details handles missing concrete type (Issue #11)."""
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Hook Optimized Missing",
+            "org_type": "Family"
+        })
+        org.insert()
+        org.reload()
+
+        family_name = org.linked_name
+
+        # Delete the Family to simulate orphaned organization
+        frappe.delete_doc("Family", family_name, force=True, ignore_permissions=True)
+        frappe.db.commit()
+
+        # Verify get_organization_with_details handles this gracefully
+        # (uses try/except instead of db.exists() for optimization)
+        result = get_organization_with_details(org.name)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["name"], org.name)
+        # concrete_type should be None when missing
+        self.assertIsNone(result["concrete_type"])
+
     # =========================================================================
     # User Story 3: Cascade Delete to Concrete Type (P2)
     # =========================================================================

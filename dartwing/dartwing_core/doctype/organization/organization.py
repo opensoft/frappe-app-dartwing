@@ -180,6 +180,23 @@ class Organization(Document):
         Create the concrete type document and establish bidirectional link.
 
         Implements FR-001 through FR-004, FR-011, FR-012, FR-013.
+
+        Security Model (Issue #13):
+        - Uses ignore_permissions=True because concrete types are implementation details
+        - Permissions are enforced at the Organization level, not on concrete types
+        - Users create/delete Organizations, not concrete types directly
+        - Concrete types are automatically managed as part of Organization lifecycle
+        - This design prevents permission bypass since Organization permissions are checked
+
+        Execution Flow:
+        1. Validate org_type mapping exists
+        2. Check if concrete type already created (idempotent)
+        3. Create new concrete type document with mapped fields
+        4. Set linked_doctype BEFORE insert (prevents race condition)
+        5. Insert concrete type with system privileges
+        6. Set linked_name AFTER insert (requires concrete.name)
+        7. Log success for audit trail
+        8. On error: log and re-raise to trigger transaction rollback
         """
         concrete_doctype = ORG_TYPE_MAP.get(self.org_type)
 
@@ -256,6 +273,21 @@ class Organization(Document):
         Delete the linked concrete type document (cascade delete).
 
         Implements FR-005, FR-006, FR-012, FR-013.
+
+        Security Model (Issue #13):
+        - Uses ignore_permissions=True for same reasons as _create_concrete_type()
+        - Permissions enforced at Organization level, not on concrete types
+        - When user deletes Organization (with permissions check), concrete type auto-deletes
+        - Concrete types cannot be deleted directly by users
+        - This design ensures consistent deletion and prevents orphaned data
+
+        Execution Flow:
+        1. Check if linked_doctype and linked_name are set
+        2. Verify concrete type exists before attempting delete
+        3. Delete concrete type with system privileges
+        4. Catch LinkExistsError if other records reference the concrete type
+        5. Log success/failure for audit trail
+        6. Silently continue if concrete type already missing (idempotent)
         """
         if not self.linked_doctype or not self.linked_name:
             return
@@ -350,10 +382,12 @@ def get_organization_with_details(organization: str) -> dict:
     result = org.as_dict()
 
     if org.linked_doctype and org.linked_name:
-        if frappe.db.exists(org.linked_doctype, org.linked_name):
+        # Optimize: use try/except instead of db.exists() + get_doc() (Issue #11)
+        # This reduces queries from 3 to 2 (one for org, one for concrete)
+        try:
             concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
             result["concrete_type"] = concrete.as_dict()
-        else:
+        except frappe.DoesNotExistError:
             result["concrete_type"] = None
     else:
         result["concrete_type"] = None
