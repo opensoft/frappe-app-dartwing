@@ -239,7 +239,10 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
     # These match the DocType names directly (capitalized)
     org_type = org_member_doc.organization_type
     
-    if org_type:
+    # Validate org_type to prevent DocType injection attacks
+    VALID_ORG_TYPES = {"Family", "Company", "Association", "Nonprofit"}
+    
+    if org_type and org_type in VALID_ORG_TYPES:
         # Try to find the concrete document linked to this organization
         # Concrete types (Family, Company, etc.) have an 'organization' field
         try:
@@ -259,20 +262,19 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
                     doctype=org_type,
                     for_value=concrete_name
                 )
-                frappe.log_error(
+                # Log successful cleanup as info, not error
+                frappe.logger().info(
                     f"Removed orphaned {org_type} permission for '{concrete_name}' "
                     f"during cleanup of Org Member '{org_member_doc.name}' "
-                    f"(Organization '{org_member_doc.organization}' not found).",
-                    "Orphaned Permission Cleanup"
+                    f"(Organization '{org_member_doc.organization}' not found)."
                 )
             
             if not concrete_docs:
                 # No concrete document found - may have been deleted already
-                frappe.log_error(
+                frappe.logger().info(
                     f"No {org_type} document found linked to Organization '{org_member_doc.organization}' "
                     f"during cleanup of Org Member '{org_member_doc.name}'. "
-                    f"Concrete type permissions may have already been cleaned up.",
-                    "Orphaned Permission Cleanup"
+                    f"Concrete type permissions may have already been cleaned up."
                 )
         except Exception as e:
             # If querying the concrete type fails, log it but continue
@@ -282,6 +284,15 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
                 f"Concrete type permissions may need manual cleanup.",
                 "Orphaned Permission Cleanup Error"
             )
+    elif org_type and org_type not in VALID_ORG_TYPES:
+        # Invalid org_type - log a warning
+        frappe.log_error(
+            f"Organization '{org_member_doc.organization}' not found and "
+            f"organization_type '{org_type}' in Org Member '{org_member_doc.name}' "
+            f"is not a valid organization type. Unable to clean up concrete type "
+            f"permissions automatically. Manual cleanup may be required for user '{user}'.",
+            "Permission Warning"
+        )
     else:
         # No cached org_type - log a warning that we can't determine concrete type
         frappe.log_error(
