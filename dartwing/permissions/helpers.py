@@ -226,11 +226,14 @@ def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
     """
     # Query for all User Permissions for this user matching the organization name
     # This covers both the Organization permission and any concrete type permissions
+    # Restrict to organization-related DocTypes to avoid accidentally removing unrelated permissions
+    org_related_doctypes = ["Organization", "Family", "Company", "Association", "Nonprofit"]
     orphaned_perms = frappe.get_all(
         "User Permission",
         filters={
             "user": user,
-            "for_value": org_name
+            "for_value": org_name,
+            "allow": ["in", org_related_doctypes]
         },
         fields=["name", "allow", "for_value"]
     )
@@ -264,7 +267,7 @@ def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
         cleaned_count += 1
     
     # Log summary of cleanup
-    perm_types = ", ".join(sorted(set(p.allow for p in orphaned_perms)))
+    perm_types = ", ".join(sorted(set(perm.allow for perm in orphaned_perms)))
     frappe.log_error(
         f"Organization '{org_name}' not found during permission cleanup "
         f"for Org Member '{doc.name}'. Successfully removed {cleaned_count} "
