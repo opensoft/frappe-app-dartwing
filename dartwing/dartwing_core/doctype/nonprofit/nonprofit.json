@@ -1,0 +1,89 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:nonprofit_name",
+ "creation": "2025-12-13 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "nonprofit_name",
+  "organization",
+  "description",
+  "column_break_1",
+  "tax_exempt_number",
+  "classification",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "nonprofit_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nonprofit Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "organization",
+   "fieldtype": "Link",
+   "label": "Organization",
+   "options": "Organization",
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Parent organization for multi-tenant isolation"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tax_exempt_number",
+   "fieldtype": "Data",
+   "label": "Tax Exempt Number (501c3)"
+  },
+  {
+   "fieldname": "classification",
+   "fieldtype": "Select",
+   "label": "Nonprofit Classification",
+   "options": "501(c)(3) - Charitable\n501(c)(4) - Social Welfare\n501(c)(6) - Business League\nOther"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive\nDissolved"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-12-13 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Dartwing Core",
+ "name": "Nonprofit",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
