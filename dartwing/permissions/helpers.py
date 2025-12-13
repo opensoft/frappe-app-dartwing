@@ -16,6 +16,10 @@ Key functions:
 import frappe
 from dartwing.utils.permission_logger import log_permission_event
 
+# Organization-related DocTypes for permission cleanup
+# Used to filter User Permissions when cleaning up orphaned records
+ORGANIZATION_DOCTYPES = ["Organization", "Family", "Company", "Association", "Nonprofit"]
+
 
 def create_user_permissions(doc, method):
     """
@@ -227,24 +231,22 @@ def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
     # Query for all User Permissions for this user matching the organization name
     # This covers both the Organization permission and any concrete type permissions
     # Restrict to organization-related DocTypes to avoid accidentally removing unrelated permissions
-    org_related_doctypes = ["Organization", "Family", "Company", "Association", "Nonprofit"]
     orphaned_perms = frappe.get_all(
         "User Permission",
         filters={
             "user": user,
             "for_value": org_name,
-            "allow": ["in", org_related_doctypes]
+            "allow": ["in", ORGANIZATION_DOCTYPES]
         },
         fields=["name", "allow", "for_value"]
     )
     
     if not orphaned_perms:
         # No permissions found - log and return
-        frappe.log_error(
+        frappe.logger().info(
             f"Organization '{org_name}' not found during permission cleanup "
             f"for Org Member '{doc.name}', but no User Permissions found for "
-            f"user '{user}' matching organization name. Nothing to clean up.",
-            "Permission Info"
+            f"user '{user}' matching organization name. Nothing to clean up."
         )
         log_permission_event(
             "skip",
@@ -268,9 +270,8 @@ def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
     
     # Log summary of cleanup
     perm_types = ", ".join(sorted(set(perm.allow for perm in orphaned_perms)))
-    frappe.log_error(
+    frappe.logger().info(
         f"Organization '{org_name}' not found during permission cleanup "
         f"for Org Member '{doc.name}'. Successfully removed {cleaned_count} "
-        f"orphaned User Permission(s) for user '{user}': {perm_types}",
-        "Permission Cleanup"
+        f"orphaned User Permission(s) for user '{user}': {perm_types}"
     )
