@@ -241,7 +241,7 @@ class Organization(Document):
 
         if not concrete_doctype:
             logger.warning(
-                f"No concrete doctype mapping for org_type: {self.org_type}"
+                f"Organization {self.name}: No concrete doctype mapping for org_type: {self.org_type}"
             )
             return
 
@@ -252,7 +252,7 @@ class Organization(Document):
         # Check if the concrete doctype exists in the system
         if not frappe.db.exists("DocType", concrete_doctype):
             logger.warning(
-                f"Concrete doctype {concrete_doctype} does not exist, skipping creation"
+                f"Organization {self.name}: Concrete doctype {concrete_doctype} does not exist, skipping creation"
             )
             return
 
@@ -272,7 +272,9 @@ class Organization(Document):
                     setattr(concrete, name_field, self.org_name)
                 else:
                     raise frappe.ValidationError(
-                        _("Name field '{0}' not found on {1}; cannot set org_name").format(name_field, concrete_doctype)
+                        _("Organization '{0}': Name field '{1}' not found on {2}; cannot set org_name").format(
+                            self.name, name_field, concrete_doctype
+                        )
                     )
 
                 # Set status field
@@ -281,7 +283,7 @@ class Organization(Document):
                     setattr(concrete, status_field, self.status)
             else:
                 logger.warning(
-                    f"No field mapping configured for org_type: {self.org_type}"
+                    f"Organization {self.name}: No field mapping configured for org_type: {self.org_type}"
                 )
             # Set linked_doctype BEFORE concrete creation to prevent race condition (FR-015)
             self.db_set("linked_doctype", concrete_doctype, update_modified=False)
