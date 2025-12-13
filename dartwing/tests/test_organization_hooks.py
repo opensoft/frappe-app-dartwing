@@ -547,6 +547,50 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
 
         self.assertTrue(org.name.startswith("ORG-"))
 
+    def test_duplicate_family_names_allowed(self):
+        """Test that multiple families can have the same family_name (Issue #2)."""
+        # Create first organization with family
+        org1 = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Edge Duplicate Name Org1",
+            "org_type": "Family"
+        })
+        org1.insert()
+        org1.reload()
+
+        family1_name = org1.linked_name
+        family1 = frappe.get_doc("Family", family1_name)
+
+        # Create second organization with family using same family_name
+        org2 = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Edge Duplicate Name Org2",
+            "org_type": "Family"
+        })
+        org2.insert()
+        org2.reload()
+
+        family2_name = org2.linked_name
+        family2 = frappe.get_doc("Family", family2_name)
+
+        # Manually update family2 to have same family_name as family1
+        # This should succeed without unique constraint violation
+        try:
+            family2.family_name = family1.family_name
+            family2.save()
+
+            # Verify both families exist with same name but different IDs
+            families = frappe.get_all(
+                "Family",
+                filters={"family_name": family1.family_name},
+                pluck="name"
+            )
+            self.assertEqual(len(families), 2, "Should allow duplicate family names")
+            self.assertIn(family1_name, families)
+            self.assertIn(family2_name, families)
+        except frappe.exceptions.DuplicateEntryError:
+            self.fail("Duplicate family names should be allowed (unique constraint removed)")
+
 
 class TestOrganizationConcurrency(FrappeTestCase):
     """Test concurrent Organization creation (SC-006)."""

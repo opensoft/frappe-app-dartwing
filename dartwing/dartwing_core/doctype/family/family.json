@@ -26,7 +26,7 @@
    "in_list_view": 1,
    "label": "Family Name",
    "reqd": 1,
-   "unique": 1
+   "unique": 0
   },
   {
    "fieldname": "slug",
@@ -73,7 +73,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Active\nInactive\nArchived"
+   "options": "Active\nInactive\nDissolved"
   },
   {
    "default": "Today",

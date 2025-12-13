@@ -77,6 +77,15 @@
   }
  ],
  "index_web_pages_for_search": 1,
+ "indexes": [
+  {
+   "unique": 0,
+   "fields": [
+    {"fieldname": "linked_doctype", "order": "ASC"},
+    {"fieldname": "linked_name", "order": "ASC"}
+   ]
+  }
+ ],
  "links": [],
  "modified": "2025-11-29 00:00:00.000000",
  "modified_by": "Administrator",
