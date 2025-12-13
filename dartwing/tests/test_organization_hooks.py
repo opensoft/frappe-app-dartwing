@@ -765,11 +765,11 @@ class TestOrganizationConcurrency(FrappeTestCase):
     def setUp(self):
         """Set up test fixtures."""
         frappe.set_user("Administrator")
-        cleanup_test_organizations(name_pattern="Test Concurrent%", edge_pattern="")
+        cleanup_test_organizations()
 
     def tearDown(self):
         """Clean up test data."""
-        cleanup_test_organizations(name_pattern="Test Concurrent%", edge_pattern="")
+        cleanup_test_organizations()
 
     def test_sc006_concurrent_organization_creation(self):
         """T049: Test 100 concurrent Organization creations without data corruption.
@@ -787,7 +787,7 @@ class TestOrganizationConcurrency(FrappeTestCase):
         for i in range(num_orgs):
             org = frappe.get_doc({
                 "doctype": "Organization",
-                "org_name": f"Test Concurrent Org {i:03d}",
+                "org_name": f"{TEST_PREFIX}Concurrent Org {i:03d}",
                 "org_type": "Family"
             })
             org.insert()
@@ -828,11 +828,11 @@ class TestOrganizationAtomicity(FrappeTestCase):
     def setUp(self):
         """Set up test fixtures."""
         frappe.set_user("Administrator")
-        cleanup_test_organizations(name_pattern="Test Atomic%", edge_pattern="")
+        cleanup_test_organizations()
 
     def tearDown(self):
         """Clean up test data."""
-        cleanup_test_organizations(name_pattern="Test Atomic%", edge_pattern="")
+        cleanup_test_organizations()
 
     def test_t015_atomic_rollback_on_concrete_creation_failure(self):
         """T015: Test atomic rollback when concrete type creation fails (Issue #7)."""
@@ -841,7 +841,7 @@ class TestOrganizationAtomicity(FrappeTestCase):
         # Create organization document
         org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Atomic Rollback",
+            "org_name": f"{TEST_PREFIX}Atomic Rollback",
             "org_type": "Family"
         })
 
@@ -863,7 +863,7 @@ class TestOrganizationAtomicity(FrappeTestCase):
         # Verify Organization was NOT created (rollback occurred)
         orgs_created = frappe.get_all(
             "Organization",
-            filters={"org_name": "Test Atomic Rollback"},
+            filters={"org_name": f"{TEST_PREFIX}Atomic Rollback"},
             pluck="name"
         )
         self.assertEqual(len(orgs_created), 0, "Organization should be rolled back after concrete creation failure")
@@ -871,7 +871,7 @@ class TestOrganizationAtomicity(FrappeTestCase):
         # Verify no orphaned Organization records exist
         all_test_orgs = frappe.get_all(
             "Organization",
-            filters={"org_name": ["like", "Test Atomic%"]},
+            filters={"org_name": ["like", f"{TEST_PREFIX}Atomic%"]},
             pluck="name"
         )
         self.assertEqual(len(all_test_orgs), 0, "No test organizations should exist after rollback")
