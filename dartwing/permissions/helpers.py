@@ -122,8 +122,7 @@ def remove_user_permissions(doc, method):
     except frappe.DoesNotExistError:
         # Organization already deleted - clean up all related permissions
         # Try to determine concrete type from Org Member's cached organization_type field
-        # Organization already deleted - query for all related permissions and clean up
-        _cleanup_orphaned_permissions(user, doc.organization, doc)
+        _cleanup_orphaned_permissions(user, doc)
         return
 
     # Remove permission for Organization
@@ -312,67 +311,3 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
             f"Manual cleanup may be required for user '{user}'.",
             "Permission Warning"
         )
-def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
-    """
-    Clean up potentially orphaned User Permissions when Organization doesn't exist.
-    
-    Queries all User Permissions for the user and removes any that match the
-    organization name, regardless of the DocType (Organization, Family, Company,
-    Association, or Nonprofit). This handles cases where the Organization was
-    deleted but may have left behind permissions for its concrete type.
-    
-    Args:
-        user: The Frappe User email
-        org_name: The Organization name
-        doc: The Org Member document being deleted (for logging)
-    """
-    # Query for all User Permissions for this user matching the organization name
-    # This covers both the Organization permission and any concrete type permissions
-    # Restrict to organization-related DocTypes to avoid accidentally removing unrelated permissions
-    orphaned_perms = frappe.get_all(
-        "User Permission",
-        filters={
-            "user": user,
-            "for_value": org_name,
-            "allow": ["in", ORGANIZATION_DOCTYPES]
-        },
-        fields=["name", "allow", "for_value"]
-    )
-    
-    if not orphaned_perms:
-        # No permissions found - log and return
-        frappe.logger().info(
-            f"Organization '{org_name}' not found during permission cleanup "
-            f"for Org Member '{doc.name}', but no User Permissions found for "
-            f"user '{user}' matching organization name. Nothing to clean up."
-        )
-        log_permission_event(
-            "skip",
-            doc,
-            reason=f"Organization not found and no matching permissions for user {user}"
-        )
-        return
-    
-    # Delete all matching permissions and log each one
-    cleaned_count = 0
-    perm_types_set = set()
-    for perm in orphaned_perms:
-        # Use _delete_permission for consistency with rest of module
-        _delete_permission(user, perm.allow, perm.for_value)
-        log_permission_event(
-            "remove",
-            doc,
-            user=user,
-            doctype=perm.allow,
-            for_value=perm.for_value
-        )
-        perm_types_set.add(perm.allow)
-        cleaned_count += 1
-    
-    # Log summary of cleanup
-    perm_types = ", ".join(sorted(perm_types_set))
-    frappe.logger().info(
-        f"Organization '{org_name}' not found during permission cleanup "
-        f"for Org Member '{doc.name}'. Successfully removed {cleaned_count} "
-        f"orphaned User Permission(s) for user '{user}': {perm_types}"
-    )
