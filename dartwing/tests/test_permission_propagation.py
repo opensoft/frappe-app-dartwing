@@ -77,8 +77,9 @@ class TestPermissionPropagation(FrappeTestCase):
                 frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
 
         # Clean up Persons
-        for person_name in test_person_ids:
-            frappe.delete_doc("Person", person_name, force=True, ignore_permissions=True)
+        if test_person_ids:
+            for person_name in test_person_ids:
+                frappe.delete_doc("Person", person_name, force=True, ignore_permissions=True)
 
         # Clean up Organizations and concrete types
         for org_name in frappe.get_all(
