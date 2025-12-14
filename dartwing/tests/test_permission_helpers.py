@@ -9,7 +9,7 @@ Run tests with:
 """
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 
 from dartwing.permissions.helpers import (
     create_user_permissions,
@@ -18,8 +18,8 @@ from dartwing.permissions.helpers import (
 )
 
 
-class TestPermissionHelpers(FrappeTestCase):
-    """Test cases for permission helper functions."""
+class TestPermissionHelpers(IntegrationTestCase):
+    """Test cases for permission propagation helpers."""
 
     @classmethod
     def setUpClass(cls):
@@ -34,14 +34,6 @@ class TestPermissionHelpers(FrappeTestCase):
                 "first_name": "Test",
                 "last_name": "Permission User",
                 "roles": [{"role": "System Manager"}]
-        # Create test user
-        if not frappe.db.exists("User", "test_perm_helper@example.com"):
-            user = frappe.get_doc({
-                "doctype": "User",
-                "email": "test_perm_helper@example.com",
-                "first_name": "Test",
-                "last_name": "Perm Helper",
-                "send_welcome_email": 0,
             })
             user.insert(ignore_permissions=True)
 
@@ -58,18 +50,6 @@ class TestPermissionHelpers(FrappeTestCase):
         else:
             cls.test_person = frappe.get_doc(
                 "Person", {"primary_email": "test_perm_user@example.com"}
-        if not frappe.db.exists("Person", {"frappe_user": "test_perm_helper@example.com"}):
-            person = frappe.get_doc({
-                "doctype": "Person",
-                "first_name": "Test",
-                "last_name": "Helper",
-                "frappe_user": "test_perm_helper@example.com",
-            })
-            person.insert(ignore_permissions=True)
-            cls.test_person = person.name
-        else:
-            cls.test_person = frappe.db.get_value(
-                "Person", {"frappe_user": "test_perm_helper@example.com"}, "name"
             )
 
     @classmethod
