@@ -281,7 +281,7 @@ paths:
           description: Filter by status
           schema:
             type: string
-            enum: [Active, In Repair, Retired]
+            enum: [Active, In Repair, Retired, Lost, Stolen]
       responses:
         '200':
           description: Equipment list for organization
@@ -345,7 +345,7 @@ components:
           example: FL-2024-123456
         status:
           type: string
-          enum: [Active, In Repair, Retired]
+          enum: [Active, In Repair, Retired, Lost, Stolen]
           default: Active
           example: Active
         owner_organization:
@@ -416,7 +416,7 @@ components:
           type: string
         status:
           type: string
-          enum: [Active, In Repair, Retired]
+          enum: [Active, In Repair, Retired, Lost, Stolen]
           default: Active
         owner_organization:
           type: string

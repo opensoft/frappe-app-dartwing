@@ -187,9 +187,10 @@ doc_events = {
 			"dartwing.permissions.helpers.remove_user_permissions"
 		],
 		# P1-03 FIX: Add equipment check on status change (deactivation)
+		# P2-NEW-03 FIX: Equipment check first to block deactivation before permission changes
 		"on_update": [
-			"dartwing.permissions.helpers.handle_status_change",
-			"dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_assignments_on_member_deactivation"
+			"dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_assignments_on_member_deactivation",
+			"dartwing.permissions.helpers.handle_status_change"
 		],
 	},
 	"Person": {

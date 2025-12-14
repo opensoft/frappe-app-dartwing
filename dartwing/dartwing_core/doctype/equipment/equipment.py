@@ -5,6 +5,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from dartwing.permissions.helpers import is_privileged_user
+
 
 class Equipment(Document):
     """Equipment DocType - Tracks physical assets owned by organizations.
@@ -70,7 +72,7 @@ class Equipment(Document):
             if doc_before and doc_before.owner_organization != self.owner_organization:
                 frappe.throw(
                     _("Cannot change Equipment ownership after creation. "
-                      "Original organization: {0}. Use Equipment Transfer if ownership needs to change.").format(
+                      "Original organization: {0}. Contact an administrator if ownership transfer is required.").format(
                         doc_before.owner_organization
                     ),
                     title=_("Immutable Field"),
@@ -153,8 +155,8 @@ class Equipment(Document):
         """
         user = frappe.session.user
 
-        # Administrator and System Manager can always access
-        if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+        # P2-NEW-06: Use centralized helper for privileged user check
+        if is_privileged_user(user):
             return
 
         if not self.owner_organization:
@@ -185,6 +187,7 @@ def get_org_members(doctype, txt, searchfield, start, page_len, filters):
     """Get Person records who are active Org Members of specified organization.
 
     Used for populating the assigned_to field dropdown with only valid assignees.
+    P2-NEW-07: Refactored to use Frappe ORM for better maintainability.
 
     Args:
         doctype: The doctype being searched (Person)
@@ -205,8 +208,9 @@ def get_org_members(doctype, txt, searchfield, start, page_len, filters):
         return []
 
     # P1-02 FIX: Verify user has access to this organization
+    # P2-NEW-06: Use centralized helper for privileged user check
     user = frappe.session.user
-    if user != "Administrator" and "System Manager" not in frappe.get_roles(user):
+    if not is_privileged_user(user):
         has_permission = frappe.db.exists(
             "User Permission",
             {"user": user, "allow": "Organization", "for_value": organization},
@@ -217,19 +221,48 @@ def get_org_members(doctype, txt, searchfield, start, page_len, filters):
                 frappe.PermissionError,
             )
 
-    return frappe.db.sql(
-        """
-        SELECT p.name, CONCAT(p.first_name, ' ', IFNULL(p.last_name, '')) as description
-        FROM `tabPerson` p
-        INNER JOIN `tabOrg Member` om ON om.person = p.name
-        WHERE om.organization = %s
-          AND om.status = 'Active'
-          AND (p.name LIKE %s OR p.first_name LIKE %s OR IFNULL(p.last_name, '') LIKE %s)
-        ORDER BY p.first_name
-        LIMIT %s, %s
-        """,
-        (organization, f"%{txt}%", f"%{txt}%", f"%{txt}%", start, page_len),
+    # P2-NEW-07: Use ORM instead of raw SQL for better maintainability
+    # Step 1: Get active Org Members for this organization
+    active_members = frappe.get_all(
+        "Org Member",
+        filters={"organization": organization, "status": "Active"},
+        pluck="person",
     )
+
+    if not active_members:
+        return []
+
+    # Step 2: Build Person filters with search text
+    person_filters = {"name": ["in", active_members]}
+
+    # Add search text filter if provided
+    if txt:
+        person_filters["name"] = ["in", active_members]
+        # Use OR filter for search across multiple fields
+        or_filters = [
+            ["name", "like", f"%{txt}%"],
+            ["first_name", "like", f"%{txt}%"],
+            ["last_name", "like", f"%{txt}%"],
+        ]
+    else:
+        or_filters = None
+
+    # Step 3: Get matching persons
+    persons = frappe.get_all(
+        "Person",
+        filters=person_filters,
+        or_filters=or_filters,
+        fields=["name", "first_name", "last_name"],
+        order_by="first_name",
+        start=int(start),
+        page_length=int(page_len),
+    )
+
+    # Step 4: Format as tuples (name, description) for link field query
+    return [
+        (p.name, f"{p.first_name} {p.last_name or ''}".strip())
+        for p in persons
+    ]
 
 
 @frappe.whitelist()
@@ -247,8 +280,9 @@ def get_equipment_by_organization(organization: str, status: str | None = None) 
         frappe.PermissionError: If user lacks access to the organization (P1-02 FIX)
     """
     # P1-02 FIX: Verify user has access to this organization
+    # P2-NEW-06: Use centralized helper for privileged user check
     user = frappe.session.user
-    if user != "Administrator" and "System Manager" not in frappe.get_roles(user):
+    if not is_privileged_user(user):
         has_permission = frappe.db.exists(
             "User Permission",
             {"user": user, "allow": "Organization", "for_value": organization},
@@ -298,7 +332,8 @@ def get_equipment_by_person(person: str) -> list:
     user = frappe.session.user
 
     # P1-02 FIX: Verify user has access to view this person's data
-    if user != "Administrator" and "System Manager" not in frappe.get_roles(user):
+    # P2-NEW-06: Use centralized helper for privileged user check
+    if not is_privileged_user(user):
         if not frappe.has_permission("Person", "read", person):
             frappe.throw(
                 _("You do not have permission to view equipment for this person"),
@@ -392,12 +427,18 @@ def check_equipment_assignments_on_member_deactivation(doc, method):
         doc: The Org Member document being updated
         method: The event method (on_update)
     """
-    # Only check if status is changing away from Active
-    if not doc.has_value_changed("status"):
+    # P2-NEW-04/05 FIX: Fetch doc_before once with error handling instead of using has_value_changed()
+    try:
+        doc_before = doc.get_doc_before_save()
+    except Exception as e:
+        frappe.log_error(f"Failed to get doc_before_save for Org Member {doc.name}: {e}")
         return
 
-    doc_before = doc.get_doc_before_save()
     if not doc_before:
+        return
+
+    # Only check if status is changing away from Active
+    if doc_before.status == doc.status:
         return
 
     # If changing from Active to something else
