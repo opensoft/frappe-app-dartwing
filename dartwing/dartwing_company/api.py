@@ -46,12 +46,13 @@ def get_company_with_org_details(company: str) -> dict:
     # Fetch all person names in a single bulk query
     person_names = {}
     if person_ids:
-        person_data = frappe.get_all(
+        person_data = frappe.db.get_values(
             "Person",
-            filters={"name": ["in", list(person_ids)]},
-            fields=["name", "full_name"]
+            {"name": ["in", list(person_ids)]},
+            ["name", "full_name"],
+            as_dict=True
         )
-        person_names = {p.name: p.full_name for p in person_data}
+        person_names = {p["name"]: p["full_name"] for p in person_data}
 
     # Get officers list
     officers = []
