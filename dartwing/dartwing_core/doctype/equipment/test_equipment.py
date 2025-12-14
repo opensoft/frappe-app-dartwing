@@ -410,3 +410,202 @@ class TestEquipment(FrappeTestCase):
         )
 
         self.assertTrue(any("initially assigned" in c.lower() for c in comments))
+
+    def test_get_equipment_by_organization_permission_check(self):
+        """Test get_equipment_by_organization enforces organization permissions (P3-01)."""
+        from dartwing.dartwing_core.doctype.equipment.equipment import get_equipment_by_organization
+
+        # Create a second org that user won't have permission for
+        other_org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": f"{self.TEST_PREFIX}OtherOrg",
+            "org_type": "Company"
+        })
+        other_org.insert()
+
+        # Create equipment in both orgs
+        eq1 = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}Eq1",
+            "owner_organization": self.test_org.name
+        })
+        eq1.insert()
+
+        eq2 = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}Eq2",
+            "owner_organization": other_org.name
+        })
+        eq2.insert()
+
+        # Create a non-admin test user with Dartwing User role
+        test_user_email = f"{self.TEST_PREFIX}user@example.com"
+        if not frappe.db.exists("User", test_user_email):
+            test_user = frappe.get_doc({
+                "doctype": "User",
+                "email": test_user_email,
+                "first_name": "Test",
+                "last_name": "EquipmentUser",
+                "enabled": 1,
+                "user_type": "System User",
+                "roles": [{"role": "Dartwing User"}]
+            })
+            test_user.insert()
+
+        # Give user permission only for test_org
+        frappe.get_doc({
+            "doctype": "User Permission",
+            "user": test_user_email,
+            "allow": "Organization",
+            "for_value": self.test_org.name
+        }).insert(ignore_if_duplicate=True)
+
+        try:
+            # Test as the restricted user
+            frappe.set_user(test_user_email)
+
+            # Should succeed for org user has permission for
+            result = get_equipment_by_organization(self.test_org.name)
+            self.assertEqual(len(result), 1)
+            self.assertEqual(result[0]["name"], eq1.name)
+
+            # Should raise permission error for org user doesn't have access to
+            with self.assertRaises(frappe.PermissionError):
+                get_equipment_by_organization(other_org.name)
+
+        finally:
+            # Restore admin user
+            frappe.set_user("Administrator")
+            # Cleanup
+            frappe.delete_doc("Equipment", eq2.name, force=True)
+            frappe.delete_doc("Organization", other_org.name, force=True)
+            frappe.db.delete("User Permission", {"user": test_user_email})
+            frappe.delete_doc("User", test_user_email, force=True)
+
+    def test_get_equipment_by_person_filters_by_org(self):
+        """Test get_equipment_by_person filters by user's accessible orgs (P3-01)."""
+        from dartwing.dartwing_core.doctype.equipment.equipment import get_equipment_by_person
+
+        # Create second org
+        other_org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": f"{self.TEST_PREFIX}OtherOrg2",
+            "org_type": "Company"
+        })
+        other_org.insert()
+
+        # Create another role template for the other org
+        other_role = frappe.get_doc({
+            "doctype": "Role Template",
+            "role_name": f"{self.TEST_PREFIX}OtherRole_{frappe.generate_hash(length=6)}",
+            "applies_to_org_type": "Company"
+        })
+        other_role.insert()
+
+        # Add test person to other org as well
+        other_member = frappe.get_doc({
+            "doctype": "Org Member",
+            "organization": other_org.name,
+            "person": self.test_person.name,
+            "role": other_role.name,
+            "status": "Active"
+        })
+        other_member.insert()
+
+        # Create equipment in both orgs assigned to same person
+        eq1 = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}EqOrg1",
+            "owner_organization": self.test_org.name,
+            "assigned_to": self.test_person.name
+        })
+        eq1.insert()
+
+        eq2 = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}EqOrg2",
+            "owner_organization": other_org.name,
+            "assigned_to": self.test_person.name
+        })
+        eq2.insert()
+
+        # Create restricted user with access only to test_org and Dartwing User role
+        test_user_email = f"{self.TEST_PREFIX}user2@example.com"
+        if not frappe.db.exists("User", test_user_email):
+            frappe.get_doc({
+                "doctype": "User",
+                "email": test_user_email,
+                "first_name": "Test",
+                "last_name": "User2",
+                "enabled": 1,
+                "user_type": "System User",
+                "roles": [{"role": "Dartwing User"}]
+            }).insert()
+
+        frappe.get_doc({
+            "doctype": "User Permission",
+            "user": test_user_email,
+            "allow": "Organization",
+            "for_value": self.test_org.name
+        }).insert(ignore_if_duplicate=True)
+
+        # Link user to Person for Person permission
+        self.test_person.frappe_user = test_user_email
+        self.test_person.save()
+
+        try:
+            frappe.set_user(test_user_email)
+
+            # Should only return equipment from test_org, not other_org
+            result = get_equipment_by_person(self.test_person.name)
+            equipment_names = [r["name"] for r in result]
+
+            self.assertIn(eq1.name, equipment_names)
+            self.assertNotIn(eq2.name, equipment_names)
+
+        finally:
+            frappe.set_user("Administrator")
+            # Cleanup
+            self.test_person.frappe_user = None
+            self.test_person.save()
+            frappe.delete_doc("Equipment", eq1.name, force=True)
+            frappe.delete_doc("Equipment", eq2.name, force=True)
+            frappe.delete_doc("Org Member", other_member.name, force=True)
+            frappe.delete_doc("Role Template", other_role.name, force=True)
+            frappe.delete_doc("Organization", other_org.name, force=True)
+            frappe.db.delete("User Permission", {"user": test_user_email})
+            frappe.delete_doc("User", test_user_email, force=True)
+
+    def test_get_org_members_permission_check(self):
+        """Test get_org_members enforces organization permissions (P3-01)."""
+        from dartwing.dartwing_core.doctype.equipment.equipment import get_org_members
+
+        # Create restricted user without org permission
+        test_user_email = f"{self.TEST_PREFIX}user3@example.com"
+        if not frappe.db.exists("User", test_user_email):
+            frappe.get_doc({
+                "doctype": "User",
+                "email": test_user_email,
+                "first_name": "Test",
+                "last_name": "User3",
+                "enabled": 1,
+                "user_type": "System User"
+            }).insert()
+
+        try:
+            frappe.set_user(test_user_email)
+
+            # Should raise permission error - user has no org permission
+            with self.assertRaises(frappe.PermissionError):
+                get_org_members(
+                    doctype="Person",
+                    txt="",
+                    searchfield="name",
+                    start=0,
+                    page_len=20,
+                    filters={"organization": self.test_org.name}
+                )
+
+        finally:
+            frappe.set_user("Administrator")
+            frappe.delete_doc("User", test_user_email, force=True)

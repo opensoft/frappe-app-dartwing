@@ -1,11 +1,28 @@
 # Copyright (c) 2025, Opensoft and contributors
 # For license information, please see license.txt
 
+from __future__ import annotations
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
 
 from dartwing.permissions.helpers import is_privileged_user
+
+
+def _escape_sql_wildcards(text: str) -> str:
+    """Escape SQL LIKE wildcards in search text (P3-03).
+
+    Prevents % and _ characters from being interpreted as wildcards,
+    which could cause unexpected search results.
+
+    Args:
+        text: Search text that may contain wildcard characters
+
+    Returns:
+        Text with wildcards escaped for literal matching
+    """
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class Equipment(Document):
@@ -21,7 +38,7 @@ class Equipment(Document):
     - Maintenance scheduling via child table
     """
 
-    def validate(self):
+    def validate(self) -> None:
         """Run all validations before save."""
         # P2-03 FIX: Removed validate_equipment_name - handled by reqd: 1 in JSON
         self.validate_serial_number_unique()
@@ -29,7 +46,7 @@ class Equipment(Document):
         self.validate_assigned_person()
         self.validate_user_can_access_owner_organization()
 
-    def after_insert(self):
+    def after_insert(self) -> None:
         """Log initial assignment after equipment creation (P1-NEW-03)."""
         if self.assigned_to:
             self.add_comment(
@@ -37,11 +54,11 @@ class Equipment(Document):
                 _("Equipment initially assigned to {0}").format(self.assigned_to)
             )
 
-    def on_update(self):
+    def on_update(self) -> None:
         """Track assignment changes with audit logging (P2-06)."""
         self._log_assignment_change()
 
-    def _log_assignment_change(self):
+    def _log_assignment_change(self) -> None:
         """Add comment when equipment assignment changes (P2-06)."""
         # For existing documents, log changes (P2-NEW-04: fetch doc_before once)
         doc_before = self.get_doc_before_save()
@@ -61,7 +78,7 @@ class Equipment(Document):
                 )
             )
 
-    def validate_owner_organization_immutable(self):
+    def validate_owner_organization_immutable(self) -> None:
         """Prevent changing owner_organization after creation (P2-05).
 
         Equipment ownership is immutable - must be transferred via a formal
@@ -78,7 +95,7 @@ class Equipment(Document):
                     title=_("Immutable Field"),
                 )
 
-    def validate_serial_number_unique(self):
+    def validate_serial_number_unique(self) -> None:
         """Validate serial number uniqueness with user-friendly message (FR-002).
 
         The database unique constraint handles enforcement, but this provides
@@ -102,7 +119,7 @@ class Equipment(Document):
                 title=_("Duplicate Serial Number"),
             )
 
-    def validate_assigned_person(self):
+    def validate_assigned_person(self) -> None:
         """Validate assigned_to is an active Org Member of owner_organization (FR-010).
 
         Ensures equipment can only be assigned to persons who are active members
@@ -147,7 +164,7 @@ class Equipment(Document):
                 title=_("Invalid Assignment"),
             )
 
-    def validate_user_can_access_owner_organization(self):
+    def validate_user_can_access_owner_organization(self) -> None:
         """Validate user has permission for the specific owner_organization (P1-05 FIX).
 
         Users must have User Permission for the specific Organization they are
@@ -183,7 +200,14 @@ class Equipment(Document):
 
 
 @frappe.whitelist()
-def get_org_members(doctype, txt, searchfield, start, page_len, filters):
+def get_org_members(
+    doctype: str,
+    txt: str,
+    searchfield: str,
+    start: int,
+    page_len: int,
+    filters: dict,
+) -> list[tuple[str, str]]:
     """Get Person records who are active Org Members of specified organization.
 
     Used for populating the assigned_to field dropdown with only valid assignees.
@@ -238,11 +262,13 @@ def get_org_members(doctype, txt, searchfield, start, page_len, filters):
     # Add search text filter if provided
     if txt:
         person_filters["name"] = ["in", active_members]
+        # P3-03: Escape SQL wildcards to prevent unexpected search behavior
+        escaped_txt = _escape_sql_wildcards(txt)
         # Use OR filter for search across multiple fields
         or_filters = [
-            ["name", "like", f"%{txt}%"],
-            ["first_name", "like", f"%{txt}%"],
-            ["last_name", "like", f"%{txt}%"],
+            ["name", "like", f"%{escaped_txt}%"],
+            ["first_name", "like", f"%{escaped_txt}%"],
+            ["last_name", "like", f"%{escaped_txt}%"],
         ]
     else:
         or_filters = None
@@ -373,7 +399,7 @@ def get_equipment_by_person(person: str) -> list:
     )
 
 
-def check_equipment_on_org_deletion(doc, method):
+def check_equipment_on_org_deletion(doc: "Document", method: str) -> None:
     """Prevent Organization deletion if equipment exists (FR-012).
 
     Called via doc_events hook when an Organization is being deleted.
@@ -392,7 +418,7 @@ def check_equipment_on_org_deletion(doc, method):
         )
 
 
-def check_equipment_assignments_on_member_removal(doc, method):
+def check_equipment_assignments_on_member_removal(doc: "Document", method: str) -> None:
     """Prevent Org Member removal if equipment is assigned to them (FR-013).
 
     Called via doc_events hook when an Org Member is being deleted.
@@ -417,7 +443,7 @@ def check_equipment_assignments_on_member_removal(doc, method):
         )
 
 
-def check_equipment_assignments_on_member_deactivation(doc, method):
+def check_equipment_assignments_on_member_deactivation(doc: "Document", method: str) -> None:
     """Prevent Org Member deactivation if equipment is assigned to them (FR-013, P1-03 FIX).
 
     Called via doc_events hook when an Org Member is being updated.
