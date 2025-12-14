@@ -97,41 +97,34 @@ class TestPermissionHelpers(IntegrationTestCase):
         """Clean up test data after each test."""
         self.setUp()  # Reuse cleanup logic
 
+    def _create_mock_org_member(self, member_name, org_name):
+        """Helper to create a mock Org Member doc."""
+        mock_doc = MagicMock()
+        mock_doc.name = member_name
+        mock_doc.organization = org_name
+        return mock_doc
+
+    def _create_user_permission(self, user_email, allow_doctype, for_value):
+        """Helper to create a User Permission."""
+        perm = frappe.get_doc({
+            "doctype": "User Permission",
+            "user": user_email,
+            "allow": allow_doctype,
+            "for_value": for_value,
+            "apply_to_all_doctypes": 0,
+        })
+        perm.insert(ignore_permissions=True)
+        return perm
+
     def test_cleanup_orphaned_permissions_removes_all_related_perms(self):
         """Test that _cleanup_orphaned_permissions removes both Organization and concrete type permissions."""
         org_name = "Test Perm Org Cleanup All"
         user_email = "test_perm_helper@example.com"
 
         # Create User Permissions manually (simulating orphaned state)
-        # Organization permission
-        org_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Organization",
-            "for_value": org_name,
-            "apply_to_all_doctypes": 0,
-        })
-        org_perm.insert(ignore_permissions=True)
-
-        # Family permission (concrete type)
-        family_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Family",
-            "for_value": org_name,
-            "apply_to_all_doctypes": 0,
-        })
-        family_perm.insert(ignore_permissions=True)
-
-        # Company permission (another concrete type)
-        company_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Company",
-            "for_value": org_name,
-            "apply_to_all_doctypes": 0,
-        })
-        company_perm.insert(ignore_permissions=True)
+        self._create_user_permission(user_email, "Organization", org_name)
+        self._create_user_permission(user_email, "Family", org_name)
+        self._create_user_permission(user_email, "Company", org_name)
 
         # Verify permissions exist
         self.assertEqual(
@@ -142,12 +135,8 @@ class TestPermissionHelpers(IntegrationTestCase):
             3
         )
 
-        # Create a mock Org Member doc
-        mock_doc = MagicMock()
-        mock_doc.name = "Test Member 001"
-        mock_doc.organization = org_name
-
-        # Call cleanup function
+        # Create a mock Org Member doc and call cleanup function
+        mock_doc = self._create_mock_org_member("Test Member 001", org_name)
         _cleanup_orphaned_permissions(user_email, org_name, mock_doc)
 
         # Verify all permissions are removed
@@ -165,28 +154,11 @@ class TestPermissionHelpers(IntegrationTestCase):
         user_email = "test_perm_helper@example.com"
 
         # Create User Permissions
-        org_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Organization",
-            "for_value": org_name,
-            "apply_to_all_doctypes": 0,
-        })
-        org_perm.insert(ignore_permissions=True)
-
-        family_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Family",
-            "for_value": org_name,
-            "apply_to_all_doctypes": 0,
-        })
-        family_perm.insert(ignore_permissions=True)
+        self._create_user_permission(user_email, "Organization", org_name)
+        self._create_user_permission(user_email, "Family", org_name)
 
         # Create a mock Org Member doc
-        mock_doc = MagicMock()
-        mock_doc.name = "Test Member 002"
-        mock_doc.organization = org_name
+        mock_doc = self._create_mock_org_member("Test Member 002", org_name)
 
         # Mock the log_permission_event to capture calls
         with patch('dartwing.permissions.helpers.log_permission_event') as mock_log:
@@ -211,13 +183,11 @@ class TestPermissionHelpers(IntegrationTestCase):
         user_email = "test_perm_helper@example.com"
 
         # Create a mock Org Member doc
-        mock_doc = MagicMock()
-        mock_doc.name = "Test Member 003"
-        mock_doc.organization = org_name
+        mock_doc = self._create_mock_org_member("Test Member 003", org_name)
 
         # Mock the logger and log_permission_event
         with patch('dartwing.permissions.helpers.frappe.logger') as mock_logger, \
-             patch('dartwing.permissions.helpers.log_permission_event') as mock_log_event:
+                patch('dartwing.permissions.helpers.log_permission_event') as mock_log_event:
             
             mock_logger_instance = MagicMock()
             mock_logger.return_value = mock_logger_instance
@@ -242,30 +212,14 @@ class TestPermissionHelpers(IntegrationTestCase):
         user_email = "test_perm_helper@example.com"
 
         # Create Organization permission
-        org_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Organization",
-            "for_value": org_name,
-            "apply_to_all_doctypes": 0,
-        })
-        org_perm.insert(ignore_permissions=True)
+        self._create_user_permission(user_email, "Organization", org_name)
 
         # Create a User Permission for a non-organization DocType with same for_value
         # This should NOT be removed
-        person_perm = frappe.get_doc({
-            "doctype": "User Permission",
-            "user": user_email,
-            "allow": "Person",  # Not in ORGANIZATION_DOCTYPES
-            "for_value": org_name,  # Same name as organization
-            "apply_to_all_doctypes": 0,
-        })
-        person_perm.insert(ignore_permissions=True)
+        self._create_user_permission(user_email, "Person", org_name)
 
         # Create a mock Org Member doc
-        mock_doc = MagicMock()
-        mock_doc.name = "Test Member 004"
-        mock_doc.organization = org_name
+        mock_doc = self._create_mock_org_member("Test Member 004", org_name)
 
         # Call cleanup function
         _cleanup_orphaned_permissions(user_email, org_name, mock_doc)
@@ -295,14 +249,7 @@ class TestPermissionHelpers(IntegrationTestCase):
 
         # Create permissions for all DocTypes in ORGANIZATION_DOCTYPES
         for doctype in ORGANIZATION_DOCTYPES:
-            perm = frappe.get_doc({
-                "doctype": "User Permission",
-                "user": user_email,
-                "allow": doctype,
-                "for_value": org_name,
-                "apply_to_all_doctypes": 0,
-            })
-            perm.insert(ignore_permissions=True)
+            self._create_user_permission(user_email, doctype, org_name)
 
         # Verify all permissions were created
         initial_count = frappe.db.count("User Permission", {
@@ -312,12 +259,8 @@ class TestPermissionHelpers(IntegrationTestCase):
         })
         self.assertEqual(initial_count, len(ORGANIZATION_DOCTYPES))
 
-        # Create a mock Org Member doc
-        mock_doc = MagicMock()
-        mock_doc.name = "Test Member 005"
-        mock_doc.organization = org_name
-
-        # Call cleanup function
+        # Create a mock Org Member doc and call cleanup function
+        mock_doc = self._create_mock_org_member("Test Member 005", org_name)
         _cleanup_orphaned_permissions(user_email, org_name, mock_doc)
 
         # Verify all organization-related permissions are removed
@@ -335,19 +278,10 @@ class TestPermissionHelpers(IntegrationTestCase):
 
         # Create multiple permission types
         for doctype in ["Organization", "Family", "Company"]:
-            perm = frappe.get_doc({
-                "doctype": "User Permission",
-                "user": user_email,
-                "allow": doctype,
-                "for_value": org_name,
-                "apply_to_all_doctypes": 0,
-            })
-            perm.insert(ignore_permissions=True)
+            self._create_user_permission(user_email, doctype, org_name)
 
         # Create a mock Org Member doc
-        mock_doc = MagicMock()
-        mock_doc.name = "Test Member 006"
-        mock_doc.organization = org_name
+        mock_doc = self._create_mock_org_member("Test Member 006", org_name)
 
         # Mock the logger
         with patch('dartwing.permissions.helpers.frappe.logger') as mock_logger:
