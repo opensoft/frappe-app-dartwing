@@ -60,6 +60,7 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (Frappe 15.x backend): Follow standard conventions
 
 ## Recent Changes
+- 006-company-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
 
 - 005-user-permission-propagation: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.permissions
 - 003-org-member-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures

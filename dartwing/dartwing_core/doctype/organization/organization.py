@@ -7,10 +7,12 @@ from frappe.model.document import Document
 
 
 # Mapping from org_type to concrete DocType
+# CR-006 FIX: Added Association for consistency with fixtures
 ORG_TYPE_MAP = {
     "Family": "Family",
     "Company": "Company",
     "Club": "Club",
+    "Association": "Association",
     "Nonprofit": "Nonprofit",
 }
 
@@ -36,7 +38,7 @@ class Organization(Document):
         self.delete_concrete_type()
 
     def create_concrete_type(self):
-        """Create the concrete type document (e.g., Family) and link it back."""
+        """Create the concrete type document (e.g., Family, Company) and link it back."""
         concrete_doctype = ORG_TYPE_MAP.get(self.org_type)
 
         if not concrete_doctype:
@@ -46,17 +48,20 @@ class Organization(Document):
         if self.linked_name and frappe.db.exists(concrete_doctype, self.linked_name):
             return
 
-        # Only create Family for now (other types not implemented yet)
-        if concrete_doctype != "Family":
-            return
-
+        # CR-005 FIX: Make creation atomic - Organization creation fails if concrete type fails
         try:
             concrete = frappe.new_doc(concrete_doctype)
-            concrete.family_name = self.org_name
             concrete.organization = self.name
-            concrete.status = self.status
             concrete.flags.ignore_permissions = True
             concrete.flags.from_organization = True  # Prevent recursion
+
+            # Set type-specific fields
+            if concrete_doctype == "Family":
+                concrete.family_name = self.org_name
+                concrete.status = self.status
+            elif concrete_doctype == "Company":
+                concrete.legal_name = self.org_name
+
             concrete.insert()
 
             # Update organization with linked info
@@ -69,7 +74,11 @@ class Organization(Document):
             )
         except Exception as e:
             frappe.log_error(f"Error creating concrete type {concrete_doctype}: {str(e)}")
-            # Don't throw - organization can exist without concrete type
+            frappe.throw(
+                _("Failed to create {0} record. Please try again or contact support.").format(
+                    concrete_doctype
+                )
+            )
 
     def delete_concrete_type(self):
         """Delete the linked concrete type document."""

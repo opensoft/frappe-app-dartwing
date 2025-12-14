@@ -122,6 +122,7 @@ permission_query_conditions = {
 	"Organization": "dartwing.permissions.organization.get_permission_query_conditions",
 	"Family": "dartwing.permissions.family.get_permission_query_conditions",
 	"Family Member": "dartwing.permissions.family.get_member_permission_query_conditions",
+	"Company": "dartwing.dartwing_company.permissions.get_permission_query_conditions_company",
 	"Company": "dartwing.permissions.company.get_permission_query_conditions",
 	"Association": "dartwing.permissions.association.get_permission_query_conditions",
 	"Nonprofit": "dartwing.permissions.nonprofit.get_permission_query_conditions",
@@ -130,6 +131,7 @@ permission_query_conditions = {
 has_permission = {
 	"Organization": "dartwing.permissions.organization.has_permission",
 	"Family": "dartwing.permissions.family.has_permission",
+	"Company": "dartwing.dartwing_company.permissions.has_permission_company",
 	"Company": "dartwing.permissions.company.has_permission",
 	"Association": "dartwing.permissions.association.has_permission",
 	"Nonprofit": "dartwing.permissions.nonprofit.has_permission",
@@ -170,6 +172,10 @@ fixtures = [
 # ---------------
 # Hook on document methods and events
 
+# CR-011 FIX: Address deletion protection for Company links
+doc_events = {
+	"Address": {
+		"before_delete": "dartwing.dartwing_company.utils.check_address_company_links"
 doc_events = {
 	"Org Member": {
 		"after_insert": "dartwing.permissions.helpers.create_user_permissions",
