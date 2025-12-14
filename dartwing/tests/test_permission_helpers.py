@@ -3,7 +3,6 @@
 
 """
 Test cases for permission helper functions.
-Test cases for permission helpers module.
 
 Run tests with:
     bench --site <site> run-tests --app dartwing --module dartwing.tests.test_permission_helpers
