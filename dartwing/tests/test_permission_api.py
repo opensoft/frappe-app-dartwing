@@ -67,12 +67,19 @@ class TestPermissionAPI(FrappeTestCase):
     def _cleanup_test_data(self):
         """Helper to clean up all test data."""
         # Clean up Org Members
-        for member_name in frappe.get_all(
-            "Org Member",
-            filters={"person": ["like", "API-TEST-%"]},
+        # First, get all test Person names (IDs) by email
+        test_person_names = frappe.get_all(
+            "Person",
+            filters={"primary_email": ["like", "%@api-test.example.com"]},
             pluck="name"
-        ):
-            frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
+        )
+        if test_person_names:
+            for member_name in frappe.get_all(
+                "Org Member",
+                filters={"person": ["in", test_person_names]},
+                pluck="name"
+            ):
+                frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
 
         # Clean up Persons
         for person_name in frappe.get_all(
