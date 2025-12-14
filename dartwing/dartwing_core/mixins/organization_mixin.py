@@ -7,6 +7,7 @@ for concrete organization types (Company, Family, Nonprofit, Club).
 """
 
 import frappe
+from frappe import _
 
 
 class OrganizationMixin:
@@ -73,3 +74,40 @@ class OrganizationMixin:
         if not self.organization:
             return None
         return frappe.get_doc("Organization", self.organization)
+
+    def update_org_name(self, new_name: str) -> None:
+        """
+        Update the organization name on the linked Organization record.
+
+        This method enforces permission checks to ensure the user has write
+        access to the Organization before updating.
+
+        Args:
+            new_name: The new organization name to set.
+
+        Raises:
+            frappe.ValidationError: If new_name is empty/whitespace or no
+                organization is linked.
+            frappe.PermissionError: If user lacks write permission on Organization.
+        """
+        # Normalize and validate input
+        org_name = (new_name or "").strip()
+        if not org_name:
+            frappe.throw(_("Organization name cannot be empty"))
+
+        # Validate organization link exists
+        if not self.organization:
+            frappe.throw(_("Cannot update organization name: No organization linked"))
+
+        # Load Organization document (checks read permission)
+        org = frappe.get_doc("Organization", self.organization)
+
+        # Check write permission explicitly
+        org.check_permission("write")
+
+        # Update and save (runs validations, hooks, and audit logging)
+        org.org_name = org_name
+        org.save()
+
+        # Clear cache so subsequent property access returns fresh data
+        self._clear_organization_cache()
