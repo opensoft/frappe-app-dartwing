@@ -122,8 +122,7 @@ def remove_user_permissions(doc, method):
     except frappe.DoesNotExistError:
         # Organization already deleted - clean up all related permissions
         # Try to determine concrete type from Org Member's cached organization_type field
-        # Organization already deleted - query for all related permissions and clean up
-        _cleanup_orphaned_permissions(user, doc.organization, doc)
+        _cleanup_orphaned_permissions(user, doc)
         return
 
     # Remove permission for Organization
