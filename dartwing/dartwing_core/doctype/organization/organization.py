@@ -85,10 +85,14 @@ def validate_org_field_map() -> bool:
         logger.error(error_msg)
         # Fail fast: raise exception to prevent silent failures at runtime
         error_count = len(errors)
-        all_errors = "; ".join(errors)
+        # Limit displayed errors to avoid overwhelming UI; full list is in error log
+        max_display = 3
+        displayed_errors = "; ".join(errors[:max_display])
+        if error_count > max_display:
+            displayed_errors += _("; ... and {0} more (see error log)").format(error_count - max_display)
         raise frappe.ValidationError(
             _("Organization field mapping configuration is invalid ({0} error(s)): {1}").format(
-                error_count, all_errors
+                error_count, displayed_errors
             )
         )
 
