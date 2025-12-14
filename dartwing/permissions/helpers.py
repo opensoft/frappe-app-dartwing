@@ -240,9 +240,9 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
         for_value=org_member_doc.organization
     )
     
-    # Map organization type to concrete DocType name
-    # The org_type values are: Family, Company, Association, Nonprofit
-    # organization_type is fetched directly from Organization.org_type, which already stores capitalized values matching DocType names.
+    # Get organization_type which is fetched directly from Organization.org_type
+    # This field stores capitalized values (Family, Company, Association, Nonprofit)
+    # that match the concrete DocType names
     org_type = org_member_doc.organization_type
     
     # Validate org_type to prevent DocType injection attacks
@@ -257,6 +257,8 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
             )
             
             # Remove permissions for each found concrete document
+            # Note: Multiple concrete documents may exist for one organization if
+            # data integrity issues exist. All related permissions are cleaned up.
             for concrete_name in concrete_docs:
                 _delete_permission(user, org_type, concrete_name)
                 log_permission_event(
