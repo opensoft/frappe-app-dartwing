@@ -70,7 +70,7 @@ class TestPermissionHelpers(FrappeTestCase):
         # Clean up any test organizations
         for org_name in frappe.get_all(
             "Organization",
-            filters={"name": ["like", "Test Perm Org%"]},
+            filters={"org_name": ["like", "Test Perm Org%"]},
             pluck="name"
         ):
             frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
