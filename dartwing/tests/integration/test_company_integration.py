@@ -279,7 +279,7 @@ class TestCompanyIntegration(FrappeTestCase):
         # Set up Company with officers and members
         company = frappe.get_doc("Company", org.linked_name)
         company.legal_name = "Integration Test API Inc."
-        company.entity_type = "LLC"  # Changed to LLC to show members section
+        company.entity_type = "LLC"  # Changed to LLC to enable members section testing
         
         # Add officers
         company.append("officers", {
@@ -320,26 +320,34 @@ class TestCompanyIntegration(FrappeTestCase):
         
         # Verify officers are returned with person names (bulk query test)
         self.assertEqual(len(result["officers"]), 2)
-        self.assertEqual(result["officers"][0]["person"], officer1.name)
-        self.assertEqual(result["officers"][0]["person_name"], "IntegrationTestCEO Officer")
-        self.assertEqual(result["officers"][0]["title"], "CEO")
-        self.assertEqual(result["officers"][0]["start_date"], "2024-01-01")
         
-        self.assertEqual(result["officers"][1]["person"], officer2.name)
-        self.assertEqual(result["officers"][1]["person_name"], "IntegrationTestCFO Officer")
-        self.assertEqual(result["officers"][1]["title"], "CFO")
+        # Convert to dict by person ID for order-independent verification
+        officers_by_person = {o["person"]: o for o in result["officers"]}
+        
+        self.assertIn(officer1.name, officers_by_person)
+        self.assertEqual(officers_by_person[officer1.name]["person_name"], "IntegrationTestCEO Officer")
+        self.assertEqual(officers_by_person[officer1.name]["title"], "CEO")
+        self.assertEqual(officers_by_person[officer1.name]["start_date"], "2024-01-01")
+        
+        self.assertIn(officer2.name, officers_by_person)
+        self.assertEqual(officers_by_person[officer2.name]["person_name"], "IntegrationTestCFO Officer")
+        self.assertEqual(officers_by_person[officer2.name]["title"], "CFO")
         
         # Verify members are returned with person names (bulk query test)
         self.assertEqual(len(result["members"]), 2)
-        self.assertEqual(result["members"][0]["person"], member1.name)
-        self.assertEqual(result["members"][0]["person_name"], "IntegrationTestMember One")
-        self.assertEqual(result["members"][0]["ownership_percent"], 60)
-        self.assertEqual(result["members"][0]["voting_rights"], 60)
         
-        self.assertEqual(result["members"][1]["person"], member2.name)
-        self.assertEqual(result["members"][1]["person_name"], "IntegrationTestMember Two")
-        self.assertEqual(result["members"][1]["ownership_percent"], 40)
-        self.assertEqual(result["members"][1]["voting_rights"], 40)
+        # Convert to dict by person ID for order-independent verification
+        members_by_person = {m["person"]: m for m in result["members"]}
+        
+        self.assertIn(member1.name, members_by_person)
+        self.assertEqual(members_by_person[member1.name]["person_name"], "IntegrationTestMember One")
+        self.assertEqual(members_by_person[member1.name]["ownership_percent"], 60)
+        self.assertEqual(members_by_person[member1.name]["voting_rights"], 60)
+        
+        self.assertIn(member2.name, members_by_person)
+        self.assertEqual(members_by_person[member2.name]["person_name"], "IntegrationTestMember Two")
+        self.assertEqual(members_by_person[member2.name]["ownership_percent"], 40)
+        self.assertEqual(members_by_person[member2.name]["voting_rights"], 40)
 
     def test_api_get_company_with_org_details_empty_lists(self):
         """
