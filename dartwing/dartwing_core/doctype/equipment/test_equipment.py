@@ -9,103 +9,156 @@ Run tests with:
 """
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 
 
-class TestEquipment(IntegrationTestCase):
+class TestEquipment(FrappeTestCase):
     """Test cases for Equipment DocType."""
 
-    @classmethod
-    def setUpClass(cls):
-        """Set up test fixtures that are shared across all tests."""
-        super().setUpClass()
+    # Use unique prefix to avoid conflicts with other test data
+    TEST_PREFIX = "__TestEquipment_"
+
+    def setUp(self):
+        """Set up test fixtures for each test."""
+        self._cleanup_test_data()
 
         # Create test organization
-        cls.test_org = frappe.get_doc({
+        self.test_org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Equipment Org",
+            "org_name": f"{self.TEST_PREFIX}Org",
             "org_type": "Company"
         })
-        cls.test_org.insert()
-        cls.test_org.reload()
+        self.test_org.insert()
+        self.test_org.reload()
 
-        # Create test person
-        cls.test_person = frappe.get_doc({
+        # Create test role template (required for Org Member)
+        self.test_role = frappe.get_doc({
+            "doctype": "Role Template",
+            "role_name": f"{self.TEST_PREFIX}Role_{frappe.generate_hash(length=6)}",
+            "applies_to_org_type": "Company"
+        })
+        self.test_role.insert()
+
+        # Create test person (P1-NEW-02: Add mandatory fields)
+        self.test_person = frappe.get_doc({
             "doctype": "Person",
             "first_name": "Test",
-            "last_name": "EquipmentUser"
+            "last_name": "EquipmentUser",
+            "primary_email": f"{self.TEST_PREFIX}{frappe.generate_hash(length=6)}@example.com",
+            "source": "import"
         })
-        cls.test_person.insert()
+        self.test_person.insert()
 
-        # Create org member to link person to org
-        cls.test_member = frappe.get_doc({
+        # Create org member to link person to org (P1-NEW-02: Add role)
+        self.test_member = frappe.get_doc({
             "doctype": "Org Member",
-            "organization": cls.test_org.name,
-            "person": cls.test_person.name,
+            "organization": self.test_org.name,
+            "person": self.test_person.name,
+            "role": self.test_role.name,
             "status": "Active"
         })
-        cls.test_member.insert()
+        self.test_member.insert()
 
         # Create user permission for Administrator
-        frappe.get_doc({
-            "doctype": "User Permission",
+        if not frappe.db.exists("User Permission", {
             "user": "Administrator",
             "allow": "Organization",
-            "for_value": cls.test_org.name
-        }).insert(ignore_if_duplicate=True)
+            "for_value": self.test_org.name
+        }):
+            frappe.get_doc({
+                "doctype": "User Permission",
+                "user": "Administrator",
+                "allow": "Organization",
+                "for_value": self.test_org.name
+            }).insert(ignore_if_duplicate=True)
 
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up test fixtures."""
+    def tearDown(self):
+        """Clean up test fixtures after each test."""
+        self._cleanup_test_data()
+
+    def _cleanup_test_data(self):
+        """Remove all test data with the test prefix."""
         # Clean up equipment
         for eq in frappe.get_all(
             "Equipment",
-            filters={"owner_organization": cls.test_org.name},
+            filters={"equipment_name": ["like", f"{self.TEST_PREFIX}%"]},
             pluck="name"
         ):
             frappe.delete_doc("Equipment", eq, force=True)
 
-        # Clean up org member
-        if frappe.db.exists("Org Member", cls.test_member.name):
-            frappe.delete_doc("Org Member", cls.test_member.name, force=True)
+        # Clean up equipment by org
+        for org in frappe.get_all(
+            "Organization",
+            filters={"org_name": ["like", f"{self.TEST_PREFIX}%"]},
+            pluck="name"
+        ):
+            for eq in frappe.get_all("Equipment", filters={"owner_organization": org}, pluck="name"):
+                frappe.delete_doc("Equipment", eq, force=True)
 
-        # Clean up person
-        if frappe.db.exists("Person", cls.test_person.name):
-            frappe.delete_doc("Person", cls.test_person.name, force=True)
+        # Clean up org members
+        for om in frappe.get_all(
+            "Org Member",
+            filters={"organization": ["like", "ORG-%"]},
+            pluck="name"
+        ):
+            try:
+                org_member = frappe.get_doc("Org Member", om)
+                if org_member.organization and frappe.db.exists("Organization", org_member.organization):
+                    org = frappe.get_doc("Organization", org_member.organization)
+                    if org.org_name and org.org_name.startswith(self.TEST_PREFIX):
+                        frappe.delete_doc("Org Member", om, force=True)
+            except Exception:
+                pass
 
-        # Clean up organization (will cascade delete linked Company)
-        if frappe.db.exists("Organization", cls.test_org.name):
-            frappe.delete_doc("Organization", cls.test_org.name, force=True)
+        # Clean up persons
+        for person in frappe.get_all(
+            "Person",
+            filters={"primary_email": ["like", f"{self.TEST_PREFIX}%"]},
+            pluck="name"
+        ):
+            frappe.delete_doc("Person", person, force=True)
 
-        # Clean up user permissions
+        # Clean up role templates
+        for role in frappe.get_all(
+            "Role Template",
+            filters={"role_name": ["like", f"{self.TEST_PREFIX}%"]},
+            pluck="name"
+        ):
+            frappe.delete_doc("Role Template", role, force=True)
+
+        # Clean up organizations
+        for org in frappe.get_all(
+            "Organization",
+            filters={"org_name": ["like", f"{self.TEST_PREFIX}%"]},
+            pluck="name"
+        ):
+            frappe.delete_doc("Organization", org, force=True)
+
+        # Clean up user permissions for test orgs
         for up in frappe.get_all(
             "User Permission",
-            filters={"for_value": cls.test_org.name},
+            filters={"allow": "Organization"},
             pluck="name"
         ):
-            frappe.delete_doc("User Permission", up, force=True)
-
-        super().tearDownClass()
-
-    def tearDown(self):
-        """Clean up equipment created during individual tests."""
-        for eq in frappe.get_all(
-            "Equipment",
-            filters={"equipment_name": ["like", "Test Eq%"]},
-            pluck="name"
-        ):
-            frappe.delete_doc("Equipment", eq, force=True)
+            try:
+                perm = frappe.get_doc("User Permission", up)
+                if perm.for_value and frappe.db.exists("Organization", perm.for_value):
+                    org = frappe.get_doc("Organization", perm.for_value)
+                    if org.org_name and org.org_name.startswith(self.TEST_PREFIX):
+                        frappe.delete_doc("User Permission", up, force=True)
+            except Exception:
+                pass
 
     def test_equipment_creation(self):
         """Test basic equipment creation (FR-001)."""
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Basic",
+            "equipment_name": f"{self.TEST_PREFIX}Basic",
             "owner_organization": self.test_org.name
         })
         equipment.insert()
 
-        self.assertEqual(equipment.equipment_name, "Test Eq Basic")
+        self.assertEqual(equipment.equipment_name, f"{self.TEST_PREFIX}Basic")
         self.assertEqual(equipment.owner_organization, self.test_org.name)
         self.assertEqual(equipment.status, "Active")
         self.assertTrue(equipment.name.startswith("EQ-"))
@@ -125,18 +178,18 @@ class TestEquipment(IntegrationTestCase):
         # Create first equipment with serial
         eq1 = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Serial 1",
+            "equipment_name": f"{self.TEST_PREFIX}Serial1",
             "owner_organization": self.test_org.name,
-            "serial_number": "SN-UNIQUE-TEST-001"
+            "serial_number": f"{self.TEST_PREFIX}SN001"
         })
         eq1.insert()
 
         # Try to create second with same serial - should fail
         eq2 = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Serial 2",
+            "equipment_name": f"{self.TEST_PREFIX}Serial2",
             "owner_organization": self.test_org.name,
-            "serial_number": "SN-UNIQUE-TEST-001"
+            "serial_number": f"{self.TEST_PREFIX}SN001"
         })
 
         with self.assertRaises(frappe.exceptions.ValidationError):
@@ -144,18 +197,20 @@ class TestEquipment(IntegrationTestCase):
 
     def test_assignment_requires_org_membership(self):
         """Test assigned person must be org member (FR-010)."""
-        # Create a person NOT in the test org
+        # Create a person NOT in the test org (P1-NEW-02: Add mandatory fields)
         other_person = frappe.get_doc({
             "doctype": "Person",
             "first_name": "Other",
-            "last_name": "Person"
+            "last_name": "Person",
+            "primary_email": f"{self.TEST_PREFIX}other_{frappe.generate_hash(length=6)}@example.com",
+            "source": "import"
         })
         other_person.insert()
 
         try:
             equipment = frappe.get_doc({
                 "doctype": "Equipment",
-                "equipment_name": "Test Eq Assignment",
+                "equipment_name": f"{self.TEST_PREFIX}Assignment",
                 "owner_organization": self.test_org.name,
                 "assigned_to": other_person.name
             })
@@ -169,7 +224,7 @@ class TestEquipment(IntegrationTestCase):
         """Test equipment can be assigned to valid org member (FR-010)."""
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Valid Assignment",
+            "equipment_name": f"{self.TEST_PREFIX}ValidAssign",
             "owner_organization": self.test_org.name,
             "assigned_to": self.test_person.name
         })
@@ -181,7 +236,7 @@ class TestEquipment(IntegrationTestCase):
         """Test owner_organization cannot change after creation (P2-05)."""
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Immutable Org",
+            "equipment_name": f"{self.TEST_PREFIX}ImmutableOrg",
             "owner_organization": self.test_org.name
         })
         equipment.insert()
@@ -189,7 +244,7 @@ class TestEquipment(IntegrationTestCase):
         # Create second org
         other_org = frappe.get_doc({
             "doctype": "Organization",
-            "org_name": "Test Equipment Other Org",
+            "org_name": f"{self.TEST_PREFIX}OtherOrg",
             "org_type": "Company"
         })
         other_org.insert()
@@ -207,7 +262,7 @@ class TestEquipment(IntegrationTestCase):
         # Create equipment for the test org
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Block Delete",
+            "equipment_name": f"{self.TEST_PREFIX}BlockDelete",
             "owner_organization": self.test_org.name
         })
         equipment.insert()
@@ -216,15 +271,12 @@ class TestEquipment(IntegrationTestCase):
         with self.assertRaises(frappe.exceptions.ValidationError):
             frappe.delete_doc("Organization", self.test_org.name)
 
-        # Clean up
-        frappe.delete_doc("Equipment", equipment.name, force=True)
-
     def test_member_removal_blocked_with_equipment(self):
         """Test org member cannot be removed with assigned equipment (FR-013)."""
         # Create equipment assigned to the test person
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Block Member Delete",
+            "equipment_name": f"{self.TEST_PREFIX}BlockMemberDelete",
             "owner_organization": self.test_org.name,
             "assigned_to": self.test_person.name
         })
@@ -234,15 +286,12 @@ class TestEquipment(IntegrationTestCase):
         with self.assertRaises(frappe.exceptions.ValidationError):
             frappe.delete_doc("Org Member", self.test_member.name)
 
-        # Clean up
-        frappe.delete_doc("Equipment", equipment.name, force=True)
-
     def test_member_deactivation_blocked_with_equipment(self):
         """Test org member cannot be deactivated with assigned equipment (P1-03)."""
         # Create equipment assigned to the test person
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Block Deactivation",
+            "equipment_name": f"{self.TEST_PREFIX}BlockDeactivation",
             "owner_organization": self.test_org.name,
             "assigned_to": self.test_person.name
         })
@@ -258,15 +307,12 @@ class TestEquipment(IntegrationTestCase):
         # Restore member status
         self.test_member.reload()
 
-        # Clean up
-        frappe.delete_doc("Equipment", equipment.name, force=True)
-
     def test_assignment_change_creates_comment(self):
         """Test assignment changes create audit comment (P2-06)."""
         # Create equipment with assignment
         equipment = frappe.get_doc({
             "doctype": "Equipment",
-            "equipment_name": "Test Eq Audit Trail",
+            "equipment_name": f"{self.TEST_PREFIX}AuditTrail",
             "owner_organization": self.test_org.name,
             "assigned_to": self.test_person.name
         })
@@ -296,10 +342,71 @@ class TestEquipment(IntegrationTestCase):
         for status in valid_statuses:
             equipment = frappe.get_doc({
                 "doctype": "Equipment",
-                "equipment_name": f"Test Eq Status {status}",
+                "equipment_name": f"{self.TEST_PREFIX}Status_{status}",
                 "owner_organization": self.test_org.name,
                 "status": status
             })
             equipment.insert()
             self.assertEqual(equipment.status, status)
-            frappe.delete_doc("Equipment", equipment.name, force=True)
+
+    def test_assignment_blocked_for_lost_status(self):
+        """Test equipment with Lost status cannot be assigned (P1-NEW-04)."""
+        equipment = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}LostAssign",
+            "owner_organization": self.test_org.name,
+            "status": "Lost",
+            "assigned_to": self.test_person.name
+        })
+
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            equipment.insert()
+
+    def test_assignment_blocked_for_stolen_status(self):
+        """Test equipment with Stolen status cannot be assigned (P1-NEW-04)."""
+        equipment = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}StolenAssign",
+            "owner_organization": self.test_org.name,
+            "status": "Stolen",
+            "assigned_to": self.test_person.name
+        })
+
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            equipment.insert()
+
+    def test_assignment_blocked_for_retired_status(self):
+        """Test equipment with Retired status cannot be assigned (P1-NEW-04)."""
+        equipment = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}RetiredAssign",
+            "owner_organization": self.test_org.name,
+            "status": "Retired",
+            "assigned_to": self.test_person.name
+        })
+
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            equipment.insert()
+
+    def test_initial_assignment_creates_comment(self):
+        """Test initial assignment creates audit comment (P1-NEW-03)."""
+        equipment = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": f"{self.TEST_PREFIX}InitialAssign",
+            "owner_organization": self.test_org.name,
+            "assigned_to": self.test_person.name
+        })
+        equipment.insert()
+
+        # Check for initial assignment comment
+        comments = frappe.get_all(
+            "Comment",
+            filters={
+                "reference_doctype": "Equipment",
+                "reference_name": equipment.name,
+                "comment_type": "Info"
+            },
+            pluck="content"
+        )
+
+        self.assertTrue(any("initially assigned" in c.lower() for c in comments))

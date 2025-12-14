@@ -27,29 +27,37 @@ class Equipment(Document):
         self.validate_assigned_person()
         self.validate_user_can_access_owner_organization()
 
+    def after_insert(self):
+        """Log initial assignment after equipment creation (P1-NEW-03)."""
+        if self.assigned_to:
+            self.add_comment(
+                "Info",
+                _("Equipment initially assigned to {0}").format(self.assigned_to)
+            )
+
     def on_update(self):
         """Track assignment changes with audit logging (P2-06)."""
         self._log_assignment_change()
 
     def _log_assignment_change(self):
-        """Add comment when equipment assignment changes."""
-        if self.is_new():
+        """Add comment when equipment assignment changes (P2-06)."""
+        # For existing documents, log changes (P2-NEW-04: fetch doc_before once)
+        doc_before = self.get_doc_before_save()
+        if not doc_before:
             return
 
-        if self.has_value_changed("assigned_to"):
-            doc_before = self.get_doc_before_save()
-            old_assignee = doc_before.assigned_to if doc_before else None
-            new_assignee = self.assigned_to
+        old_assignee = doc_before.assigned_to
+        new_assignee = self.assigned_to
 
-            if old_assignee != new_assignee:
-                old_name = old_assignee or "Unassigned"
-                new_name = new_assignee or "Unassigned"
-                self.add_comment(
-                    "Info",
-                    _("Equipment assignment changed from {0} to {1}").format(
-                        old_name, new_name
-                    )
+        if old_assignee != new_assignee:
+            old_name = old_assignee or "Unassigned"
+            new_name = new_assignee or "Unassigned"
+            self.add_comment(
+                "Info",
+                _("Equipment assignment changed from {0} to {1}").format(
+                    old_name, new_name
                 )
+            )
 
     def validate_owner_organization_immutable(self):
         """Prevent changing owner_organization after creation (P2-05).
@@ -97,7 +105,20 @@ class Equipment(Document):
 
         Ensures equipment can only be assigned to persons who are active members
         of the same organization that owns the equipment.
+
+        Also validates equipment status allows assignment (P1-NEW-04).
         """
+        # P1-NEW-04: Block assignment for non-active equipment statuses
+        non_assignable_statuses = ("Lost", "Stolen", "Retired")
+        if self.assigned_to and self.status in non_assignable_statuses:
+            frappe.throw(
+                _("Cannot assign equipment with status '{0}'. "
+                  "Clear the assignment or change status to 'Active' or 'In Repair'.").format(
+                    self.status
+                ),
+                title=_("Invalid Status for Assignment"),
+            )
+
         if not self.assigned_to:
             return
 
@@ -244,7 +265,8 @@ def get_equipment_by_organization(organization: str, status: str | None = None) 
     if status:
         filters["status"] = status
 
-    return frappe.get_all(
+    # P1-NEW-01: Use get_list to apply permission hooks
+    return frappe.get_list(
         "Equipment",
         filters=filters,
         fields=[
@@ -268,13 +290,14 @@ def get_equipment_by_person(person: str) -> list:
         person: Person document name
 
     Returns:
-        List of equipment records assigned to the person
+        List of equipment records assigned to the person (filtered by user's org access)
 
     Raises:
         frappe.PermissionError: If user lacks access to the person (P1-02 FIX)
     """
-    # P1-02 FIX: Verify user has access to view this person's data
     user = frappe.session.user
+
+    # P1-02 FIX: Verify user has access to view this person's data
     if user != "Administrator" and "System Manager" not in frappe.get_roles(user):
         if not frappe.has_permission("Person", "read", person):
             frappe.throw(
@@ -282,9 +305,26 @@ def get_equipment_by_person(person: str) -> list:
                 frappe.PermissionError,
             )
 
-    return frappe.get_all(
+        # P1-NEW-01: Filter equipment to only orgs the user can access
+        # This prevents cross-org leakage when a Person belongs to multiple orgs
+        user_orgs = frappe.get_all(
+            "User Permission",
+            filters={"user": user, "allow": "Organization"},
+            pluck="for_value",
+        )
+
+        if not user_orgs:
+            return []
+
+        filters = {"assigned_to": person, "owner_organization": ["in", user_orgs]}
+    else:
+        # Admin/System Manager: return all equipment for this person
+        filters = {"assigned_to": person}
+
+    # P1-NEW-01: Use get_list to apply permission hooks
+    return frappe.get_list(
         "Equipment",
-        filters={"assigned_to": person},
+        filters=filters,
         fields=[
             "name",
             "equipment_name",
