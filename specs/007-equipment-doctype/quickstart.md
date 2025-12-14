@@ -131,7 +131,7 @@ touch dartwing/dartwing_core/doctype/equipment/__init__.py
       "label": "Status",
       "fieldtype": "Select",
       "default": "Active",
-      "options": "Active\nIn Repair\nRetired"
+      "options": "Active\nIn Repair\nRetired\nLost\nStolen"
     },
     {
       "fieldname": "owner_organization",

@@ -100,6 +100,8 @@ Other
 Active
 In Repair
 Retired
+Lost
+Stolen
 ```
 
 ### Permissions

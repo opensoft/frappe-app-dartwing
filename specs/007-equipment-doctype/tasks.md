@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/007-equipment-doctype/`
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
-**Tests**: Not explicitly requested in specification - test tasks omitted.
+**Tests**: Comprehensive test suite implemented in `test_equipment.py` with 18 test cases covering all functional requirements, permissions, and edge cases.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 

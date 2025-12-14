@@ -271,7 +271,7 @@ Use Select field with predefined categories: Vehicle, Electronics, Furniture, Ma
 ## 9. Equipment Status Values
 
 ### Decision
-Use Select field with three values: Active, In Repair, Retired.
+Use Select field with five values: Active, In Repair, Retired, Lost, Stolen.
 
 ### Rationale
 - Spec FR-006: "System MUST support equipment status values: Active, In Repair, and Retired"
