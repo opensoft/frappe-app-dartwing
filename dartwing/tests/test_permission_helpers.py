@@ -478,14 +478,6 @@ class TestPermissionHelpers(FrappeTestCase):
             "for_value": family.name
         })
         self.assertFalse(family_perm_exists, "Family permission should be removed via cleanup")
-        # Delete test Person
-        if frappe.db.exists("Person", cls.test_person):
-            frappe.delete_doc("Person", cls.test_person, force=True, ignore_permissions=True)
-
-        # Delete test user
-        if frappe.db.exists("User", "test_perm_helper@example.com"):
-            frappe.delete_doc("User", "test_perm_helper@example.com", force=True, ignore_permissions=True)
-
     def _create_mock_org_member(self, member_name, org_name):
         """Helper to create a mock Org Member doc."""
         mock_doc = MagicMock()
