@@ -13,7 +13,7 @@ def check_address_company_links(doc, method):
     """
     Prevent deletion of Address linked to Company.
 
-    CR-011 FIX: Called via doc_events hook when Address is being deleted.
+    CR-011 FIX: Called via doc_events hook *before* Address is deleted, to allow blocking deletion.
     Checks if the Address is linked as registered_address or physical_address
     on any Company record.
 
