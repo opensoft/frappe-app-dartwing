@@ -242,7 +242,7 @@ def _cleanup_orphaned_permissions(user: str, org_member_doc) -> None:
     
     # Map organization type to concrete DocType name
     # The org_type values are: Family, Company, Association, Nonprofit
-    # These match the DocType names directly (capitalized)
+    # organization_type is fetched directly from Organization.org_type, which already stores capitalized values matching DocType names.
     org_type = org_member_doc.organization_type
     
     # Validate org_type to prevent DocType injection attacks
