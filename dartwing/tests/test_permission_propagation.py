@@ -126,7 +126,6 @@ class TestPermissionPropagation(FrappeTestCase):
             })
             concrete.insert(ignore_permissions=True)
             concrete.reload()
-            concrete_name = concrete.name
             # Get the auto-created organization
             org = frappe.get_doc("Organization", concrete.organization)
             return org, concrete
