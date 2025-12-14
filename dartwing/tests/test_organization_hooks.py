@@ -17,6 +17,7 @@ from frappe.tests.utils import FrappeTestCase
 
 from dartwing.dartwing_core.doctype.organization.organization import (
     ORG_TYPE_MAP,
+    ORG_FIELD_MAP,
     get_concrete_doc,
     get_organization_with_details,
 )
@@ -47,14 +48,12 @@ def cleanup_test_organizations() -> None:
             pass
 
     # Clean up all concrete types matching the test prefix
-    concrete_types = [
-        ("Family", "family_name"),
-        ("Company", "company_name"),
-        ("Association", "association_name"),
-        ("Nonprofit", "nonprofit_name")
-    ]
-
-    for doctype, name_field in concrete_types:
+    # Derive from ORG_FIELD_MAP to maintain single source of truth
+    for org_type, field_config in ORG_FIELD_MAP.items():
+        doctype = ORG_TYPE_MAP.get(org_type)
+        name_field = field_config.get("name_field")
+        if not doctype or not name_field:
+            continue
         for doc_name in frappe.get_all(
             doctype,
             filters={name_field: ["like", pattern]},
