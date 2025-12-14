@@ -25,38 +25,6 @@ class Family(Document):
 		if not self.created_date:
 			self.created_date = frappe.utils.today()
 
-	def after_insert(self):
-		"""Create Organization if this Family doesn't have one."""
-		# Skip if this was created by Organization (to prevent recursion)
-		if getattr(self.flags, "from_organization", False):
-			return
-
-		if not self.organization:
-			self._create_organization()
-
-	def _create_organization(self):
-		"""Create a linked Organization for this Family."""
-		try:
-			org = frappe.new_doc("Organization")
-			org.org_name = self.family_name
-			org.org_type = "Family"
-			org.status = self.status or "Active"
-			org.linked_doctype = "Family"
-			org.linked_name = self.name
-			org.flags.ignore_permissions = True
-			org.flags.skip_concrete_type = True  # Don't create another Family
-			org.insert()
-
-			# Update this Family with the organization link
-			self.db_set("organization", org.name, update_modified=False)
-
-			frappe.msgprint(
-				_("Created Organization: {0}").format(org.name),
-				alert=True
-			)
-		except Exception as e:
-			frappe.log_error(f"Error creating Organization for Family {self.name}: {str(e)}")
-
 	def _generate_unique_slug(self):
 		"""Generate a unique slug from the family name."""
 		base = frappe.utils.slug(self.family_name)
