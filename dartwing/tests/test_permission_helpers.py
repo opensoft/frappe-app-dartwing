@@ -188,7 +188,7 @@ class TestPermissionHelpers(FrappeTestCase):
         frappe.delete_doc("Organization", org_name, force=True)
 
         # Now call _cleanup_orphaned_permissions directly
-        _cleanup_orphaned_permissions("test_perm_user@example.com", org_member)
+        _cleanup_orphaned_permissions("test_perm_user@example.com", org_name, org_member)
 
         # Verify Organization permission was removed
         org_perm_exists = frappe.db.exists("User Permission", {
@@ -234,7 +234,7 @@ class TestPermissionHelpers(FrappeTestCase):
         frappe.delete_doc("Organization", org.name, force=True)
 
         # Call cleanup - should log warning but not crash
-        _cleanup_orphaned_permissions("test_perm_user@example.com", org_member)
+        _cleanup_orphaned_permissions("test_perm_user@example.com", org.name, org_member)
 
         # Should still remove Organization permission
         org_perm_exists = frappe.db.exists("User Permission", {
@@ -272,7 +272,7 @@ class TestPermissionHelpers(FrappeTestCase):
         frappe.delete_doc("Organization", org.name, force=True)
 
         # Call cleanup - should log warning but not crash
-        _cleanup_orphaned_permissions("test_perm_user@example.com", org_member)
+        _cleanup_orphaned_permissions("test_perm_user@example.com", org.name, org_member)
 
         # Should still remove Organization permission
         org_perm_exists = frappe.db.exists("User Permission", {
@@ -307,7 +307,7 @@ class TestPermissionHelpers(FrappeTestCase):
         frappe.delete_doc("Organization", org.name, force=True)
 
         # Call cleanup - should handle gracefully when no concrete doc exists
-        _cleanup_orphaned_permissions("test_perm_user@example.com", org_member)
+        _cleanup_orphaned_permissions("test_perm_user@example.com", org.name, org_member)
 
         # Should still remove Organization permission
         org_perm_exists = frappe.db.exists("User Permission", {
@@ -370,7 +370,7 @@ class TestPermissionHelpers(FrappeTestCase):
         frappe.delete_doc("Organization", org_name, force=True)
 
         # Call cleanup - should remove permissions for BOTH families
-        _cleanup_orphaned_permissions("test_perm_user@example.com", org_member)
+        _cleanup_orphaned_permissions("test_perm_user@example.com", org_name, org_member)
 
         # Verify both Family permissions were removed
         family1_perm_exists = frappe.db.exists("User Permission", {
