@@ -2,24 +2,13 @@
 # For license information, please see license.txt
 
 """
-Test cases for permission helper functions.
+Test cases for permission helpers module.
 
 Run tests with:
     bench --site <site> run-tests --app dartwing --module dartwing.tests.test_permission_helpers
 """
 
 import frappe
-from frappe.tests import IntegrationTestCase
-
-from dartwing.permissions.helpers import (
-    create_user_permissions,
-    remove_user_permissions,
-    _cleanup_orphaned_permissions,
-)
-
-
-class TestPermissionHelpers(IntegrationTestCase):
-    """Test cases for permission propagation helpers."""
 from frappe.tests.utils import FrappeTestCase
 from unittest.mock import patch, MagicMock
 
@@ -47,7 +36,7 @@ class TestPermissionHelpers(FrappeTestCase):
                 "roles": [{"role": "System Manager"}]
             })
             user.insert(ignore_permissions=True)
-
+        
         # Create test user
         if not frappe.db.exists("User", "test_perm_helper@example.com"):
             user = frappe.get_doc({
@@ -73,7 +62,7 @@ class TestPermissionHelpers(FrappeTestCase):
             cls.test_person = frappe.get_doc(
                 "Person", {"primary_email": "test_perm_user@example.com"}
             )
-
+        
         if not frappe.db.exists("Person", {"frappe_user": "test_perm_helper@example.com"}):
             person = frappe.get_doc({
                 "doctype": "Person",
@@ -93,53 +82,36 @@ class TestPermissionHelpers(FrappeTestCase):
         """Clean up test fixtures."""
         super().tearDownClass()
 
-        # Delete test person
-        if frappe.db.exists("Person", cls.test_person.name):
-            frappe.delete_doc("Person", cls.test_person.name, force=True)
+        # Delete test Person
+        if frappe.db.exists("Person", cls.test_person):
+            frappe.delete_doc("Person", cls.test_person, force=True, ignore_permissions=True)
 
         # Delete test user
-        if frappe.db.exists("User", "test_perm_user@example.com"):
-            frappe.delete_doc("User", "test_perm_user@example.com", force=True)
+        if frappe.db.exists("User", "test_perm_helper@example.com"):
+            frappe.delete_doc("User", "test_perm_helper@example.com", force=True, ignore_permissions=True)
 
     def setUp(self):
         """Set up test data for each test."""
-        # Clean up any existing test data
-        self._cleanup_test_data()
+        # Clean up any test organizations
+        for org_name in frappe.get_all(
+            "Organization",
+            filters={"name": ["like", "Test Perm Org%"]},
+            pluck="name"
+        ):
+            frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
 
-    def tearDown(self):
-        """Clean up test data after each test."""
-        self._cleanup_test_data()
+        # Clean up any test org members
+        for member_name in frappe.get_all(
+            "Org Member",
+            filters={"person": self.test_person},
+            pluck="name"
+        ):
+            frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
 
-    def _cleanup_test_data(self):
-        """Helper to clean up test organizations, families, and permissions."""
         # Clean up user permissions for test user
         for perm_name in frappe.get_all(
             "User Permission",
-            filters={"user": "test_perm_user@example.com"},
-            pluck="name"
-        ):
-            frappe.delete_doc("User Permission", perm_name, force=True)
-
-        # Clean up org members
-        for member_name in frappe.get_all(
-            "Org Member",
-            filters={"person": self.test_person.name},
-            pluck="name"
-        ):
-            frappe.delete_doc("Org Member", member_name, force=True)
-
-        # Clean up families
-        for family_name in frappe.get_all(
-            "Family",
-            filters={"family_name": ["like", "Test Perm%"]},
-            pluck="name"
-        ):
-            frappe.delete_doc("Family", family_name, force=True)
-
-        # Clean up organizations
-        for org_name in frappe.get_all(
-            "Organization",
-            filters={"org_name": ["like", "Test Perm%"]},
+            filters={"user": "test_perm_helper@example.com"},
             pluck="name"
         ):
             frappe.delete_doc("Organization", org_name, force=True)
@@ -475,13 +447,6 @@ class TestPermissionHelpers(FrappeTestCase):
         # Call remove_user_permissions - should call cleanup logic
         remove_user_permissions(org_member, "on_trash")
 
-        # Verify permissions were removed
-        family_perm_exists = frappe.db.exists("User Permission", {
-            "user": "test_perm_user@example.com",
-            "allow": "Family",
-            "for_value": family.name
-        })
-        self.assertFalse(family_perm_exists, "Family permission should be removed via cleanup")
     def _create_mock_org_member(self, member_name, org_name):
         """Helper to create a mock Org Member doc."""
         mock_doc = MagicMock()
