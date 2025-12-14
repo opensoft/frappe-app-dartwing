@@ -304,7 +304,7 @@ class TestCompanyIntegration(FrappeTestCase):
         self.assertFalse(result["valid"])
         self.assertEqual(result["total_ownership"], 110)
         self.assertEqual(result["member_count"], 2)
-        self.assertTrue(len(result["warnings"]) > 0)
+        self.assertGreater(len(result["warnings"]), 0)
 
         # Clean up
         company.members_partners = []

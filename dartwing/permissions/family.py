@@ -45,7 +45,8 @@ def get_permission_query_conditions(user=None):
         return "1=0"
 
     # Filter to families in user's organizations
-    org_list = ", ".join(f"'{frappe.db.escape(org)}'" for org in organizations)
+    # frappe.db.escape() already returns a quoted string
+    org_list = ", ".join(frappe.db.escape(org) for org in organizations)
     return f"`tabFamily`.`organization` IN ({org_list})"
 
 
@@ -74,8 +75,9 @@ def has_permission(doc, ptype="read", user=None):
 
     # Check if user has access to this Family's organization
     if not doc.organization:
-        # Family without organization - allow for backwards compatibility
-        # but log a warning
+        # BACKWARD COMPAT: Allow access to orphaned records created before
+        # org-based permissions were implemented. These records should be
+        # migrated to have an organization. See spec.md "Security Considerations".
         frappe.log_error(
             f"Family {doc.name} has no organization - allowing access",
             "Permission Warning"
@@ -116,7 +118,8 @@ def get_member_permission_query_conditions(user=None):
         return "1=0"
 
     # Filter to members whose parent Family is in user's organizations
-    org_list = ", ".join(f"'{frappe.db.escape(org)}'" for org in organizations)
+    # frappe.db.escape() already returns a quoted string
+    org_list = ", ".join(frappe.db.escape(org) for org in organizations)
 
     # Join with Family table to check organization
     return f"""`tabFamily Member`.`parent` IN (
