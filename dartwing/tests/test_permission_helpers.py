@@ -486,36 +486,6 @@ class TestPermissionHelpers(FrappeTestCase):
         if frappe.db.exists("User", "test_perm_helper@example.com"):
             frappe.delete_doc("User", "test_perm_helper@example.com", force=True, ignore_permissions=True)
 
-    def setUp(self):
-        """Set up test data for each test."""
-        # Clean up any test organizations
-        for org_name in frappe.get_all(
-            "Organization",
-            filters={"name": ["like", "Test Perm Org%"]},
-            pluck="name"
-        ):
-            frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
-
-        # Clean up any test org members
-        for member_name in frappe.get_all(
-            "Org Member",
-            filters={"person": self.test_person},
-            pluck="name"
-        ):
-            frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
-
-        # Clean up user permissions for test user
-        for perm_name in frappe.get_all(
-            "User Permission",
-            filters={"user": "test_perm_helper@example.com"},
-            pluck="name"
-        ):
-            frappe.delete_doc("User Permission", perm_name, force=True, ignore_permissions=True)
-
-    def tearDown(self):
-        """Clean up test data after each test."""
-        self.setUp()  # Reuse cleanup logic
-
     def _create_mock_org_member(self, member_name, org_name):
         """Helper to create a mock Org Member doc."""
         mock_doc = MagicMock()
