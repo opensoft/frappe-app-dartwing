@@ -58,13 +58,13 @@ Based on actual project structure:
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [x] T008 [P] [US1] Test Organization with org_type Family creates Family record in tests/test_organization_hooks.py
-- [ ] T009 [P] [US1] Test Organization with org_type Company creates Company record (blocked: Company doctype not yet created)
-- [ ] T010 [P] [US1] Test Organization with org_type Nonprofit creates Nonprofit record (blocked: Nonprofit doctype not yet created)
-- [ ] T011 [P] [US1] Test Organization with org_type Association creates Association record (blocked: Association doctype not yet created)
+- [x] T009 [P] [US1] Test Organization with org_type Company creates Company record in tests/test_organization_hooks.py
+- [x] T010 [P] [US1] Test Organization with org_type Nonprofit creates Nonprofit record in tests/test_organization_hooks.py
+- [x] T011 [P] [US1] Test Organization with org_type Association creates Association record in tests/test_organization_hooks.py
 - [x] T012 [P] [US1] Test linked_doctype and linked_name are populated correctly in tests/test_organization_hooks.py
 - [x] T013 [P] [US1] Test concrete type's organization field points back to Organization in tests/test_organization_hooks.py
 - [x] T014 [P] [US1] Test invalid org_type is rejected with ValidationError in tests/test_organization_hooks.py
-- [ ] T015 [P] [US1] Test atomic rollback if concrete type creation fails (requires mocking)
+- [x] T015 [P] [US1] Test atomic rollback if concrete type creation fails in tests/test_organization_hooks.py
 
 ### Implementation for User Story 1
 
@@ -112,7 +112,7 @@ Based on actual project structure:
 ### Tests for User Story 3
 
 - [x] T030 [P] [US3] Test deleting Organization cascades to delete Family record in tests/test_organization_hooks.py
-- [ ] T031 [P] [US3] Test deleting Organization cascades to delete Company record (blocked: Company doctype not yet created)
+- [x] T031 [P] [US3] Test deleting Organization cascades to delete Company record in tests/test_organization_hooks.py
 - [x] T032 [P] [US3] Test deletion succeeds when concrete type already missing in tests/test_organization_hooks.py
 - [x] T033 [P] [US3] Test other Organizations unaffected by single deletion in tests/test_organization_hooks.py
 
@@ -120,7 +120,7 @@ Based on actual project structure:
 
 - [x] T034 [US3] Implement delete_concrete_type hook function in dartwing/dartwing/dartwing_core/doctype/organization/organization.py
 - [x] T035 [US3] Add existence check before cascade delete in dartwing/dartwing/dartwing_core/doctype/organization/organization.py
-- [x] T036 [US3] Implement force=True and ignore_permissions=True for cascade delete in dartwing/dartwing/dartwing_core/doctype/organization/organization.py
+- [x] T036 [US3] Implement ignore_permissions=True for cascade delete (force=True omitted for data integrity) in dartwing/dartwing/dartwing_core/doctype/organization/organization.py
 - [x] T037 [US3] Add audit logging for cascade delete operations in dartwing/dartwing/dartwing_core/doctype/organization/organization.py
 - [x] T038 [US3] Add warning log when concrete type not found during delete in dartwing/dartwing/dartwing_core/doctype/organization/organization.py
 
