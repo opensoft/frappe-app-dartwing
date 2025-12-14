@@ -45,6 +45,9 @@ class TestPermissionHelpers(FrappeTestCase):
                 "first_name": "Test",
                 "last_name": "Permission User",
                 "roles": [{"role": "System Manager"}]
+            })
+            user.insert(ignore_permissions=True)
+        
         # Create test user
         if not frappe.db.exists("User", "test_perm_helper@example.com"):
             user = frappe.get_doc({
@@ -69,6 +72,8 @@ class TestPermissionHelpers(FrappeTestCase):
         else:
             cls.test_person = frappe.get_doc(
                 "Person", {"primary_email": "test_perm_user@example.com"}
+            )
+        
         if not frappe.db.exists("Person", {"frappe_user": "test_perm_helper@example.com"}):
             person = frappe.get_doc({
                 "doctype": "Person",
