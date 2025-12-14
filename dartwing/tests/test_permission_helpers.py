@@ -67,6 +67,14 @@ class TestPermissionHelpers(FrappeTestCase):
 
     def setUp(self):
         """Set up test data for each test."""
+        self._cleanup_test_data()
+
+    def tearDown(self):
+        """Clean up test data after each test."""
+        self._cleanup_test_data()
+
+    def _cleanup_test_data(self):
+        """Helper method to clean up test organizations, members, and permissions."""
         # Clean up any test organizations
         for org_name in frappe.get_all(
             "Organization",
@@ -90,10 +98,6 @@ class TestPermissionHelpers(FrappeTestCase):
             pluck="name"
         ):
             frappe.delete_doc("User Permission", perm_name, force=True, ignore_permissions=True)
-
-    def tearDown(self):
-        """Clean up test data after each test."""
-        self.setUp()  # Reuse cleanup logic
 
     def _create_mock_org_member(self, member_name, org_name):
         """Helper to create a mock Org Member doc."""
