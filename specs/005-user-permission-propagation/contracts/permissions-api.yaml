@@ -1,0 +1,331 @@
+openapi: 3.0.3
+info:
+  title: Dartwing Permissions API
+  description: |
+    API endpoints for permission-related operations in Dartwing.
+
+    Note: Most permission operations happen automatically via Org Member lifecycle events.
+    These endpoints provide helpers for querying permission state.
+  version: 1.0.0
+
+servers:
+  - url: /api/method/dartwing.permissions
+    description: Frappe API method endpoint
+
+paths:
+  /get_user_organizations:
+    post:
+      summary: Get organizations accessible by current user
+      description: |
+        Returns list of Organizations the current user has permission to access.
+        Used by Flutter clients to populate organization selectors.
+      operationId: get_user_organizations
+      tags:
+        - Permissions
+      responses:
+        '200':
+          description: List of accessible organizations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrganizationSummary'
+              example:
+                message:
+                  - name: "ORG-2025-00001"
+                    org_name: "Acme Corp"
+                    org_type: "Company"
+                  - name: "ORG-2025-00002"
+                    org_name: "Smith Family"
+                    org_type: "Family"
+        '403':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /check_organization_access:
+    post:
+      summary: Check if user has access to specific organization
+      description: |
+        Validates if the current user can access a specific organization.
+        Used for pre-flight checks before navigating to organization-specific views.
+      operationId: check_organization_access
+      tags:
+        - Permissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization
+              properties:
+                organization:
+                  type: string
+                  description: Organization name/ID to check
+                  example: "ORG-2025-00001"
+      responses:
+        '200':
+          description: Access check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: object
+                    properties:
+                      has_access:
+                        type: boolean
+                        description: Whether user has access
+                      org_type:
+                        type: string
+                        description: Organization type if access granted
+                      concrete_type:
+                        type: string
+                        description: Concrete type name if access granted
+              example:
+                message:
+                  has_access: true
+                  org_type: "Company"
+                  concrete_type: "CO-00001"
+        '403':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /get_organization_members:
+    post:
+      summary: Get members of an organization
+      description: |
+        Returns list of Org Members for a given organization.
+        Only returns results if user has permission to access the organization.
+      operationId: get_organization_members
+      tags:
+        - Permissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization
+              properties:
+                organization:
+                  type: string
+                  description: Organization name/ID
+                  example: "ORG-2025-00001"
+                include_inactive:
+                  type: boolean
+                  description: Include inactive members
+                  default: false
+      responses:
+        '200':
+          description: List of organization members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrgMemberSummary'
+        '403':
+          description: Access denied to organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /get_permission_audit_log:
+    post:
+      summary: Get permission audit log metadata
+      description: |
+        Returns metadata about permission audit logs.
+        Only accessible by System Manager role.
+
+        Note: Currently logs are stored in the file system (permission_audit.log).
+        This endpoint returns the log location and applied filters. Direct log
+        parsing may be implemented in a future version.
+      operationId: get_permission_audit_log
+      tags:
+        - Permissions
+        - Admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                organization:
+                  type: string
+                  description: Filter by organization
+                user:
+                  type: string
+                  description: Filter by user
+                event_type:
+                  type: string
+                  enum: [create, remove, skip]
+                  description: Filter by event type
+                from_date:
+                  type: string
+                  format: date
+                  description: Start date for log entries
+                to_date:
+                  type: string
+                  format: date
+                  description: End date for log entries
+                limit:
+                  type: integer
+                  default: 100
+                  description: Maximum entries to return
+      responses:
+        '200':
+          description: Audit log metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: '#/components/schemas/AuditLogMetadata'
+              example:
+                message:
+                  message: "Permission audit logs are stored in site logs under permission_audit.log"
+                  log_path: "logs/permission_audit.log"
+                  filters_applied:
+                    organization: null
+                    user: null
+                    event_type: null
+                    from_date: null
+                    to_date: null
+                    limit: 100
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    OrganizationSummary:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Organization ID
+        org_name:
+          type: string
+          description: Display name
+        org_type:
+          type: string
+          enum: [Family, Company, Nonprofit, Association]
+          description: Organization type
+        logo:
+          type: string
+          nullable: true
+          description: Logo URL if set
+
+    OrgMemberSummary:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Org Member ID
+        person:
+          type: string
+          description: Person ID
+        person_name:
+          type: string
+          description: Person's full name
+        role:
+          type: string
+          description: Role Template name
+        status:
+          type: string
+          enum: [Active, Inactive, Pending]
+        start_date:
+          type: string
+          format: date
+        is_supervisor:
+          type: boolean
+          description: Whether role has supervisor flag
+
+    PermissionAuditEntry:
+      type: object
+      description: Individual audit log entry (for future direct log parsing)
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        event:
+          type: string
+          enum: [create, remove, skip]
+        org_member:
+          type: string
+        person:
+          type: string
+        organization:
+          type: string
+        user:
+          type: string
+          nullable: true
+        doctype:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+          description: Reason for skip events
+
+    AuditLogMetadata:
+      type: object
+      description: Metadata about the audit log location and applied filters
+      properties:
+        message:
+          type: string
+          description: Human-readable message about log location
+        log_path:
+          type: string
+          description: Path to the log file
+        filters_applied:
+          type: object
+          description: Filters that were specified in the request
+          properties:
+            organization:
+              type: string
+              nullable: true
+            user:
+              type: string
+              nullable: true
+            event_type:
+              type: string
+              nullable: true
+            from_date:
+              type: string
+              nullable: true
+            to_date:
+              type: string
+              nullable: true
+            limit:
+              type: integer
+
+    Error:
+      type: object
+      properties:
+        exc_type:
+          type: string
+        message:
+          type: string
