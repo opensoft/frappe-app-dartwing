@@ -115,3 +115,9 @@ These are non-negotiable principles that guide all development on this project.
 - Knowledge Vault content never leaves org boundary
 - Tool execution requires explicit permissions
 - All AI interactions logged for audit
+
+### 11. Parallel Development Governance
+
+- All new feature work must be based on the latest remote version of the main branch
+- Upon completion of the `/specify` and branch creation phase, the branch and its associated `specs/` files must be immediately pushed to the remote repository
+- **Rationale:** SpecKit looks for the last feature branch number used and increments it. By immediately publishing new branches, we prevent parallel development sessions from attempting to create duplicate branch numbers

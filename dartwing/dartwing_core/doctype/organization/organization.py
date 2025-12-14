@@ -18,10 +18,12 @@ DOCTYPE_COMPANY = "Company"
 DOCTYPE_ASSOCIATION = "Association"
 DOCTYPE_NONPROFIT = "Nonprofit"
 
-# Mapping from org_type to concrete DocType (FR-010)
+# Mapping from org_type to concrete DocType
+# CR-006 FIX: Added Association for consistency with fixtures
 ORG_TYPE_MAP = {
     "Family": "Family",
     "Company": "Company",
+    "Club": "Club",
     "Association": "Association",
     "Nonprofit": "Nonprofit",
 }
@@ -252,6 +254,8 @@ class Organization(Document):
         7. Log success for audit trail
         8. On error: log and re-raise to trigger transaction rollback
         """
+    def create_concrete_type(self):
+        """Create the concrete type document (e.g., Family, Company) and link it back."""
         concrete_doctype = ORG_TYPE_MAP.get(self.org_type)
 
         if not concrete_doctype:
@@ -306,6 +310,14 @@ class Organization(Document):
             # Execute with system privileges (FR-013)
             concrete.flags.ignore_permissions = True
             concrete.flags.from_organization = True  # Prevent recursion
+
+            # Set type-specific fields
+            if concrete_doctype == "Family":
+                concrete.family_name = self.org_name
+                concrete.status = self.status
+            elif concrete_doctype == "Company":
+                concrete.legal_name = self.org_name
+
             concrete.insert()
 
             # Update organization with linked_name AFTER concrete creation (FR-002, FR-003)
@@ -327,6 +339,12 @@ class Organization(Document):
     def _delete_concrete_type(self):
         """
         Delete the linked concrete type document (cascade delete).
+            frappe.log_error(f"Error creating concrete type {concrete_doctype}: {str(e)}")
+            frappe.throw(
+                _("Failed to create {0} record. Please try again or contact support.").format(
+                    concrete_doctype
+                )
+            )
 
         Implements FR-005, FR-006, FR-012, FR-013.
 

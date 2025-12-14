@@ -10,6 +10,7 @@
   "org_type",
   "column_break_1",
   "status",
+  "logo",
   "naming_series",
   "section_break_linking",
   "linked_doctype",
@@ -46,6 +47,12 @@
    "in_standard_filter": 1,
    "label": "Status",
    "options": "Active\nInactive\nDissolved"
+  },
+  {
+   "fieldname": "logo",
+   "fieldtype": "Attach Image",
+   "label": "Logo",
+   "description": "Organization logo image"
   },
   {
    "fieldname": "naming_series",
