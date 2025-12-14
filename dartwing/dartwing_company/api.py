@@ -85,7 +85,7 @@ def get_company_with_org_details(company: str) -> dict:
 
 
 @frappe.whitelist()
-def get_user_companies(user: str | None = None) -> list[dict]:
+def get_user_companies(user: str = None) -> list[dict]:
     """
     Get all Companies accessible to a user.
 
