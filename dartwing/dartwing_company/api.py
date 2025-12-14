@@ -34,13 +34,32 @@ def get_company_with_org_details(company: str) -> dict:
         as_dict=True
     )
 
+    # Collect all person IDs from officers and members
+    person_ids = set()
+    for officer in doc.officers or []:
+        if officer.person:
+            person_ids.add(officer.person)
+    for member in doc.members_partners or []:
+        if member.person:
+            person_ids.add(member.person)
+
+    # Fetch all person names in a single bulk query
+    person_names = {}
+    if person_ids:
+        person_data = frappe.db.get_values(
+            "Person",
+            {"name": ["in", list(person_ids)]},
+            ["name", "full_name"],
+            as_dict=True
+        )
+        person_names = {p["name"]: p["full_name"] for p in person_data}
+
     # Get officers list
     officers = []
     for officer in doc.officers or []:
-        person_name = frappe.db.get_value("Person", officer.person, "full_name")
         officers.append({
             "person": officer.person,
-            "person_name": person_name,
+            "person_name": person_names.get(officer.person),
             "title": officer.title,
             "start_date": str(officer.start_date) if officer.start_date else None,
             "end_date": str(officer.end_date) if officer.end_date else None
@@ -49,10 +68,9 @@ def get_company_with_org_details(company: str) -> dict:
     # Get members list
     members = []
     for member in doc.members_partners or []:
-        person_name = frappe.db.get_value("Person", member.person, "full_name")
         members.append({
             "person": member.person,
-            "person_name": person_name,
+            "person_name": person_names.get(member.person),
             "ownership_percent": member.ownership_percent,
             "capital_contribution": member.capital_contribution,
             "voting_rights": member.voting_rights
