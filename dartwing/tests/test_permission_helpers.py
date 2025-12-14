@@ -116,6 +116,12 @@ class TestPermissionHelpers(IntegrationTestCase):
         perm.insert(ignore_permissions=True)
         return perm
 
+    def _mock_logger_and_log_event(self):
+        """Helper to set up mocks for logger and log_permission_event."""
+        mock_logger = patch('dartwing.permissions.helpers.frappe.logger')
+        mock_log_event = patch('dartwing.permissions.helpers.log_permission_event')
+        return mock_logger, mock_log_event
+
     def test_cleanup_orphaned_permissions_removes_all_related_perms(self):
         """Test that _cleanup_orphaned_permissions removes both Organization and concrete type permissions."""
         org_name = "Test Perm Org Cleanup All"
@@ -186,9 +192,8 @@ class TestPermissionHelpers(IntegrationTestCase):
         mock_doc = self._create_mock_org_member("Test Member 003", org_name)
 
         # Mock the logger and log_permission_event
-        with patch('dartwing.permissions.helpers.frappe.logger') as mock_logger, \
-                patch('dartwing.permissions.helpers.log_permission_event') as mock_log_event:
-            
+        mock_logger_patch, mock_log_event_patch = self._mock_logger_and_log_event()
+        with mock_logger_patch as mock_logger, mock_log_event_patch as mock_log_event:
             mock_logger_instance = MagicMock()
             mock_logger.return_value = mock_logger_instance
 
@@ -284,14 +289,14 @@ class TestPermissionHelpers(IntegrationTestCase):
         mock_doc = self._create_mock_org_member("Test Member 006", org_name)
 
         # Mock the logger
-        with patch('dartwing.permissions.helpers.frappe.logger') as mock_logger:
+        mock_logger_patch, _ = self._mock_logger_and_log_event()
+        with mock_logger_patch as mock_logger:
             mock_logger_instance = MagicMock()
             mock_logger.return_value = mock_logger_instance
 
             _cleanup_orphaned_permissions(user_email, org_name, mock_doc)
 
-            # Verify logger.info was called twice (once for summary)
-            # The second call should be the summary
+            # Verify logger.info was called once for the summary
             self.assertEqual(mock_logger_instance.info.call_count, 1)
             
             # Check the summary message
