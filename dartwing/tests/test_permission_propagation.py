@@ -62,20 +62,22 @@ class TestPermissionPropagation(FrappeTestCase):
 
     def _cleanup_test_data(self):
         """Helper to clean up all test data."""
-        # Clean up Org Members
-        for member_name in frappe.get_all(
-            "Org Member",
-            filters={"person": ["like", "PERM-TEST-%"]},
-            pluck="name"
-        ):
-            frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
-
-        # Clean up Persons
-        for person_name in frappe.get_all(
+        # Clean up Org Members associated with test Persons
+        test_person_ids = frappe.get_all(
             "Person",
             filters={"primary_email": ["like", "%@perm-test.example.com"]},
             pluck="name"
-        ):
+        )
+        if test_person_ids:
+            for member_name in frappe.get_all(
+                "Org Member",
+                filters={"person": ["in", test_person_ids]},
+                pluck="name"
+            ):
+                frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
+
+        # Clean up Persons
+        for person_name in test_person_ids:
             frappe.delete_doc("Person", person_name, force=True, ignore_permissions=True)
 
         # Clean up Organizations and concrete types
