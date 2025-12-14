@@ -16,6 +16,11 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from dartwing.dartwing_core.doctype.organization.organization import (
+    DOCTYPE_ORGANIZATION,
+    DOCTYPE_FAMILY,
+    DOCTYPE_COMPANY,
+    DOCTYPE_ASSOCIATION,
+    DOCTYPE_NONPROFIT,
     ORG_TYPE_MAP,
     ORG_FIELD_MAP,
     get_concrete_doc,
@@ -38,12 +43,12 @@ def cleanup_test_organizations() -> None:
 
     # Clean up organizations matching the test prefix
     for org_name in frappe.get_all(
-        "Organization",
+        DOCTYPE_ORGANIZATION,
         filters={"org_name": ["like", pattern]},
         pluck="name"
     ):
         try:
-            frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
+            frappe.delete_doc(DOCTYPE_ORGANIZATION, org_name, force=True, ignore_permissions=True)
         except Exception:
             # Silently continue if deletion fails (e.g., already deleted, locked, or
             # referenced by other records). Test cleanup should be best-effort.
@@ -97,61 +102,61 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us1_org_type_family_creates_family_record(self):
         """T008: Test Organization with org_type Family creates Family record."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Family",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
         # Verify Family was created
-        self.assertEqual(org.linked_doctype, "Family")
+        self.assertEqual(org.linked_doctype, DOCTYPE_FAMILY)
         self.assertIsNotNone(org.linked_name)
-        self.assertTrue(frappe.db.exists("Family", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_FAMILY, org.linked_name))
 
     def test_us1_linked_doctype_populated(self):
         """T012: Test linked_doctype is populated correctly."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Linked DocType",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
-        self.assertEqual(org.linked_doctype, "Family")
+        self.assertEqual(org.linked_doctype, DOCTYPE_FAMILY)
 
     def test_us1_linked_name_populated(self):
         """T012: Test linked_name is populated correctly."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Linked Name",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
         self.assertIsNotNone(org.linked_name)
         # Verify the linked name points to an actual record
-        self.assertTrue(frappe.db.exists("Family", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_FAMILY, org.linked_name))
 
     def test_us1_concrete_type_organization_field_points_back(self):
         """T013: Test concrete type's organization field points back to Organization."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Backlink",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
-        family = frappe.get_doc("Family", org.linked_name)
+        family = frappe.get_doc(DOCTYPE_FAMILY, org.linked_name)
         self.assertEqual(family.organization, org.name)
 
     def test_us1_invalid_org_type_rejected(self):
         """T014: Test invalid org_type is rejected with ValidationError."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Invalid Type",
             "org_type": "InvalidType"
         })
@@ -170,60 +175,60 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us1_org_type_company_creates_company_record(self):
         """T009: Test Organization with org_type Company creates Company record."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Company",
-            "org_type": "Company"
+            "org_type": DOCTYPE_COMPANY
         })
         org.insert()
         org.reload()
 
         # Verify Company was created
-        self.assertEqual(org.linked_doctype, "Company")
+        self.assertEqual(org.linked_doctype, DOCTYPE_COMPANY)
         self.assertIsNotNone(org.linked_name)
-        self.assertTrue(frappe.db.exists("Company", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_COMPANY, org.linked_name))
 
         # Verify Company has correct field values
-        company = frappe.get_doc("Company", org.linked_name)
+        company = frappe.get_doc(DOCTYPE_COMPANY, org.linked_name)
         self.assertEqual(company.company_name, f"{TEST_PREFIX}Company")
         self.assertEqual(company.organization, org.name)
 
     def test_us1_org_type_association_creates_association_record(self):
         """T010: Test Organization with org_type Association creates Association record."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Association",
-            "org_type": "Association"
+            "org_type": DOCTYPE_ASSOCIATION
         })
         org.insert()
         org.reload()
 
         # Verify Association was created
-        self.assertEqual(org.linked_doctype, "Association")
+        self.assertEqual(org.linked_doctype, DOCTYPE_ASSOCIATION)
         self.assertIsNotNone(org.linked_name)
-        self.assertTrue(frappe.db.exists("Association", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_ASSOCIATION, org.linked_name))
 
         # Verify Association has correct field values
-        association = frappe.get_doc("Association", org.linked_name)
+        association = frappe.get_doc(DOCTYPE_ASSOCIATION, org.linked_name)
         self.assertEqual(association.association_name, f"{TEST_PREFIX}Association")
         self.assertEqual(association.organization, org.name)
 
     def test_us1_org_type_nonprofit_creates_nonprofit_record(self):
         """T011: Test Organization with org_type Nonprofit creates Nonprofit record."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Nonprofit",
-            "org_type": "Nonprofit"
+            "org_type": DOCTYPE_NONPROFIT
         })
         org.insert()
         org.reload()
 
         # Verify Nonprofit was created
-        self.assertEqual(org.linked_doctype, "Nonprofit")
+        self.assertEqual(org.linked_doctype, DOCTYPE_NONPROFIT)
         self.assertIsNotNone(org.linked_name)
-        self.assertTrue(frappe.db.exists("Nonprofit", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_NONPROFIT, org.linked_name))
 
         # Verify Nonprofit has correct field values
-        nonprofit = frappe.get_doc("Nonprofit", org.linked_name)
+        nonprofit = frappe.get_doc(DOCTYPE_NONPROFIT, org.linked_name)
         self.assertEqual(nonprofit.nonprofit_name, f"{TEST_PREFIX}Nonprofit")
         self.assertEqual(nonprofit.organization, org.name)
 
@@ -234,9 +239,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us2_get_concrete_doc_returns_document(self):
         """T022: Test get_concrete_doc returns concrete type document."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Get Concrete",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -244,7 +249,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         concrete = get_concrete_doc(org.name)
 
         self.assertIsNotNone(concrete)
-        self.assertEqual(concrete["doctype"], "Family")
+        self.assertEqual(concrete["doctype"], DOCTYPE_FAMILY)
         self.assertEqual(concrete["name"], org.linked_name)
         self.assertEqual(concrete["organization"], org.name)
 
@@ -252,9 +257,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T023: Test get_concrete_doc returns None when no linked concrete type."""
         # Create org with skip_concrete_type flag to avoid auto-creation
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}No Concrete",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.flags.skip_concrete_type = True
         org.insert()
@@ -265,9 +270,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us2_get_organization_with_details_returns_merged_data(self):
         """T024: Test get_organization_with_details returns merged data."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}With Details",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -277,7 +282,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         # Verify Organization fields
         self.assertEqual(result["name"], org.name)
         self.assertEqual(result["org_name"], f"{TEST_PREFIX}With Details")
-        self.assertEqual(result["org_type"], "Family")
+        self.assertEqual(result["org_type"], DOCTYPE_FAMILY)
 
         # Verify concrete_type is present
         self.assertIn("concrete_type", result)
@@ -286,9 +291,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us2_get_organization_with_details_includes_nested_object(self):
         """T025: Test get_organization_with_details includes concrete_type nested object."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Nested",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -297,16 +302,16 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         # Verify concrete_type structure
         concrete = result["concrete_type"]
-        self.assertEqual(concrete["doctype"], "Family")
+        self.assertEqual(concrete["doctype"], DOCTYPE_FAMILY)
         self.assertEqual(concrete["family_name"], f"{TEST_PREFIX}Nested")
         self.assertEqual(concrete["organization"], org.name)
 
     def test_us2_retrieval_performance(self):
         """T026: Test retrieval completes within 500ms."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Performance",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -321,9 +326,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_get_organization_with_details_handles_missing_concrete(self):
         """Test optimized get_organization_with_details handles missing concrete type (Issue #11)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Optimized Missing",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -331,7 +336,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         family_name = org.linked_name
 
         # Delete the Family to simulate orphaned organization
-        frappe.delete_doc("Family", family_name, force=True, ignore_permissions=True)
+        frappe.delete_doc(DOCTYPE_FAMILY, family_name, force=True, ignore_permissions=True)
         frappe.db.commit()
 
         # Verify get_organization_with_details handles this gracefully
@@ -350,28 +355,28 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us3_delete_org_cascades_to_family(self):
         """T030: Test deleting Organization cascades to delete Family record."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Cascade Delete",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
         family_name = org.linked_name
-        self.assertTrue(frappe.db.exists("Family", family_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_FAMILY, family_name))
 
         # Delete organization
-        frappe.delete_doc("Organization", org.name, force=True)
+        frappe.delete_doc(DOCTYPE_ORGANIZATION, org.name, force=True)
 
         # Verify Family was also deleted
-        self.assertFalse(frappe.db.exists("Family", family_name))
+        self.assertFalse(frappe.db.exists(DOCTYPE_FAMILY, family_name))
 
     def test_us3_deletion_succeeds_when_concrete_missing(self):
         """T032: Test deletion succeeds when concrete type already missing."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Missing Concrete",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -379,12 +384,12 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         family_name = org.linked_name
 
         # Manually delete the Family first
-        frappe.delete_doc("Family", family_name, force=True, ignore_permissions=True)
+        frappe.delete_doc(DOCTYPE_FAMILY, family_name, force=True, ignore_permissions=True)
         frappe.db.commit()
 
         # Now delete Organization - should not raise error
         try:
-            frappe.delete_doc("Organization", org.name, force=True)
+            frappe.delete_doc(DOCTYPE_ORGANIZATION, org.name, force=True)
         except Exception as e:
             self.fail(f"Deletion should succeed even when concrete type is missing: {e}")
 
@@ -392,17 +397,17 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         """T033: Test other Organizations unaffected by single deletion."""
         # Create two organizations
         org1 = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Org One",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org1.insert()
         org1.reload()
 
         org2 = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Org Two",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org2.insert()
         org2.reload()
@@ -411,11 +416,11 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         family2_name = org2.linked_name
 
         # Delete first organization
-        frappe.delete_doc("Organization", org1.name, force=True)
+        frappe.delete_doc(DOCTYPE_ORGANIZATION, org1.name, force=True)
 
         # Second organization and its Family should still exist
-        self.assertTrue(frappe.db.exists("Organization", org2_name))
-        self.assertTrue(frappe.db.exists("Family", family2_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_ORGANIZATION, org2_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_FAMILY, family2_name))
 
     def test_cascade_delete_respects_link_constraints(self):
         """Test that cascade delete respects link constraints (Issue #8)."""
@@ -423,99 +428,99 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         # For now, we verify that without force=True, the delete mechanism
         # will properly handle LinkExistsError if such constraints exist
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Link Constraint",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
         # Verify the organization was created successfully
-        self.assertTrue(frappe.db.exists("Family", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_FAMILY, org.linked_name))
 
         # Normal cascade delete should succeed (no links exist)
-        frappe.delete_doc("Organization", org.name)
+        frappe.delete_doc(DOCTYPE_ORGANIZATION, org.name)
 
         # Verify Family was deleted
-        self.assertFalse(frappe.db.exists("Family", org.linked_name))
+        self.assertFalse(frappe.db.exists(DOCTYPE_FAMILY, org.linked_name))
 
     def test_linked_doctype_set_before_concrete_creation(self):
         """Test that linked_doctype is set before concrete type creation (Issue #15)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Race Condition",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
 
         # Verify linked_doctype is set
-        self.assertEqual(org.linked_doctype, "Family")
+        self.assertEqual(org.linked_doctype, DOCTYPE_FAMILY)
         self.assertIsNotNone(org.linked_name)
 
         # Verify the concrete type exists
-        self.assertTrue(frappe.db.exists("Family", org.linked_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_FAMILY, org.linked_name))
 
         # Verify bidirectional link
-        family = frappe.get_doc("Family", org.linked_name)
+        family = frappe.get_doc(DOCTYPE_FAMILY, org.linked_name)
         self.assertEqual(family.organization, org.name)
 
     def test_us3_delete_org_cascades_to_company(self):
         """Test deleting Organization cascades to delete Company record (Issue #7)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Company Cascade",
-            "org_type": "Company"
+            "org_type": DOCTYPE_COMPANY
         })
         org.insert()
         org.reload()
 
         company_name = org.linked_name
-        self.assertTrue(frappe.db.exists("Company", company_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_COMPANY, company_name))
 
         # Delete organization
-        frappe.delete_doc("Organization", org.name, force=True)
+        frappe.delete_doc(DOCTYPE_ORGANIZATION, org.name, force=True)
 
         # Verify Company was also deleted
-        self.assertFalse(frappe.db.exists("Company", company_name))
+        self.assertFalse(frappe.db.exists(DOCTYPE_COMPANY, company_name))
 
     def test_us3_delete_org_cascades_to_association(self):
         """Test deleting Organization cascades to delete Association record (Issue #7)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Association Cascade",
-            "org_type": "Association"
+            "org_type": DOCTYPE_ASSOCIATION
         })
         org.insert()
         org.reload()
 
         association_name = org.linked_name
-        self.assertTrue(frappe.db.exists("Association", association_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_ASSOCIATION, association_name))
 
         # Delete organization
-        frappe.delete_doc("Organization", org.name, force=True)
+        frappe.delete_doc(DOCTYPE_ORGANIZATION, org.name, force=True)
 
         # Verify Association was also deleted
-        self.assertFalse(frappe.db.exists("Association", association_name))
+        self.assertFalse(frappe.db.exists(DOCTYPE_ASSOCIATION, association_name))
 
     def test_us3_delete_org_cascades_to_nonprofit(self):
         """Test deleting Organization cascades to delete Nonprofit record (Issue #7)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Nonprofit Cascade",
-            "org_type": "Nonprofit"
+            "org_type": DOCTYPE_NONPROFIT
         })
         org.insert()
         org.reload()
 
         nonprofit_name = org.linked_name
-        self.assertTrue(frappe.db.exists("Nonprofit", nonprofit_name))
+        self.assertTrue(frappe.db.exists(DOCTYPE_NONPROFIT, nonprofit_name))
 
         # Delete organization
-        frappe.delete_doc("Organization", org.name, force=True)
+        frappe.delete_doc(DOCTYPE_ORGANIZATION, org.name, force=True)
 
         # Verify Nonprofit was also deleted
-        self.assertFalse(frappe.db.exists("Nonprofit", nonprofit_name))
+        self.assertFalse(frappe.db.exists(DOCTYPE_NONPROFIT, nonprofit_name))
 
     # =========================================================================
     # User Story 4: Organization Type Immutability (P2)
@@ -524,9 +529,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us4_changing_org_type_raises_error(self):
         """T039: Test changing org_type raises ValidationError."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Immutable",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
 
@@ -543,9 +548,9 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
     def test_us4_modifying_other_fields_succeeds(self):
         """T040: Test modifying other fields (org_name, status) succeeds."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Modify Other",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
 
@@ -557,14 +562,14 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
 
         self.assertEqual(org.org_name, f"{TEST_PREFIX}Modified Name")
         self.assertEqual(org.status, "Inactive")
-        self.assertEqual(org.org_type, "Family")  # Unchanged
+        self.assertEqual(org.org_type, DOCTYPE_FAMILY)  # Unchanged
 
     def test_us4_error_message_is_clear(self):
         """T041: Test error message is clear and user-friendly."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Clear Error",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
 
@@ -593,8 +598,8 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_organization_without_name_fails(self):
         """Test that Organization without org_name fails validation."""
         org = frappe.get_doc({
-            "doctype": "Organization",
-            "org_type": "Family"
+            "doctype": DOCTYPE_ORGANIZATION,
+            "org_type": DOCTYPE_FAMILY
         })
 
         with self.assertRaises(frappe.exceptions.ValidationError):
@@ -603,9 +608,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_skip_concrete_type_flag_works(self):
         """Test that skip_concrete_type flag prevents concrete creation."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Skip Concrete",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.flags.skip_concrete_type = True
         org.insert()
@@ -616,9 +621,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_default_status_is_active(self):
         """Test that default status is 'Active'."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Default Status",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
 
@@ -627,9 +632,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_naming_series_applied(self):
         """Test that naming series is applied correctly."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Naming",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
 
@@ -639,27 +644,27 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         """Test that multiple families can have the same family_name (Issue #2)."""
         # Create first organization with family
         org1 = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Duplicate Name Org1",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org1.insert()
         org1.reload()
 
         family1_name = org1.linked_name
-        family1 = frappe.get_doc("Family", family1_name)
+        family1 = frappe.get_doc(DOCTYPE_FAMILY, family1_name)
 
         # Create second organization with family using same family_name
         org2 = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Duplicate Name Org2",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org2.insert()
         org2.reload()
 
         family2_name = org2.linked_name
-        family2 = frappe.get_doc("Family", family2_name)
+        family2 = frappe.get_doc(DOCTYPE_FAMILY, family2_name)
 
         # Manually update family2 to have same family_name as family1
         # This should succeed without unique constraint violation
@@ -669,7 +674,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
 
             # Verify both families exist with same name but different IDs
             families = frappe.get_all(
-                "Family",
+                DOCTYPE_FAMILY,
                 filters={"family_name": family1.family_name},
                 pluck="name"
             )
@@ -682,9 +687,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_validate_links_passes_for_valid_organization(self):
         """Test that validate_links returns valid for properly linked Organization (Issue #12)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Valid Links",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -698,9 +703,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_validate_links_detects_orphaned_concrete_type(self):
         """Test that validate_links detects when concrete type is missing (Issue #12)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Orphaned",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -708,7 +713,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         family_name = org.linked_name
 
         # Delete the Family manually (orphan scenario)
-        frappe.delete_doc("Family", family_name, force=True, ignore_permissions=True)
+        frappe.delete_doc(DOCTYPE_FAMILY, family_name, force=True, ignore_permissions=True)
         frappe.db.commit()
 
         # Reload org and validate
@@ -721,9 +726,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
     def test_validate_links_detects_broken_bidirectional_link(self):
         """Test that validate_links detects broken bidirectional link (Issue #12)."""
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Broken Link",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -731,7 +736,7 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         family_name = org.linked_name
 
         # Break the bidirectional link by clearing organization field
-        frappe.db.set_value("Family", family_name, "organization", None)
+        frappe.db.set_value(DOCTYPE_FAMILY, family_name, "organization", None)
         frappe.db.commit()
 
         # Reload org and validate
@@ -746,9 +751,9 @@ class TestOrganizationHooksEdgeCases(FrappeTestCase):
         from dartwing.dartwing_core.doctype.organization.organization import validate_organization_links
 
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}API Validate",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
         org.insert()
         org.reload()
@@ -789,9 +794,9 @@ class TestOrganizationConcurrency(FrappeTestCase):
         # Create 100 organizations rapidly
         for i in range(num_orgs):
             org = frappe.get_doc({
-                "doctype": "Organization",
+                "doctype": DOCTYPE_ORGANIZATION,
                 "org_name": f"{TEST_PREFIX}Concurrent Org {i:03d}",
-                "org_type": "Family"
+                "org_type": DOCTYPE_FAMILY
             })
             org.insert()
             created_orgs.append(org.name)
@@ -801,7 +806,7 @@ class TestOrganizationConcurrency(FrappeTestCase):
         # Verify all organizations have proper bidirectional links
         corrupted = []
         for org_name in created_orgs:
-            org = frappe.get_doc("Organization", org_name)
+            org = frappe.get_doc(DOCTYPE_ORGANIZATION, org_name)
 
             # Verify linked_doctype and linked_name are set
             if not org.linked_doctype or not org.linked_name:
@@ -814,7 +819,7 @@ class TestOrganizationConcurrency(FrappeTestCase):
                 continue
 
             # Verify bidirectional link
-            family = frappe.get_doc("Family", org.linked_name)
+            family = frappe.get_doc(DOCTYPE_FAMILY, org.linked_name)
             if family.organization != org_name:
                 corrupted.append(f"{org_name}: bidirectional link broken")
 
@@ -843,16 +848,16 @@ class TestOrganizationAtomicity(FrappeTestCase):
 
         # Create organization document
         org = frappe.get_doc({
-            "doctype": "Organization",
+            "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Atomic Rollback",
-            "org_type": "Family"
+            "org_type": DOCTYPE_FAMILY
         })
 
         # Mock frappe.new_doc to raise error when creating Family
         original_new_doc = frappe.new_doc
 
         def mock_new_doc(doctype):
-            if doctype == "Family":
+            if doctype == DOCTYPE_FAMILY:
                 raise frappe.ValidationError("Simulated concrete type creation failure")
             return original_new_doc(doctype)
 
@@ -865,7 +870,7 @@ class TestOrganizationAtomicity(FrappeTestCase):
 
         # Verify Organization was NOT created (rollback occurred)
         orgs_created = frappe.get_all(
-            "Organization",
+            DOCTYPE_ORGANIZATION,
             filters={"org_name": f"{TEST_PREFIX}Atomic Rollback"},
             pluck="name"
         )
@@ -873,7 +878,7 @@ class TestOrganizationAtomicity(FrappeTestCase):
 
         # Verify no orphaned Organization records exist
         all_test_orgs = frappe.get_all(
-            "Organization",
+            DOCTYPE_ORGANIZATION,
             filters={"org_name": ["like", f"{TEST_PREFIX}Atomic%"]},
             pluck="name"
         )
