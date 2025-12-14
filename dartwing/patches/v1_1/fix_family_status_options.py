@@ -22,6 +22,7 @@ def execute():
         WHERE status = 'Archived'
         """
     )
+    # Frappe automatically commits changes in patches
 
     # Log any invalid status values that might exist
     valid_statuses = ("Active", "Inactive", "Dissolved")
@@ -39,5 +40,3 @@ def execute():
             title="Family Status Migration Warning",
             message=f"Found {len(invalid_rows)} records with invalid status after migration: {invalid_rows}",
         )
-
-    # Frappe automatically commits changes in patches

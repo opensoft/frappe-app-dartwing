@@ -312,10 +312,10 @@ class Organization(Document):
             concrete.flags.from_organization = True  # Prevent recursion
 
             # Set type-specific fields
-            if concrete_doctype == "Family":
+            if concrete_doctype == DOCTYPE_FAMILY:
                 concrete.family_name = self.org_name
                 concrete.status = self.status
-            elif concrete_doctype == "Company":
+            elif concrete_doctype == DOCTYPE_COMPANY:
                 concrete.legal_name = self.org_name
 
             concrete.insert()
@@ -380,11 +380,11 @@ class Organization(Document):
                     f"Cascade deleted {self.linked_doctype} {self.linked_name} "
                     f"for Organization {self.name}"
                 )
-            except frappe.LinkExistsError as e:
+            except frappe.LinkExistsError:
                 # Re-raise with clearer message about link constraints
                 logger.error(
                     f"Cannot delete {self.linked_doctype} {self.linked_name}: "
-                    f"Other records still reference it"
+                    f"Other records still reference it. {str(e)}"
                 )
                 frappe.throw(
                     _("Cannot delete {0} {1}: Other records still reference it").format(
@@ -425,7 +425,7 @@ def get_concrete_doc(organization: str) -> Optional[dict]:
         DoesNotExistError: If the Organization does not exist
     """
     logger.info(f"API: get_concrete_doc called for Organization '{organization}'")
-    org = frappe.get_doc("Organization", organization)
+    org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
 
     if not org.linked_doctype or not org.linked_name:
         logger.info(f"API: get_concrete_doc - No linked concrete type for '{organization}'")
@@ -463,7 +463,7 @@ def get_organization_with_details(organization: str) -> dict:
         DoesNotExistError: If the Organization does not exist
     """
     logger.info(f"API: get_organization_with_details called for '{organization}'")
-    org = frappe.get_doc("Organization", organization)
+    org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
     result = org.as_dict()
 
     if org.linked_doctype and org.linked_name:
@@ -510,7 +510,7 @@ def validate_organization_links(organization: str) -> dict:
     Raises:
         DoesNotExistError: If the Organization does not exist
     """
-    org = frappe.get_doc("Organization", organization)
+    org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
     return org.validate_links()
 
 
@@ -521,8 +521,8 @@ def validate_organization_links(organization: str) -> dict:
 def get_organization_for_family(family_name: str) -> Optional[str]:
     """Get the Organization linked to a Family."""
     org = frappe.db.get_value(
-        "Organization",
-        {"linked_doctype": "Family", "linked_name": family_name},
+        DOCTYPE_ORGANIZATION,
+        {"linked_doctype": DOCTYPE_FAMILY, "linked_name": family_name},
         "name"
     )
     return org
@@ -533,11 +533,11 @@ def create_organization_for_family(family_doc: Document) -> str:
     if family_doc.organization:
         return family_doc.organization
 
-    org = frappe.new_doc("Organization")
+    org = frappe.new_doc(DOCTYPE_ORGANIZATION)
     org.org_name = family_doc.family_name
-    org.org_type = "Family"
+    org.org_type = DOCTYPE_FAMILY
     org.status = family_doc.status or "Active"
-    org.linked_doctype = "Family"
+    org.linked_doctype = DOCTYPE_FAMILY
     org.linked_name = family_doc.name
     org.flags.ignore_permissions = True
     org.flags.skip_concrete_type = True  # Don't create another Family
