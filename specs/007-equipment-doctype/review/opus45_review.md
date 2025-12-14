@@ -1,319 +1,367 @@
-# Code Review: 007-Equipment-DocType
+# Code Review: 007-Equipment-DocType (Second Pass)
 
 **Reviewer:** opus45
 **Date:** 2025-12-14
 **Branch:** `007-equipment-doctype`
 **Module:** dartwing_core
+**Review Type:** Post-fix verification and detailed second pass
+
+---
+
+## Executive Summary
+
+The first-pass issues (P1-01 through P1-05, P2-01 through P2-03, P2-05, P2-06, P2-08, P2-09) have been **successfully resolved**. The implementation now addresses all critical security and compliance issues identified in the MASTER_PLAN.md.
+
+This second-pass review focuses on **newly identified edge cases** and **remaining deferred items** that warrant attention before or shortly after merge.
 
 ---
 
 ## 1. Critical Issues & Blockers (Severity: HIGH)
 
-### 1.1 Potential SQL Injection Pattern in Permission Query Conditions
-
-**File:** `dartwing/permissions/equipment.py:46-47`
-
-```python
-org_list = ", ".join(f"'{frappe.db.escape(o)}'" for o in orgs)
-return f"`tabEquipment`.`owner_organization` IN ({org_list})"
-```
-
-**Issue:** While `frappe.db.escape()` provides protection, this pattern of building SQL strings with escaped values is discouraged. The Frappe idiom for permission query conditions is to return parameterized conditions.
-
-**Risk:** Low (due to escape), but violates secure coding patterns.
-
-**Recommended Fix:**
-
-```python
-# Option A: Use Frappe's built-in permission dependency (preferred - already done in JSON!)
-# The equipment.json already has "user_permission_dependant_doctype": "Organization"
-# which handles this automatically. Consider removing custom permission code.
-
-# Option B: If custom logic is needed, use Frappe's condition builder
-if not orgs:
-    return "1=0"
-org_condition = " OR ".join([f"`tabEquipment`.`owner_organization` = %({i})s" for i in range(len(orgs))])
-frappe.local.form_dict.update({str(i): org for i, org in enumerate(orgs)})
-return f"({org_condition})"
-```
-
-**Note:** The `user_permission_dependant_doctype` in `equipment.json:155` already provides organization-based filtering. The custom `get_permission_query_conditions` may be redundant. Verify if both are needed or if one can be removed to follow the low-code philosophy.
-
----
-
-### 1.2 Missing Validation for Status Transitions
-
-**File:** `dartwing/dartwing_core/doctype/equipment/equipment.py`
-
-**Issue:** Equipment can transition from "Retired" back to "Active" without any validation. In most asset management systems, retiring equipment is a terminal or controlled state.
-
-**Business Risk:** Retired equipment may have been disposed of, transferred, or written off. Allowing re-activation could cause accounting/inventory discrepancies.
-
-**Recommended Fix:** Add status transition validation if business rules require it:
-
-```python
-def validate(self):
-    # ... existing validations
-    self.validate_status_transition()
-
-def validate_status_transition(self):
-    """Validate equipment status transitions (FR-006)."""
-    if not self.is_new() and self.has_value_changed("status"):
-        old_status = self.get_doc_before_save().status
-        if old_status == "Retired" and self.status == "Active":
-            frappe.throw(
-                _("Cannot reactivate retired equipment. Create a new record instead."),
-                title=_("Invalid Status Transition"),
-            )
-```
-
-**Alternative:** If reactivation is intentionally allowed, document this in the spec and add an audit trail.
-
----
-
-### 1.3 No Audit Trail for Equipment Assignment Changes
-
-**File:** `dartwing/dartwing_core/doctype/equipment/equipment.py`
-
-**Issue:** While `track_changes: 1` is enabled in the JSON, there's no explicit logging or notification when equipment assignment changes. This is critical for asset custody tracking.
-
-**Compliance Risk:** For HIPAA/SOC2 compliance mentioned in the architecture, equipment custody changes (especially for electronics with data) should be explicitly audited.
-
-**Recommended Fix:** Add explicit logging for assignment changes:
-
-```python
-def before_save(self):
-    if not self.is_new() and self.has_value_changed("assigned_to"):
-        old_assignee = self.get_doc_before_save().assigned_to
-        frappe.logger().info(
-            f"Equipment {self.name} reassigned from {old_assignee} to {self.assigned_to}",
-            reference_doctype="Equipment",
-            reference_name=self.name
-        )
-```
+**None remaining.** All P1 critical issues have been resolved:
+- SQL injection vulnerability: Fixed (line 47)
+- Cross-tenant API leakage: Fixed (auth checks added)
+- FR-013 deactivation blocking: Fixed (new hook function)
+- Hook ordering: Fixed (equipment check first)
+- Create-path authorization: Fixed (specific org validation)
 
 ---
 
 ## 2. Suggestions for Improvement (Severity: MEDIUM)
 
-### 2.1 Redundant `validate_equipment_name` Method
+### 2.1 NEW: Potential Multi-Org Data Leakage in `get_equipment_by_person()`
 
-**File:** `dartwing/dartwing_core/doctype/equipment/equipment.py:29-35`
+**File:** `dartwing/dartwing_core/doctype/equipment/equipment.py:263-298`
 
-**Issue:** The `validate_equipment_name()` method checks if `equipment_name` is provided, but this field is already marked as `reqd: 1` in `equipment.json:39`. Frappe automatically enforces required fields before the `validate` hook runs.
+**Issue:** The function checks if the user can read the *Person*, but returns equipment from *all organizations* that person is assigned to, without filtering by the calling user's organization access.
 
-**Impact:** Unnecessary code that adds maintenance burden without functional benefit.
+**Scenario:**
+1. Person "John" is a member of both OrgA and OrgB
+2. UserX has access only to OrgA
+3. UserX calls `get_equipment_by_person("John")`
+4. UserX receives equipment from both OrgA *and* OrgB
 
-**Recommended Fix:** Remove this method and its call in `validate()`:
-
+**Current Code (line 278-283):**
 ```python
-def validate(self):
-    """Run all validations before save."""
-    # validate_equipment_name removed - handled by reqd: 1 in JSON
-    self.validate_serial_number_unique()
-    self.validate_assigned_person()
-    self.validate_user_has_organization()
+if user != "Administrator" and "System Manager" not in frappe.get_roles(user):
+    if not frappe.has_permission("Person", "read", person):
+        frappe.throw(...)
 ```
 
----
-
-### 2.2 Performance: N+1 Query Risk in Permission Check
-
-**File:** `dartwing/permissions/equipment.py:35-39`
-
-**Issue:** Each request to list equipment fetches all User Permissions for the user. For users with many organization memberships, this could be slow.
-
+**Recommended Fix:**
 ```python
-orgs = frappe.get_all(
-    "User Permission",
-    filters={"user": user, "allow": "Organization"},
-    pluck="for_value",
-)
-```
+@frappe.whitelist()
+def get_equipment_by_person(person: str) -> list:
+    """Get all equipment currently assigned to a specific person."""
+    user = frappe.session.user
 
-**Recommended Fix:** Consider caching in request context:
+    # P1-02 FIX: Verify user has access to view this person's data
+    if user != "Administrator" and "System Manager" not in frappe.get_roles(user):
+        if not frappe.has_permission("Person", "read", person):
+            frappe.throw(
+                _("You do not have permission to view equipment for this person"),
+                frappe.PermissionError,
+            )
 
-```python
-def get_user_organizations(user):
-    """Get user's permitted organizations with request-level caching."""
-    cache_key = f"user_orgs_{user}"
-    if not hasattr(frappe.local, cache_key):
-        setattr(frappe.local, cache_key, frappe.get_all(
+        # SECOND-PASS FIX: Filter to only organizations user can access
+        user_orgs = frappe.get_all(
             "User Permission",
             filters={"user": user, "allow": "Organization"},
             pluck="for_value",
-        ))
+        )
+        filters = {"assigned_to": person, "owner_organization": ["in", user_orgs]}
+    else:
+        filters = {"assigned_to": person}
+
+    return frappe.get_all("Equipment", filters=filters, fields=[...])
+```
+
+**Severity:** MEDIUM - Data exposure limited to equipment records, not PII. However, this could reveal business-sensitive asset information across tenant boundaries.
+
+---
+
+### 2.2 DEFERRED: Request-Level Caching (P2-04)
+
+**File:** `dartwing/permissions/equipment.py:35-39`
+
+**Issue:** Each request fetches User Permissions for the current user. For users with many org memberships or high request volume, this adds latency.
+
+**Current Status:** Marked as DEFERRED in MASTER_PLAN.md.
+
+**Recommendation:** Implement caching if performance profiling reveals >50ms permission query overhead. Suggested pattern:
+
+```python
+def _get_user_organizations(user: str) -> list[str]:
+    """Get user's permitted organizations with request-level caching."""
+    cache_key = f"_user_orgs_{frappe.scrub(user)}"
+    if not hasattr(frappe.local, cache_key):
+        orgs = frappe.get_all(
+            "User Permission",
+            filters={"user": user, "allow": "Organization"},
+            pluck="for_value",
+        )
+        setattr(frappe.local, cache_key, orgs)
     return getattr(frappe.local, cache_key)
 ```
 
----
-
-### 2.3 Client Script: Improve Empty Organization UX
-
-**File:** `dartwing/dartwing_core/doctype/equipment/equipment.js:22-29`
-
-**Issue:** When no organization is selected, the `assigned_to` field returns empty results via `name: ["in", []]`. This works but provides poor UX - the user sees an empty dropdown with no explanation.
-
-**Recommended Fix:** Disable the field until organization is selected:
-
-```javascript
-set_assigned_to_query: function(frm) {
-    if (!frm.doc.owner_organization) {
-        frm.set_df_property("assigned_to", "read_only", 1);
-        frm.set_df_property("assigned_to", "description", "Select organization first");
-        return;
-    }
-    frm.set_df_property("assigned_to", "read_only", 0);
-    frm.set_df_property("assigned_to", "description", "");
-    frm.set_query("assigned_to", function() {
-        return {
-            query: "dartwing.dartwing_core.doctype.equipment.equipment.get_org_members",
-            filters: { organization: frm.doc.owner_organization }
-        };
-    });
-}
-```
+This can be extracted to `dartwing/permissions/helpers.py` and reused across all permission modules.
 
 ---
 
-### 2.4 Child Table Docstrings Inaccurate
+### 2.3 DEFERRED: Status Constants (P2-07)
 
-**File:** `dartwing/dartwing_core/doctype/equipment_maintenance/equipment_maintenance.py:8-14`
+**Files:**
+- `equipment.py` (validation code)
+- `equipment.json` (field options)
+- `equipment.js` (client-side)
 
-**Issue:** The docstring mentions "description" but the actual field is named "task":
+**Issue:** Status values ("Active", "In Repair", "Retired", "Lost", "Stolen") are hardcoded strings duplicated across files.
+
+**Risk:** Low - renaming a status requires coordinated changes in 3 files.
+
+**Recommendation:** Define constants in `equipment.py`:
 
 ```python
-"""Equipment Maintenance child table for scheduling maintenance tasks.
+class EquipmentStatus:
+    ACTIVE = "Active"
+    IN_REPAIR = "In Repair"
+    RETIRED = "Retired"
+    LOST = "Lost"
+    STOLEN = "Stolen"
 
-Fields:
-    task: Description of the maintenance task (required)  # Says "description" in prose
-    ...
+    @classmethod
+    def all(cls) -> list[str]:
+        return [cls.ACTIVE, cls.IN_REPAIR, cls.RETIRED, cls.LOST, cls.STOLEN]
 ```
 
-**Recommended Fix:** Minor, but ensure docstrings accurately reflect field names for maintainability.
+JSON and JS must remain strings, but Python validation and API code should reference constants.
 
 ---
 
-### 2.5 Missing Test Files
+### 2.4 DEFERRED: Location Validation (P2-10)
 
-**Issue:** No test files (`test_equipment.py`, etc.) are included in this branch.
+**File:** `equipment.json:90-94`
 
-**Impact:** Business logic (serial number uniqueness, assignment validation, org deletion protection) is untested.
+**Issue:** `current_location` links to any Address without validating the address is associated with `owner_organization`.
 
-**Recommended Fix:** Add test files covering:
-- `test_equipment.py`: Serial number uniqueness, assignment validation, org permission filtering
-- Hook tests: Organization deletion with equipment, Org Member removal with assigned equipment
+**Risk:** Low - users could assign equipment to addresses from unrelated organizations. This may be intentional for shared facilities.
 
-**Example test structure:**
+**Recommendation:** If tenant isolation is required, add validation:
 
 ```python
-# dartwing/dartwing_core/doctype/equipment/test_equipment.py
-import frappe
-import unittest
+def validate_current_location(self):
+    """Validate current_location is associated with owner_organization."""
+    if not self.current_location or not self.owner_organization:
+        return
 
-class TestEquipment(unittest.TestCase):
-    def test_serial_number_unique(self):
-        """FR-002: Serial numbers must be globally unique."""
-        # Create first equipment with serial number
-        # Attempt to create second with same serial - expect error
-        pass
+    # Check if Address has Dynamic Link to this organization
+    has_link = frappe.db.exists(
+        "Dynamic Link",
+        {
+            "parenttype": "Address",
+            "parent": self.current_location,
+            "link_doctype": "Organization",
+            "link_name": self.owner_organization,
+        },
+    )
 
-    def test_assignment_requires_org_membership(self):
-        """FR-010: Assigned person must be org member."""
-        pass
+    if not has_link:
+        frappe.msgprint(
+            _("Warning: Address '{0}' is not linked to organization '{1}'").format(
+                self.current_location, self.owner_organization
+            ),
+            indicator="orange",
+        )
 ```
 
----
-
-### 2.6 Consider Adding `description` Field
-
-**File:** `dartwing/dartwing_core/doctype/equipment/equipment.json`
-
-**Issue:** Most asset management systems include a description/notes field for additional details about equipment. The current schema only has structured fields.
-
-**Recommended Addition (optional):**
-
-```json
-{
-  "fieldname": "description",
-  "fieldtype": "Small Text",
-  "label": "Description"
-}
-```
-
----
-
-### 2.7 Hooks.py: Consider Using List for Single Handler
-
-**File:** `dartwing/hooks.py:182-185`
-
-**Issue:** The `on_trash` handler for Org Member uses a list with two handlers:
-
-```python
-"on_trash": [
-    "dartwing.permissions.helpers.remove_user_permissions",
-    "dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_assignments_on_member_removal"
-],
-```
-
-**Note:** This is correct syntax and works fine. However, execution order matters - `remove_user_permissions` runs before the equipment check. Ensure this order is intentional (it appears to be, as you want to check equipment before removing permissions).
+Use `msgprint` (warning) instead of `throw` to allow flexibility for shared locations.
 
 ---
 
 ## 3. General Feedback & Summary (Severity: LOW)
 
-### Overall Assessment
+### 3.1 Test Coverage Enhancement Opportunity
 
-The Equipment DocType implementation is **well-structured and follows Frappe best practices**. The code demonstrates a solid understanding of:
+**File:** `dartwing/dartwing_core/doctype/equipment/test_equipment.py`
 
-1. **Polymorphic Organization Pattern:** Equipment correctly links to the generic `Organization` doctype rather than specific types (Family, Company, etc.), enabling universal asset management across all organization types.
+**Observation:** All 12 test cases run as Administrator, which bypasses permission logic. The permission-related tests (P1-05, P2-02 fixes) are not directly exercised.
 
-2. **Multi-Tenant Security:** The permission model using `user_permission_dependant_doctype` and custom `has_permission`/`get_permission_query_conditions` properly isolates equipment data by organization membership.
+**Recommendation:** Add test cases that simulate a regular "Dartwing User":
 
-3. **Cascade Protection:** The `doc_events` hooks for Organization and Org Member deletion properly prevent orphaned equipment records and maintain referential integrity.
+```python
+def test_user_cannot_create_for_unauthorized_org(self):
+    """Test P1-05: Users cannot create equipment for orgs they lack access to."""
+    # Create test user
+    test_user = frappe.get_doc({
+        "doctype": "User",
+        "email": "equip_test@test.local",
+        "first_name": "Equipment",
+        "last_name": "Tester",
+        "roles": [{"role": "Dartwing User"}]
+    })
+    test_user.insert()
 
-4. **User Experience:** The client script dynamically filters the `assigned_to` dropdown based on selected organization, preventing invalid assignments at the UI level.
+    # Create org WITHOUT giving user permission
+    other_org = frappe.get_doc({
+        "doctype": "Organization",
+        "org_name": "Unauthorized Org",
+        "org_type": "Company"
+    })
+    other_org.insert()
 
-5. **Validation Layering:** Business rules are enforced at both database level (unique constraint on serial_number) and application level (friendly error messages in Python).
-
-### Positive Highlights
-
-- Clean separation of concerns between DocType, permissions module, and hooks
-- Proper use of `@frappe.whitelist()` for API methods (`get_org_members`, `get_equipment_by_organization`, `get_equipment_by_person`)
-- Thorough docstrings explaining validation rules with FR references
-- Child tables (Equipment Document, Equipment Maintenance) are minimal and focused
-
-### Technical Debt for Future Consideration
-
-1. **Unit Tests:** Add comprehensive test coverage before expanding the feature
-2. **Performance Profiling:** Monitor query performance with large equipment lists (1000+ items per org)
-3. **Maintenance Automation:** Consider scheduled jobs to send maintenance due notifications
-4. **Equipment Transfer:** No current mechanism to transfer equipment between organizations
-5. **Bulk Operations:** No bulk import/export functionality for equipment records
-
-### Confidence Assessment
-
-**Confidence Level: 92%**
-
-I have high confidence in understanding this feature because:
-- Clear specification document (`spec.md`) with 13 functional requirements
-- Complete architecture documentation (`dartwing_core_arch.md`, `dartwing_core_prd.md`)
-- Well-documented code with FR reference comments
-- Standard Frappe patterns followed throughout
-
-The 8% uncertainty relates to:
-- Interaction with other features (Person, Org Member, User Permission Propagation) not fully traced
-- No runtime testing performed
-- No review of the actual database state or migrations
+    try:
+        frappe.set_user(test_user.name)
+        equipment = frappe.get_doc({
+            "doctype": "Equipment",
+            "equipment_name": "Test Unauthorized",
+            "owner_organization": other_org.name
+        })
+        with self.assertRaises(frappe.PermissionError):
+            equipment.insert()
+    finally:
+        frappe.set_user("Administrator")
+        # cleanup...
+```
 
 ---
 
-## Summary Table
+### 3.2 Permission Function Code Duplication
 
-| Category | Count | Action Required |
-|----------|-------|-----------------|
-| Critical (HIGH) | 3 | Must fix before merge |
-| Improvement (MEDIUM) | 7 | Should fix |
-| Feedback (LOW) | 5 | Future consideration |
+**Files:**
+- `dartwing/permissions/equipment.py:31-32, 69-70`
+- `dartwing/dartwing_core/doctype/equipment/equipment.py:136-137, 188, 229-230, 278`
 
-**Recommendation:** Address the 3 HIGH severity issues (SQL pattern, status transitions, audit trail) before merging. The MEDIUM issues can be addressed in this PR or as follow-up work depending on timeline constraints.
+**Observation:** The Administrator/System Manager bypass check is repeated in 6+ locations:
+
+```python
+if user == "Administrator" or "System Manager" in frappe.get_roles(user):
+    return True  # or return ""
+```
+
+**Recommendation:** Extract to a helper in `dartwing/permissions/helpers.py`:
+
+```python
+def is_superuser(user: str | None = None) -> bool:
+    """Check if user has unrestricted access."""
+    if not user:
+        user = frappe.session.user
+    return user == "Administrator" or "System Manager" in frappe.get_roles(user)
+```
+
+This reduces duplication and centralizes the bypass logic for future modifications.
+
+---
+
+### 3.3 Delete Permission Not Granted to Dartwing User
+
+**File:** `equipment.json:139-149`
+
+**Observation:** The "Dartwing User" role has create, read, write, share permissions but **not delete**:
+
+```json
+{
+    "create": 1,
+    "email": 1,
+    "export": 1,
+    "print": 1,
+    "read": 1,
+    "report": 1,
+    "role": "Dartwing User",
+    "share": 1,
+    "write": 1
+    // Note: "delete": 1 is missing
+}
+```
+
+**Impact:** Regular users cannot delete equipment records. This may be intentional for audit/compliance reasons (equipment should be "Retired" not deleted).
+
+**Action:** Verify this is intentional. If so, no change needed. If users should be able to delete, add `"delete": 1`.
+
+---
+
+### 3.4 Minor: Search Wildcard Handling in `get_org_members()`
+
+**File:** `dartwing/dartwing_core/doctype/equipment/equipment.py:206`
+
+**Issue:** The `txt` parameter is used directly in LIKE patterns without escaping SQL wildcards (`%`, `_`):
+
+```python
+(organization, f"%{txt}%", f"%{txt}%", f"%{txt}%", start, page_len)
+```
+
+**Risk:** Very low. If a user searches for "John_Doe", the underscore matches any single character. This could cause unexpected but harmless search results.
+
+**Recommendation (optional):**
+
+```python
+# Escape SQL wildcards in search text
+escaped_txt = txt.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+search_pattern = f"%{escaped_txt}%"
+```
+
+---
+
+## 4. Verification Checklist
+
+| Original Issue | Status | Verification |
+|:---------------|:-------|:-------------|
+| P1-01 SQL Injection | FIXED | Line 47: `frappe.db.escape(o)` without extra quotes |
+| P1-02 Cross-Tenant API | FIXED | Auth checks at lines 186-197, 228-241, 276-283 |
+| P1-03 FR-013 Deactivation | FIXED | `check_equipment_assignments_on_member_deactivation()` at line 345 |
+| P1-04 Hook Ordering | FIXED | hooks.py:185-188 - equipment check before permission removal |
+| P1-05 Create Authorization | FIXED | `validate_user_can_access_owner_organization()` at line 127 |
+| P2-01 Unit Tests | FIXED | 12 test cases in `test_equipment.py` |
+| P2-02 Function Naming | FIXED | `_equipment` suffix in hooks.py:129, 139 |
+| P2-03 Redundant Validation | FIXED | `validate_equipment_name()` removed |
+| P2-05 Org Immutability | FIXED | `validate_owner_organization_immutable()` at line 54 |
+| P2-06 Audit Trail | FIXED | `_log_assignment_change()` at line 34 |
+| P2-08 Client UX | FIXED | `equipment.js:24-34` - disabled field with message |
+| P2-09 Lost/Stolen Status | FIXED | `equipment.json:65` - options include Lost, Stolen |
+
+---
+
+## 5. Remaining Issues Summary
+
+| Priority | Issue | Action |
+|:---------|:------|:-------|
+| **P2-NEW** | `get_equipment_by_person()` may leak cross-org equipment | Filter returned equipment by user's org access |
+| P2-04 | Request-level caching | DEFERRED - implement if perf issues arise |
+| P2-07 | Hardcoded status strings | DEFERRED - low risk, can be addressed later |
+| P2-10 | Location validation | DEFERRED - may be intentionally flexible |
+| P3-01 | Docstring accuracy | DEFERRED |
+| P3-02 | Document type extensibility | DEFERRED |
+| P3-03 | Maintenance automation | DEFERRED - future feature |
+| P3-04 | Field descriptions | DEFERRED |
+| P3-05 | API helper relocation | DEFERRED - current location acceptable |
+| P3-06 | Database indexes | DEFERRED - standard Frappe indexes sufficient |
+
+---
+
+## 6. Recommendation
+
+**Merge Readiness:** APPROVED with one recommended pre-merge fix
+
+The implementation is **production-ready** for the current scope. All critical (P1) issues have been resolved. The one new P2 issue (`get_equipment_by_person()` multi-org leakage) is low-risk but should be addressed before or immediately after merge.
+
+**Pre-Merge:**
+1. Apply the `get_equipment_by_person()` organization filter fix (Section 2.1)
+
+**Post-Merge (Future Sprints):**
+1. Add permission-based test cases
+2. Implement caching if performance monitoring shows need
+3. Address remaining P3 items per backlog prioritization
+
+---
+
+## Confidence Assessment
+
+**Confidence Level: 96%**
+
+The 4% uncertainty relates to:
+- No runtime execution testing performed
+- Integration behavior with other modules (Person, Org Member, User Permission) not traced end-to-end
+- Database migration state not verified
+
+---
+
+**End of Second Pass Review**

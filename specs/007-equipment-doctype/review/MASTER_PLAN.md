@@ -1,37 +1,60 @@
-# MASTER ACTION PLAN: 007-Equipment-DocType
+# MASTER ACTION PLAN: 007-Equipment-DocType (Second Pass)
 
 **Synthesized By:** Director of Engineering
 **Date:** 2025-12-14
 **Branch:** `007-equipment-doctype`
-**Reviews Consolidated:** opus45, geni30, grokf1, jeni52, sonn45
+**Reviews Consolidated:** opus45, jeni52, grokf1, sonn45
+
+---
+
+## Executive Summary
+
+All **original P1 security issues** from the first review cycle have been successfully resolved. This second-pass synthesis consolidates findings from four reviewers who performed deep-dive analysis on the post-fix implementation.
+
+**Key Finding:** While security vulnerabilities are addressed, **4 new HIGH-priority issues** were discovered relating to:
+1. API permission bypass via `frappe.get_all()`
+2. Test fixtures incompatible with current schema
+3. Incomplete audit trail for initial assignments
+4. Business logic gap for status-assignment validation
 
 ---
 
 ## 1. Master Action Plan (Prioritized & Consolidated)
 
-| Priority | Type | Source(s) | Issue Description (Consolidated) | Actionable Fix |
-|:---------|:-----|:----------|:---------------------------------|:---------------|
-| **P1-01** | Security | jeni52, sonn45 | **SQL Injection via Double-Quoting in Permission Query.** `frappe.db.escape()` already returns quoted strings; wrapping in additional quotes (`f"'{frappe.db.escape(o)}'"`) breaks the escape mechanism and creates SQL injection vulnerability. This will cause Equipment list queries to fail or be exploitable. | In `dartwing/permissions/equipment.py:46`, change `org_list = ", ".join(f"'{frappe.db.escape(o)}'" for o in orgs)` to `org_list = ", ".join(frappe.db.escape(o) for o in orgs)`. Reference the corrected pattern in `dartwing/permissions/company.py:34`. |
-| **P1-02** | Security | jeni52, sonn45 | **Cross-Tenant Data Leak in `get_org_members()`.** The whitelisted method accepts any `organization` parameter without verifying the caller has User Permission for that organization. Attackers can enumerate Person records from organizations they shouldn't access, violating tenant isolation (FR-003/FR-009). | Before the SQL query in `equipment.py:140`, add authorization check: `if not frappe.has_permission("Organization", "read", organization): frappe.throw(_("Not permitted"), frappe.PermissionError)`. Apply same pattern to `get_equipment_by_organization()` and `get_equipment_by_person()`. |
-| **P1-03** | Spec Compliance | jeni52 | **FR-013 Incomplete: Deactivation Not Blocked.** The spec requires blocking Org Member *deactivation* when equipment is assigned, but only `on_trash` is hooked. A user can set Org Member status to "Inactive" while equipment is still assigned, creating inconsistent data. | Register `check_equipment_assignments_on_member_removal()` on `Org Member.on_update` in hooks.py. Modify the function to also check when `status` changes away from "Active" and block if equipment is assigned. |
-| **P1-04** | Security | jeni52 | **Hook Ordering Risk: Side Effects Before Validation.** In hooks.py, `remove_user_permissions` executes before `check_equipment_assignments_on_member_removal`. If the equipment check throws, you rely on transaction rollback to restore permissions—a fragile pattern. | In `dartwing/hooks.py:182-185`, reorder the `on_trash` list: `["dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_assignments_on_member_removal", "dartwing.permissions.helpers.remove_user_permissions"]` (equipment check first). |
-| **P1-05** | Security | jeni52 | **Create-Path Authorization Gap.** `validate_user_has_organization()` only checks if user has *any* Organization permission, not if they can create equipment for the *selected* `owner_organization`. A user with access to Org A can create equipment for Org B. | Replace `validate_user_has_organization()` with a check that verifies User Permission exists for `(user, allow="Organization", for_value=self.owner_organization)`. The `owner_organization` is already required, so validate specifically for that org. |
-| **P2-01** | Maintainability | opus45, geni30, grokf1, jeni52, sonn45 | **Missing Unit Tests.** No test files exist for Equipment validation logic. Critical business rules (serial uniqueness, assignment validation, org deletion protection, permission filtering) have no regression coverage. | Create `dartwing/dartwing_core/doctype/equipment/test_equipment.py` with test cases for: (1) serial number uniqueness, (2) assignment requires org membership, (3) create without org access fails, (4) org deletion with equipment fails, (5) org member deactivation with assigned equipment fails. |
-| **P2-02** | Maintainability | sonn45 | **Permission Function Naming Inconsistency.** Equipment uses `get_permission_query_conditions(user)` while all other DocTypes use `get_permission_query_conditions_{doctype}(user)` pattern (e.g., `get_permission_query_conditions_company`). This breaks convention and could cause conflicts if multiple doctypes share a module. | Rename functions in `dartwing/permissions/equipment.py` to `get_permission_query_conditions_equipment()` and `has_permission_equipment()`. Update references in `hooks.py` accordingly. |
-| **P2-03** | Maintainability | opus45, jeni52 | **Redundant `validate_equipment_name()` Method.** The field is already marked `reqd: 1` in `equipment.json:39`. Frappe enforces required fields before the `validate` hook runs. This is duplicate code with no functional benefit. | Remove `validate_equipment_name()` method and its call in `validate()`. Let the DocType metadata handle required field enforcement (low-code philosophy). |
-| **P2-04** | Performance | opus45, grokf1 | **Permission Query Fetches User Permissions on Every Request.** `get_permission_query_conditions_equipment()` calls `frappe.get_all("User Permission", ...)` for each request. For users with many org memberships, this adds latency. | Implement request-level caching: store result in `frappe.local.user_orgs_{user}` and reuse within the same request. Consider extracting to shared helper used by all permission modules. |
-| **P2-05** | Data Integrity | sonn45 | **Missing Organization Immutability Validation.** `owner_organization` can be changed after equipment creation, potentially breaking permission assumptions and creating inconsistent assignment state (assigned person not in new org). Architecture implies ownership should be immutable. | Add `validate_owner_organization_immutable()` in `equipment.py` that throws if `owner_organization` changes on non-new documents. If transfers are needed, create a separate `transfer_equipment()` workflow method. |
-| **P2-06** | Audit/Compliance | opus45, sonn45 | **No Explicit Audit Trail for Assignment Changes.** While `track_changes: 1` is enabled, there's no explicit logging when equipment is reassigned. For HIPAA/SOC2 compliance and custody tracking, assignment changes should be explicitly audited. | Add `on_update()` hook that checks `has_value_changed("assigned_to")` and logs via `self.add_comment("Info", f"Assignment changed from {old} to {new}")` or creates a dedicated audit record. |
-| **P2-07** | Maintainability | geni30 | **Hardcoded Status Strings.** Status values ("Active", "In Repair", "Retired") are duplicated in equipment.py, equipment.json, and equipment.js. If a status is renamed, multiple files must be updated. | Define constants in `equipment.py` (e.g., `STATUS_ACTIVE = "Active"`) and use them in validation code. JSON and JS must remain strings, but Python code should reference constants for consistency. |
-| **P2-08** | UX | opus45 | **Client Script: Poor UX When No Organization Selected.** When `owner_organization` is empty, `assigned_to` dropdown shows empty results via `name: ["in", []]` trick. User sees empty dropdown with no explanation. | Modify `set_assigned_to_query()` to disable `assigned_to` field and show description "Select organization first" when `owner_organization` is empty. Re-enable when org is selected. |
-| **P2-09** | Feature Gap | sonn45 | **Missing Status Options: "Lost" and "Stolen".** Asset management systems typically track lost/stolen equipment for insurance, security reporting, and compliance (tracking devices with sensitive data). | Add "Lost" and "Stolen" to status options in `equipment.json:65`. Optionally add conditional fields `incident_date` and `incident_notes` with `depends_on: "eval:doc.status=='Lost' || doc.status=='Stolen'"`. |
-| **P2-10** | Data Integrity | sonn45 | **Missing Location Validation.** `current_location` (Link to Address) has no validation to ensure the address is associated with the `owner_organization`. Equipment could be assigned to addresses from unrelated organizations. | Add `validate_current_location()` method that checks if Address has a Dynamic Link to the equipment's organization. Use `frappe.msgprint()` (warning) rather than `frappe.throw()` to allow flexibility for shared locations. |
-| **P3-01** | Maintainability | opus45 | **Inaccurate Child Table Docstrings.** `EquipmentMaintenance` docstring mentions "description" field but actual field is "task". Minor documentation inconsistency. | Update docstring in `equipment_maintenance.py` to accurately reflect field names. |
-| **P3-02** | Extensibility | sonn45 | **Hardcoded Document Types in Child Table.** Equipment Document types are hardcoded Select options. Users cannot add custom types without code changes. | Consider creating a separate `Equipment Document Type` DocType with Link field, or at minimum add a `document_type_description` Data field with `depends_on: "eval:doc.document_type=='Other'"` for custom types. |
-| **P3-03** | Future Feature | sonn45 | **Maintenance Schedule Has No Automation.** The maintenance child table captures `next_due` dates but nothing monitors overdue tasks or sends notifications. Schedule is informational only. | Plan for future: Add scheduled job in `scheduler_events.daily` to check for overdue maintenance and create notifications. Consider Equipment Maintenance Record DocType to track completed maintenance. |
-| **P3-04** | UX | sonn45 | **Missing Field Descriptions.** Fields like `serial_number`, `current_location`, `assigned_to` lack descriptions. Users may be uncertain about their purpose or expected values. | Add `"description"` attribute to key fields in `equipment.json` explaining their purpose (e.g., "Manufacturer's serial number. Must be globally unique."). |
-| **P3-05** | Architecture | opus45, jeni52 | **API Helpers in DocType Controller.** `get_equipment_by_organization()` and `get_equipment_by_person()` are API-style endpoints in the DocType controller. Project guidelines suggest whitelisted endpoints live under `dartwing/api/`. | Consider moving API helpers to `dartwing/api/equipment.py` for cleaner separation. DocType controllers should focus on document lifecycle. (Low priority—current location works.) |
-| **P3-06** | Performance | geni30, grokf1 | **Consider Adding Database Index.** Ensure `owner_organization`, `assigned_to`, `status`, `equipment_type` fields have indexes for query performance at scale (1000+ items per org per SC-002). | Verify indexes exist via `bench migrate`. Consider adding `search_index: 1` to frequently filtered fields in JSON if not already present. |
+### P1: CRITICAL — Must Fix Before Merge
+
+| ID | Type | Source(s) | Issue Description (Consolidated) | Actionable Fix |
+|:---|:-----|:----------|:---------------------------------|:---------------|
+| **P1-NEW-01** | Security | jeni52, opus45 | **API Permission Bypass: `frappe.get_all()` ignores permissions.** Both `get_equipment_by_organization()` and `get_equipment_by_person()` use `frappe.get_all()` which explicitly sets `ignore_permissions=True` in Frappe 15. `get_equipment_by_person()` is particularly severe: returns ALL equipment assigned to a Person across ALL organizations, leaking equipment from orgs the caller cannot access. This violates tenant isolation per `dartwing_core_arch.md` Section 8.2.1. | **Replace `frappe.get_all()` with `frappe.get_list()` in both methods** (lines 247, 285). For `get_equipment_by_person()`, add organization filter: `user_orgs = frappe.get_all("User Permission", filters={"user": user, "allow": "Organization"}, pluck="for_value")` then use filter `{"assigned_to": person, "owner_organization": ["in", user_orgs]}`. This leverages the registered `permission_query_conditions` and enforces row-level security. |
+| **P1-NEW-02** | Test Quality | jeni52 | **Test Fixtures Violate Mandatory Fields.** `test_equipment.py` fixtures create Person without `primary_email` (reqd:1) and `source` (reqd:1), and Org Member without `role` (reqd:1). Tests will fail in clean environment, providing false confidence. Per constitution.md Section 6, tests must be runnable. | **Update `setUpClass()` and all Person fixtures**: Add `primary_email=f"test-{frappe.generate_hash(length=8)}@example.com"`, `source="import"`, `status="Active"`. For Org Member, create a Role Template fixture (`role_name="Test Role"`, `applies_to_org_type="Company"`) and set `role=<role_template_name>`. |
+| **P1-NEW-03** | Audit Compliance | sonn45 | **Initial Assignment Not Logged.** `_log_assignment_change()` returns early for new documents (`if self.is_new(): return`), so equipment created WITH `assigned_to` set never logs the initial assignment. Violates HIPAA/SOC2 custody tracking per `dartwing_core_arch.md` Section 8.1 (Comprehensive activity logging). | **Modify `_log_assignment_change()`**: For new docs, if `assigned_to` is set, call `self.add_comment("Info", _("Equipment initially assigned to {0}").format(self.assigned_to))` before returning. For updates, keep existing logic for change detection. |
+| **P1-NEW-04** | Business Logic | sonn45 | **Assignment Allowed for Lost/Stolen/Retired Equipment.** No validation prevents assigning equipment when `status` is "Lost", "Stolen", or "Retired". Creates data inconsistency: "Who has this stolen laptop?" This is a spec gap requiring business rule clarification. | **Add status-assignment validation in `validate_assigned_person()`**: Either (a) block assignment for non-active statuses with `frappe.throw()`, or (b) warn with `frappe.msgprint(..., indicator="orange")` if tracking "last known user" is desired. Recommend option (a) as default. Document the business rule in spec.md. |
+
+### P2: MEDIUM — Should Fix Before/Shortly After Merge
+
+| ID | Type | Source(s) | Issue Description (Consolidated) | Actionable Fix |
+|:---|:-----|:----------|:---------------------------------|:---------------|
+| **P2-NEW-01** | Contract Drift | jeni52 | **OpenAPI Enum Missing Status Options.** `specs/007-equipment-doctype/contracts/equipment-api.yaml` declares `enum: [Active, In Repair, Retired]` but code now supports "Lost" and "Stolen". Flutter/client generators will reject valid server values. | Update all `status` enum declarations in `equipment-api.yaml` to include `Lost` and `Stolen`. Ensure example payloads align. |
+| **P2-NEW-02** | UX | jeni52, sonn45 | **Error Message References Non-Existent Workflow.** `validate_owner_organization_immutable()` says "Use Equipment Transfer if ownership needs to change" but no such workflow exists. Creates support burden. | Change error message to: "Cannot change Equipment ownership after creation. Contact an administrator to arrange ownership transfer." Or document the planned Equipment Transfer workflow in spec.md with a TODO. |
+| **P2-NEW-03** | Hook Ordering | jeni52 | **`on_update` Hook Order Risk.** `handle_status_change` (removes permissions) runs before `check_equipment_assignments_on_member_deactivation`. If deactivation is blocked, extra permission work and log entries occur (even if rolled back). | In `hooks.py` line 190-193, swap order: equipment deactivation check first, then `handle_status_change`. |
+| **P2-NEW-04** | Performance | sonn45 | **Redundant `get_doc_before_save()` Calls.** `_log_assignment_change()` calls `has_value_changed()` (which internally fetches doc_before) then calls `get_doc_before_save()` again. Same pattern in `check_equipment_assignments_on_member_deactivation()`. Results in 2x DB queries per operation. | Refactor both methods: fetch `doc_before = self.get_doc_before_save()` once, then compare fields directly instead of using `has_value_changed()`. |
+| **P2-NEW-05** | Robustness | sonn45 | **Missing Error Handling for `get_doc_before_save()`.** Edge cases (DB failures, race conditions) can raise exceptions instead of returning None, causing unclear error messages. | Wrap `get_doc_before_save()` calls in try-except. Log error with `frappe.log_error()` and either skip validation or use conservative approach. |
+| **P2-NEW-06** | Maintainability | jeni52, opus45, sonn45 | **Permission Check Code Duplication.** Administrator/System Manager bypass pattern repeated 6+ times across `equipment.py` and `permissions/equipment.py`. Increases drift risk (as seen with `get_all` bypass). | Extract to helper: `def _is_privileged_user(user=None) -> bool` in `dartwing/permissions/helpers.py`. Use consistently across all permission-related code. |
+| **P2-NEW-07** | Maintainability | sonn45 | **Raw SQL Fragility in `get_org_members()`.** Direct SQL query hardcodes "Active" status string, duplicates Person name concatenation logic, and bypasses ORM protections. Schema changes will break silently. | Refactor to use Frappe ORM: `frappe.get_all("Org Member", ...)` followed by `frappe.get_list("Person", ...)` or leverage `frappe.desk.search.search_widget()`. |
+| **P2-DEFER-01** | Performance | opus45, grokf1 | **Request-Level Caching for Permission Queries.** `get_permission_query_conditions_equipment()` fetches User Permissions on every request. | Implement caching: `cache_key = f"_user_orgs_{frappe.scrub(user)}"` in `frappe.local`. Extract to shared helper in `dartwing/permissions/helpers.py`. Mark as DEFERRED — implement if performance issues arise. |
+| **P2-DEFER-02** | Maintainability | opus45, grokf1 | **Hardcoded Status Strings.** Status values duplicated in `.py`, `.json`, `.js` files. | Define constants in `equipment.py`: `class EquipmentStatus: ACTIVE = "Active"...`. Mark as DEFERRED — low risk. |
+| **P2-DEFER-03** | Data Integrity | opus45, grokf1 | **Missing Location Validation.** `current_location` (Address link) not validated against `owner_organization`. | Add `validate_current_location()` with warning (not throw) for flexibility. Mark as DEFERRED — may be intentionally flexible for shared facilities. |
+
+### P3: LOW — Future Technical Debt
+
+| ID | Type | Source(s) | Issue Description (Consolidated) | Actionable Fix |
+|:---|:-----|:----------|:---------------------------------|:---------------|
+| **P3-01** | Test Coverage | jeni52, opus45 | **No Tests for Non-Admin Permission Logic.** All tests run as Administrator, bypassing `validate_user_can_access_owner_organization()`. Permission fixes are untested. | Add test case using `frappe.set_user()` with a Dartwing User (no System Manager role) to verify permission enforcement. |
+| **P3-02** | Code Quality | sonn45 | **Inconsistent Administrator Check Pattern.** Mix of positive (`user == "Administrator" or ...`) and negative (`user != "Administrator" and ...`) patterns reduces readability. | Standardize on positive check pattern using the helper function from P2-NEW-06. |
+| **P3-03** | Security | opus45 | **Search Wildcard Handling.** `get_org_members()` uses `f"%{txt}%"` without escaping SQL wildcards (`%`, `_`). Low risk but causes unexpected search results. | Escape wildcards: `escaped_txt = txt.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")`. |
+| **P3-04** | Permissions | opus45 | **Delete Permission Gap.** `Dartwing User` role has CRUD minus delete. Verify this is intentional (equipment should be Retired, not deleted). | Document in spec.md or add `"delete": 1` to `equipment.json` if users should delete. |
+| **P3-05** | Code Quality | sonn45 | **Missing Type Hints.** Python 3.11+ supports type hints but Equipment controller doesn't use them extensively. | Add return type hints to public methods: `def validate_assigned_person(self) -> None:`. Low priority — developer experience enhancement. |
+| **P3-DEFER** | Various | All | **Original P3 Items from First Pass.** Docstring accuracy, document type extensibility, maintenance automation, field descriptions, API helper relocation, database indexes. | See original MASTER_PLAN.md Section 3.2 for details. All remain DEFERRED. |
 
 ---
 
@@ -39,55 +62,115 @@
 
 ### Synthesis Summary
 
-The Equipment DocType implementation is **fundamentally sound** and demonstrates strong understanding of Frappe patterns and the Dartwing polymorphic architecture. All five reviewers praised the validation logic, permission model design, cascade deletion protection, and client-side UX enhancements. However, **five P1 security/compliance issues** must be resolved before merge:
+The Equipment DocType implementation is **fundamentally production-ready** with all original P1 security vulnerabilities resolved. The four reviewers provided convergent feedback on the quality of fixes, with grokf1 rating the implementation "exceptionally well-architected" and sonn45 scoring it 8.5/10. However, deeper analysis revealed **4 new critical issues**:
 
-1. **SQL injection vulnerability** in permission query (double-quoting breaks escaping)
-2. **Cross-tenant data exposure** in `get_org_members()` API method
-3. **Spec non-compliance** for FR-013 (deactivation not blocked, only deletion)
-4. **Hook ordering risk** that could leave permissions in inconsistent state
-5. **Authorization gap** allowing equipment creation for unauthorized organizations
+1. **API Permission Bypass** (jeni52 + opus45): The discovery that `frappe.get_all()` explicitly ignores permissions in Frappe 15 represents a significant finding. While the original P1-02 fix added User Permission checks, these are defense-in-depth and don't leverage the framework's permission system. The recommended fix using `frappe.get_list()` is the idiomatic Frappe pattern.
 
-After addressing these critical issues, the remaining P2/P3 items focus on maintainability (tests, naming consistency, redundant code), performance (caching, indexing), and feature completeness (additional statuses, audit trails, field descriptions).
+2. **Test Suite Failure** (jeni52): The test fixtures created during P2-01 implementation don't account for mandatory fields added in other feature branches. This is a merge timing issue that must be addressed to ensure CI passes.
+
+3. **Audit Trail Gap** (sonn45): The initial assignment logging oversight is subtle but compliance-critical. The fix is minimal (4 lines of code) but essential for custody tracking.
+
+4. **Status-Assignment Validation** (sonn45): This represents a spec gap rather than a bug. The business rule must be defined: can Lost/Stolen/Retired equipment be assigned? The architecture document doesn't specify, so this requires product decision.
 
 ### Conflict Resolution Log
 
 | Conflict | Reviewers | Resolution | Justification |
 |:---------|:----------|:-----------|:--------------|
-| **SQL Injection Severity** | opus45 rated LOW (escape provides protection), jeni52/sonn45 rated CRITICAL (double-quoting breaks escape) | **Resolved as P1-CRITICAL** | jeni52 and sonn45 correctly identified that `frappe.db.escape()` returns already-quoted strings. Adding additional quotes (`f"'{...}'"`) breaks the escaping mechanism entirely. Per `dartwing_core_arch.md` Section 8.3 Security Architecture, SQL injection is a compliance violation. The fix in `company.py` (CR-001 FIX comment) confirms the correct pattern. |
-| **Unit Tests Priority** | geni30 rated HIGH/blocker, opus45/grokf1/sonn45 rated MEDIUM/future debt | **Resolved as P2-HIGH** | Per `.specify/memory/constitution.md` Section 6 ("Tests required for business logic"), tests are expected but not strictly blocking merge. The feature can be merged with tests as immediate follow-up, but tests should be completed before the next feature branch. |
-| **Redundant Validation** | jeni52 suggested removing both `validate_equipment_name` AND `validate_serial_number_unique` (rely on metadata), opus45/geni30 suggested keeping serial validation for better UX | **Keep serial validation, remove name validation** | Per `dartwing_core_arch.md` low-code philosophy, required fields should use `reqd: 1` metadata. However, uniqueness errors from database constraints produce less user-friendly messages than Python validation with `frappe.throw()`. Keep serial validation for UX, remove redundant required-field validation. |
-| **Permission Naming Convention** | sonn45 rated HIGH, others did not flag | **Resolved as P2-MEDIUM** | This is a naming convention issue, not a functional bug. The code works correctly. However, per constitution.md Section 7 Naming Conventions, consistency is expected. Fix should be made but does not block merge. |
-| **Hardcoded Values (Status/Doc Types)** | geni30 rated HIGH (status strings), sonn45 rated MEDIUM (doc types) | **Resolved as P2/P3** | Status string duplication is a maintainability issue (P2-07) but not critical. Document type extensibility is a nice-to-have (P3-02). Per low-code philosophy, prefer Link to master DocType long-term, but current implementation is acceptable for MVP. |
-| **Audit Trail Implementation** | opus45 suggested `frappe.logger()`, sonn45 suggested `self.add_comment()` or dedicated DocType | **Recommend `self.add_comment()` for MVP** | Per `dartwing_core_arch.md` Section 8.1 (Audit Logging), comprehensive activity logging is required for compliance. The `add_comment()` approach provides immediate visibility in the document timeline without requiring a new DocType. Dedicated Equipment Assignment Log can be added later if more structured reporting is needed. |
+| **Permission Bypass Severity** | jeni52 rated CRITICAL (identifies `frappe.get_all` root cause), opus45 rated MEDIUM (focused on org filter fix) | **Resolved as P1-CRITICAL** | jeni52 correctly identified that `frappe.get_all()` bypasses all DocType permissions in Frappe 15. The opus45 suggested fix (adding org filter) is necessary but insufficient — must use `frappe.get_list()` to leverage `permission_query_conditions`. Per `dartwing_core_arch.md` Section 8.2.1, permissions flow through Frappe's registered hooks. |
+| **Test Fixture Severity** | jeni52 rated HIGH (blocking), grokf1 did not flag, sonn45 did not flag | **Resolved as P1-CRITICAL** | jeni52 correctly identified that tests won't execute in a clean environment. Per constitution.md Section 6 (Tests required for business logic), non-functional tests are worse than no tests because they create false confidence. Tests must be runnable. |
+| **Initial Assignment Logging** | sonn45 rated HIGH, other reviewers did not flag | **Resolved as P1-CRITICAL** | sonn45's deep analysis revealed a compliance gap. Per `dartwing_core_arch.md` Section 8.1 (Comprehensive activity logging for compliance), initial custody assignment is as critical as subsequent changes. The fix is minimal and must be included. |
+| **Status-Assignment Validation** | sonn45 rated HIGH, other reviewers did not flag | **Resolved as P1-CRITICAL (Pending Business Rule)** | This requires product decision. However, it blocks merge because the current behavior (allowing assignment to Lost/Stolen equipment) is likely incorrect. Default to blocking assignment for non-active statuses; document the rule. |
+| **Hook Ordering on `on_update`** | jeni52 rated MEDIUM | **Resolved as P2** | While the first-pass fixed `on_trash` ordering (P1-04), the same pattern issue exists in `on_update`. Less critical because permission changes are reversible, but should be fixed for consistency. |
+| **`get_org_members()` SQL vs ORM** | sonn45 rated MEDIUM (refactor to ORM), jeni52 focused on permission bypass | **Resolved as P2-NEW-07** | Both reviewers identify issues with the method. The permission bypass is covered by P1-NEW-01 (using `frappe.get_list` enforces permissions). The SQL fragility is a separate maintainability concern that can be addressed in follow-up. |
+| **Performance Optimizations** | sonn45 identified specific DB query duplication, opus45/grokf1 noted caching as deferred | **Resolved as P2-NEW-04 (immediate) + P2-DEFER-01 (caching)** | The redundant `get_doc_before_save()` calls are easy fixes with measurable benefit. Request-level caching is more complex and can wait for performance profiling. |
 
 ---
 
-## Appendix: Files Requiring Changes
+## 3. Implementation Checklist
 
-### P1 Critical Fixes (Required Before Merge)
+### Required Before Merge (Estimated: 3-4 hours)
+
+- [ ] **P1-NEW-01**: Replace `frappe.get_all()` with `frappe.get_list()` in API methods; add org filter to `get_equipment_by_person()`
+- [ ] **P1-NEW-02**: Fix test fixtures with mandatory fields; add Role Template fixture
+- [ ] **P1-NEW-03**: Log initial assignment in `_log_assignment_change()`
+- [ ] **P1-NEW-04**: Add status-assignment validation (requires business rule decision)
+- [ ] **P2-NEW-01**: Update OpenAPI contract with Lost/Stolen status options
+- [ ] **P2-NEW-02**: Update error message for organization immutability
+
+### Recommended Before Merge (Estimated: 1-2 hours)
+
+- [ ] **P2-NEW-03**: Reorder `on_update` hooks
+- [ ] **P2-NEW-04**: Optimize redundant `get_doc_before_save()` calls
+- [ ] **P2-NEW-06**: Extract `_is_privileged_user()` helper (reduces duplication)
+
+### Post-Merge Technical Debt
+
+- [ ] P2-NEW-05: Error handling for `get_doc_before_save()`
+- [ ] P2-NEW-07: Refactor `get_org_members()` to use ORM
+- [ ] P2-DEFER-01: Request-level caching
+- [ ] P2-DEFER-02: Status constants
+- [ ] P2-DEFER-03: Location validation
+- [ ] P3-01 through P3-05: Various low-priority items
+
+---
+
+## 4. Verification of Original P1 Fixes
+
+All reviewers independently verified that the original 5 P1 critical issues have been successfully resolved:
+
+| Original Issue | Status | Verification Notes |
+|:---------------|:-------|:-------------------|
+| P1-01: SQL Injection | **FIXED** | Line 47: `frappe.db.escape(o)` without extra quotes |
+| P1-02: Cross-Tenant API | **FIXED** | Auth checks at lines 186-197, 228-241, 276-283 (but see P1-NEW-01 for remaining gap) |
+| P1-03: FR-013 Deactivation | **FIXED** | `check_equipment_assignments_on_member_deactivation()` at line 345 |
+| P1-04: Hook Ordering (`on_trash`) | **FIXED** | Equipment check before permission removal in hooks.py:185-188 |
+| P1-05: Create Authorization | **FIXED** | `validate_user_can_access_owner_organization()` at line 127 |
+
+---
+
+## 5. Quality Metrics
+
+| Metric | Score | Notes |
+|:-------|:------|:------|
+| **Security Posture** | 8/10 | Original vulnerabilities fixed; P1-NEW-01 is defense-in-depth gap |
+| **Code Quality** | 8.5/10 | Well-structured; minor duplication and optimization opportunities |
+| **Test Coverage** | 6/10 | Tests exist but have fixture issues and don't cover permissions |
+| **API Contract Alignment** | 7/10 | OpenAPI needs update for new status options |
+| **Frappe Idiom Adherence** | 7/10 | Good overall; should use `frappe.get_list()` instead of `get_all()` |
+| **Overall Merge Readiness** | **Not Ready** | 4 P1 issues must be resolved first |
+
+---
+
+## 6. Appendix: Files Requiring Changes
+
+### P1 Critical Fixes
 
 | File | Lines | Change |
 |:-----|:------|:-------|
-| `dartwing/permissions/equipment.py` | 46 | Remove extra quotes from `frappe.db.escape()` |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 136-152 | Add org permission check before `get_org_members()` SQL |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 156, 187 | Add permission checks to `get_equipment_by_*()` methods |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 231-253 | Extend to check status changes, not just deletion |
-| `dartwing/hooks.py` | 180-187 | Add `on_update` hook for Org Member; reorder `on_trash` list |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 93-116 | Fix authorization to check specific `owner_organization` |
+| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 247, 285 | Replace `frappe.get_all()` with `frappe.get_list()` |
+| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 276-298 | Add organization filter to `get_equipment_by_person()` |
+| `dartwing/dartwing_core/doctype/equipment/test_equipment.py` | 23-56 | Fix Person and Org Member fixtures with mandatory fields |
+| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 34-52 | Log initial assignments for new equipment |
+| `dartwing/dartwing_core/doctype/equipment/equipment.py` | 95-125 | Add status-assignment validation |
 
-### P2 Improvements (Should Fix Soon)
+### P2 Medium Fixes
 
 | File | Change |
 |:-----|:-------|
-| `dartwing/dartwing_core/doctype/equipment/test_equipment.py` | Create new file with unit tests |
-| `dartwing/permissions/equipment.py` | Rename functions to include `_equipment` suffix |
-| `dartwing/hooks.py` | Update permission function references |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | Remove `validate_equipment_name()` |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | Add `validate_owner_organization_immutable()` |
-| `dartwing/dartwing_core/doctype/equipment/equipment.py` | Add `on_update()` for assignment audit trail |
-| `dartwing/dartwing_core/doctype/equipment/equipment.js` | Improve empty-org UX for `assigned_to` field |
-| `dartwing/dartwing_core/doctype/equipment/equipment.json` | Add "Lost" and "Stolen" status options |
+| `specs/007-equipment-doctype/contracts/equipment-api.yaml` | Add Lost/Stolen to status enums |
+| `dartwing/dartwing_core/doctype/equipment/equipment.py` | Update immutability error message |
+| `dartwing/hooks.py` | Reorder `on_update` hooks for Org Member |
+| `dartwing/dartwing_core/doctype/equipment/equipment.py` | Optimize `get_doc_before_save()` usage |
+| `dartwing/permissions/helpers.py` | Add `_is_privileged_user()` helper (new file or add to existing) |
 
 ---
 
-**End of Master Plan**
+**End of Master Plan (Second Pass)**
+
+**Next Steps:**
+1. Obtain business rule decision for status-assignment validation (P1-NEW-04)
+2. Implement all P1 fixes
+3. Run full test suite to verify
+4. Implement recommended P2 fixes
+5. Merge to main
+6. Create follow-up tickets for deferred items
