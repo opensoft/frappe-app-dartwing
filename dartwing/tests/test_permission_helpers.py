@@ -92,10 +92,18 @@ class TestPermissionHelpers(FrappeTestCase):
 
     def setUp(self):
         """Set up test data for each test."""
+        self._cleanup_test_data()
+
+    def tearDown(self):
+        """Clean up test data after each test."""
+        self._cleanup_test_data()
+
+    def _cleanup_test_data(self):
+        """Helper to clean up test organizations, members, and permissions."""
         # Clean up any test organizations
         for org_name in frappe.get_all(
             "Organization",
-            filters={"name": ["like", "Test Perm Org%"]},
+            filters={"org_name": ["like", "Test Perm Org%"]},
             pluck="name"
         ):
             frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
@@ -114,9 +122,7 @@ class TestPermissionHelpers(FrappeTestCase):
             filters={"user": "test_perm_helper@example.com"},
             pluck="name"
         ):
-            frappe.delete_doc("Organization", org_name, force=True)
-
-        frappe.db.commit()
+            frappe.delete_doc("User Permission", perm_name, force=True, ignore_permissions=True)
 
     def test_cleanup_orphaned_permissions_with_valid_org_type(self):
         """Test cleanup when Organization is deleted but org_type is cached."""
