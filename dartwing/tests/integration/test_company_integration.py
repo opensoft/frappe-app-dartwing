@@ -223,6 +223,9 @@ class TestCompanyIntegration(FrappeTestCase):
     def test_api_get_company_with_org_details(self):
         """
         Test the get_company_with_org_details API endpoint.
+        
+        Verifies that the bulk query optimization correctly fetches person names
+        for both officers and members.
         """
         from dartwing.dartwing_company.api import get_company_with_org_details
 
@@ -235,21 +238,138 @@ class TestCompanyIntegration(FrappeTestCase):
         })
         org.insert()
 
+        # Create test Persons for officers
+        officer1 = frappe.get_doc({
+            "doctype": "Person",
+            "first_name": "IntegrationTestCEO",
+            "last_name": "Officer",
+            "primary_email": "integrationtestceo@test.local",
+            "status": "Active"
+        })
+        officer1.insert()
+
+        officer2 = frappe.get_doc({
+            "doctype": "Person",
+            "first_name": "IntegrationTestCFO",
+            "last_name": "Officer",
+            "primary_email": "integrationtestcfo@test.local",
+            "status": "Active"
+        })
+        officer2.insert()
+
+        # Create test Persons for members
+        member1 = frappe.get_doc({
+            "doctype": "Person",
+            "first_name": "IntegrationTestMember",
+            "last_name": "One",
+            "primary_email": "integrationtestmember1@test.local",
+            "status": "Active"
+        })
+        member1.insert()
+
+        member2 = frappe.get_doc({
+            "doctype": "Person",
+            "first_name": "IntegrationTestMember",
+            "last_name": "Two",
+            "primary_email": "integrationtestmember2@test.local",
+            "status": "Active"
+        })
+        member2.insert()
+
+        # Set up Company with officers and members
         company = frappe.get_doc("Company", org.linked_name)
         company.legal_name = "Integration Test API Inc."
+        company.entity_type = "LLC"  # Changed to LLC to show members section
+        
+        # Add officers
+        company.append("officers", {
+            "person": officer1.name,
+            "title": "CEO",
+            "start_date": "2024-01-01"
+        })
+        company.append("officers", {
+            "person": officer2.name,
+            "title": "CFO",
+            "start_date": "2024-01-01"
+        })
+        
+        # Add members
+        company.append("members_partners", {
+            "person": member1.name,
+            "ownership_percent": 60,
+            "voting_rights": 60
+        })
+        company.append("members_partners", {
+            "person": member2.name,
+            "ownership_percent": 40,
+            "voting_rights": 40
+        })
+        
+        company.save()
+
+        # Call API
+        result = get_company_with_org_details(company.name)
+
+        # Verify response structure (CR-007 FIX: Updated response structure)
+        self.assertEqual(result["message"], "success")
+        self.assertEqual(result["company"]["name"], company.name)
+        self.assertEqual(result["company"]["legal_name"], "Integration Test API Inc.")
+        self.assertEqual(result["company"]["entity_type"], "LLC")
+        self.assertEqual(result["org_details"]["org_name"], "Integration Test API Company")
+        self.assertEqual(result["org_details"]["status"], "Active")
+        
+        # Verify officers are returned with person names (bulk query test)
+        self.assertEqual(len(result["officers"]), 2)
+        self.assertEqual(result["officers"][0]["person"], officer1.name)
+        self.assertEqual(result["officers"][0]["person_name"], "IntegrationTestCEO Officer")
+        self.assertEqual(result["officers"][0]["title"], "CEO")
+        self.assertEqual(result["officers"][0]["start_date"], "2024-01-01")
+        
+        self.assertEqual(result["officers"][1]["person"], officer2.name)
+        self.assertEqual(result["officers"][1]["person_name"], "IntegrationTestCFO Officer")
+        self.assertEqual(result["officers"][1]["title"], "CFO")
+        
+        # Verify members are returned with person names (bulk query test)
+        self.assertEqual(len(result["members"]), 2)
+        self.assertEqual(result["members"][0]["person"], member1.name)
+        self.assertEqual(result["members"][0]["person_name"], "IntegrationTestMember One")
+        self.assertEqual(result["members"][0]["ownership_percent"], 60)
+        self.assertEqual(result["members"][0]["voting_rights"], 60)
+        
+        self.assertEqual(result["members"][1]["person"], member2.name)
+        self.assertEqual(result["members"][1]["person_name"], "IntegrationTestMember Two")
+        self.assertEqual(result["members"][1]["ownership_percent"], 40)
+        self.assertEqual(result["members"][1]["voting_rights"], 40)
+
+    def test_api_get_company_with_org_details_empty_lists(self):
+        """
+        Test the get_company_with_org_details API with no officers or members.
+        
+        Verifies that the bulk query optimization handles empty lists correctly.
+        """
+        from dartwing.dartwing_company.api import get_company_with_org_details
+
+        # Create Organization and Company
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Integration Test API Empty Company",
+            "org_type": "Company",
+            "status": "Active"
+        })
+        org.insert()
+
+        company = frappe.get_doc("Company", org.linked_name)
+        company.legal_name = "Integration Test API Empty Inc."
         company.entity_type = "C-Corp"
         company.save()
 
         # Call API
         result = get_company_with_org_details(company.name)
 
-        # Verify response (CR-007 FIX: Updated response structure)
+        # Verify response
         self.assertEqual(result["message"], "success")
-        self.assertEqual(result["company"]["name"], company.name)
-        self.assertEqual(result["company"]["legal_name"], "Integration Test API Inc.")
-        self.assertEqual(result["company"]["entity_type"], "C-Corp")
-        self.assertEqual(result["org_details"]["org_name"], "Integration Test API Company")
-        self.assertEqual(result["org_details"]["status"], "Active")
+        self.assertEqual(len(result["officers"]), 0)
+        self.assertEqual(len(result["members"]), 0)
 
     def test_api_validate_ownership(self):
         """
