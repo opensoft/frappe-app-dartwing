@@ -45,6 +45,8 @@ def cleanup_test_organizations() -> None:
         try:
             frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
         except Exception:
+            # Silently continue if deletion fails (e.g., already deleted, locked, or
+            # referenced by other records). Test cleanup should be best-effort.
             pass
 
     # Clean up all concrete types matching the test prefix
@@ -62,6 +64,8 @@ def cleanup_test_organizations() -> None:
             try:
                 frappe.delete_doc(doctype, doc_name, force=True, ignore_permissions=True)
             except Exception:
+                # Silently continue if deletion fails (e.g., already deleted, locked, or
+                # referenced by other records). Test cleanup should be best-effort.
                 pass
 
     frappe.db.commit()
