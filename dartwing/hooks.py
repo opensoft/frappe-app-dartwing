@@ -167,7 +167,7 @@ fixtures = [
 # CR-011 FIX: Address deletion protection for Company links
 doc_events = {
 	"Address": {
-		"on_trash": "dartwing.dartwing_company.utils.check_address_company_links"
+		"before_delete": "dartwing.dartwing_company.utils.check_address_company_links"
 	}
 }
 
