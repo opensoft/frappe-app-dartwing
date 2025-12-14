@@ -9,7 +9,7 @@ Run tests with:
 """
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 from unittest.mock import patch, MagicMock
 
 from dartwing.permissions.helpers import (
@@ -18,7 +18,7 @@ from dartwing.permissions.helpers import (
 )
 
 
-class TestPermissionHelpers(IntegrationTestCase):
+class TestPermissionHelpers(FrappeTestCase):
     """Test cases for permission helper functions."""
 
     @classmethod
