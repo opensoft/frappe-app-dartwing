@@ -218,6 +218,7 @@ def _delete_permission(user: str, allow: str, for_value: str) -> None:
     })
 
 
+
 def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
     """
     Clean up potentially orphaned User Permissions when Organization doesn't exist.
