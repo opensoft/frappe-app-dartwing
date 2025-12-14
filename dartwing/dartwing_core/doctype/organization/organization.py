@@ -254,8 +254,6 @@ class Organization(Document):
         7. Log success for audit trail
         8. On error: log and re-raise to trigger transaction rollback
         """
-    def create_concrete_type(self):
-        """Create the concrete type document (e.g., Family, Company) and link it back."""
         concrete_doctype = ORG_TYPE_MAP.get(self.org_type)
 
         if not concrete_doctype:
@@ -339,12 +337,6 @@ class Organization(Document):
     def _delete_concrete_type(self):
         """
         Delete the linked concrete type document (cascade delete).
-            frappe.log_error(f"Error creating concrete type {concrete_doctype}: {str(e)}")
-            frappe.throw(
-                _("Failed to create {0} record. Please try again or contact support.").format(
-                    concrete_doctype
-                )
-            )
 
         Implements FR-005, FR-006, FR-012, FR-013.
 
@@ -380,7 +372,7 @@ class Organization(Document):
                     f"Cascade deleted {self.linked_doctype} {self.linked_name} "
                     f"for Organization {self.name}"
                 )
-            except frappe.LinkExistsError:
+            except frappe.LinkExistsError as e:
                 # Re-raise with clearer message about link constraints
                 logger.error(
                     f"Cannot delete {self.linked_doctype} {self.linked_name}: "
@@ -423,8 +415,14 @@ def get_concrete_doc(organization: str) -> Optional[dict]:
 
     Raises:
         DoesNotExistError: If the Organization does not exist
+        PermissionError: If user lacks read permission for the organization
     """
     logger.info(f"API: get_concrete_doc called for Organization '{organization}'")
+
+    # T029: Add explicit permission check using frappe.has_permission
+    if not frappe.has_permission(DOCTYPE_ORGANIZATION, "read", organization):
+        logger.warning(f"API: get_concrete_doc - Permission denied for '{organization}'")
+        frappe.throw(_("Not permitted to access this organization"), frappe.PermissionError)
     org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
 
     if not org.linked_doctype or not org.linked_name:
@@ -461,8 +459,14 @@ def get_organization_with_details(organization: str) -> dict:
 
     Raises:
         DoesNotExistError: If the Organization does not exist
+        PermissionError: If user lacks read permission for the organization
     """
     logger.info(f"API: get_organization_with_details called for '{organization}'")
+
+    # T022: Add explicit permission check using frappe.has_permission
+    if not frappe.has_permission(DOCTYPE_ORGANIZATION, "read", organization):
+        logger.warning(f"API: get_organization_with_details - Permission denied for '{organization}'")
+        frappe.throw(_("Not permitted to access this organization"), frappe.PermissionError)
     org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
     result = org.as_dict()
 

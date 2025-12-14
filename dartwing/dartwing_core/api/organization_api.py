@@ -1,0 +1,255 @@
+# Copyright (c) 2025, Brett and contributors
+# For license information, please see license.txt
+
+"""
+Organization API - Whitelisted methods for Flutter client integration.
+
+This module provides standardized REST API endpoints enabling external clients
+to retrieve organization data, member information, and concrete type details.
+
+API Methods:
+    - get_user_organizations(): Returns all organizations the authenticated user belongs to
+    - get_org_members(): Returns paginated list of members for an organization
+
+Note: get_organization_with_details() and get_concrete_doc() are defined in
+dartwing_core/doctype/organization/organization.py as they are document-centric.
+"""
+
+from typing import Optional
+
+import frappe
+from frappe import _
+
+# Configure logger for audit trail (following pattern from organization.py)
+logger = frappe.logger("dartwing_core.api", allow_site=True, file_count=10)
+
+
+@frappe.whitelist()
+def get_user_organizations() -> dict:
+    """
+    Return all organizations the authenticated user belongs to.
+
+    Implements FR-001: System MUST provide an API method get_user_organizations()
+    that returns all organizations the authenticated user is a member of.
+
+    Returns:
+        dict: {
+            "data": List of organization records with membership info,
+            "total_count": Total number of organizations
+        }
+
+    Raises:
+        AuthenticationError: If user is not logged in (handled by @frappe.whitelist)
+    """
+    # T012: Derive current user's Person from frappe.session.user
+    user = frappe.session.user
+    if user == "Guest":
+        frappe.throw(_("Authentication required"), frappe.AuthenticationError)
+
+    # Get Person linked to current user
+    person = frappe.db.get_value("Person", {"frappe_user": user}, "name")
+
+    if not person:
+        # User exists but has no Person record - return empty list
+        logger.info(f"API: get_user_organizations - No Person found for user '{user}'")
+        return {"data": [], "total_count": 0}
+
+    # T013: Query Org Member records for current user's Person
+    # T014: Join Organization to include org_name, org_type, logo, status
+    # T15: Join Role Template to include role name and is_supervisor flag
+    memberships = frappe.db.sql(
+        """
+        SELECT
+            om.name as membership_name,
+            om.organization,
+            om.role,
+            om.status as membership_status,
+            om.start_date,
+            om.end_date,
+            org.org_name,
+            org.org_type,
+            org.logo,
+            org.status,
+            org.linked_doctype,
+            org.linked_name,
+            rt.is_supervisor
+        FROM `tabOrg Member` om
+        INNER JOIN `tabOrganization` org ON om.organization = org.name
+        LEFT JOIN `tabRole Template` rt ON om.role = rt.name
+        WHERE om.person = %(person)s
+        ORDER BY om.start_date DESC
+        """,
+        {"person": person},
+        as_dict=True,
+    )
+
+    # T16: Format response as {data: [...], total_count: N}
+    # P1-005: Add has_access field to indicate actual permission status
+    data = []
+    for m in memberships:
+        data.append({
+            "name": m.organization,
+            "org_name": m.org_name,
+            "org_type": m.org_type,
+            "logo": m.logo,
+            "status": m.status,
+            "linked_doctype": m.linked_doctype,
+            "linked_name": m.linked_name,
+            "role": m.role,
+            "membership_status": m.membership_status,
+            "is_supervisor": m.is_supervisor or 0,
+            "has_access": frappe.has_permission("Organization", "read", m.organization),
+        })
+
+    # T17: Add INFO-level audit logging for successful calls
+    logger.info(
+        f"API: get_user_organizations - User '{user}' retrieved {len(data)} organizations"
+    )
+
+    return {"data": data, "total_count": len(data)}
+
+
+# P1-006: Validation constants
+VALID_MEMBER_STATUSES = {"Active", "Inactive", "Pending"}
+DEFAULT_PAGE_LIMIT = 20
+MAX_PAGE_LIMIT = 100
+
+
+@frappe.whitelist()
+def get_org_members(
+    organization: str,
+    limit: int = DEFAULT_PAGE_LIMIT,
+    offset: int = 0,
+    status: Optional[str] = None,
+) -> dict:
+    """
+    Return paginated list of members for an organization.
+
+    Implements FR-004, FR-006, FR-007: System MUST provide an API method
+    get_org_members() with pagination and status filtering.
+
+    Args:
+        organization: Organization name/ID
+        limit: Number of records to return (max 100, default 20)
+        offset: Number of records to skip (default 0)
+        status: Filter by member status (Active/Inactive/Pending)
+
+    Returns:
+        dict: {
+            "data": List of member records,
+            "total_count": Total matching records,
+            "limit": Applied limit,
+            "offset": Applied offset
+        }
+
+    Raises:
+        AuthenticationError: If user is not logged in
+        ValidationError: If parameters are invalid
+        DoesNotExistError: If the organization does not exist
+        PermissionError: If user lacks permission to access the organization
+    """
+    # P1-006: Authentication check (401)
+    if frappe.session.user == "Guest":
+        frappe.throw(_("Authentication required"), frappe.AuthenticationError)
+
+    # P1-006: Required parameter check
+    if not organization:
+        frappe.throw(_("Organization parameter is required"), frappe.ValidationError)
+
+    # P1-006: Organization existence check (404) - before permission check for proper semantics
+    if not frappe.db.exists("Organization", organization):
+        frappe.throw(_("Organization {0} not found").format(organization), frappe.DoesNotExistError)
+
+    # T038: Permission check (403)
+    if not frappe.has_permission("Organization", "read", organization):
+        logger.warning(f"API: get_org_members - Permission denied for '{organization}'")
+        frappe.throw(_("Not permitted to access this organization"), frappe.PermissionError)
+
+    # P1-006: Validate and clamp limit parameter
+    try:
+        limit = max(1, min(int(limit), MAX_PAGE_LIMIT))
+    except (ValueError, TypeError):
+        limit = DEFAULT_PAGE_LIMIT
+
+    # P1-006: Validate and clamp offset parameter
+    try:
+        offset = max(0, int(offset))
+    except (ValueError, TypeError):
+        offset = 0
+
+    # P1-006: Validate status enum
+    if status and status not in VALID_MEMBER_STATUSES:
+        frappe.throw(
+            _("Invalid status: {0}. Must be one of: {1}").format(
+                status, ", ".join(sorted(VALID_MEMBER_STATUSES))
+            ),
+            frappe.ValidationError
+        )
+
+    # T043: Build filters with optional status filter
+    filters = {"organization": organization}
+    if status:
+        filters["status"] = status
+
+    # T044-T047: Query Org Member with joins to Person and Role Template
+    members = frappe.db.sql(
+        """
+        SELECT
+            om.name,
+            om.person,
+            om.member_name,
+            om.organization,
+            om.role,
+            om.status,
+            om.start_date,
+            om.end_date,
+            p.primary_email as person_email,
+            rt.is_supervisor
+        FROM `tabOrg Member` om
+        LEFT JOIN `tabPerson` p ON om.person = p.name
+        LEFT JOIN `tabRole Template` rt ON om.role = rt.name
+        WHERE om.organization = %(organization)s
+        {status_filter}
+        ORDER BY om.start_date DESC
+        LIMIT %(limit)s OFFSET %(offset)s
+        """.format(
+            status_filter="AND om.status = %(status)s" if status else ""
+        ),
+        {"organization": organization, "status": status, "limit": limit, "offset": offset},
+        as_dict=True,
+    )
+
+    # T045: Get total count for pagination UI
+    count_filters = {"organization": organization}
+    if status:
+        count_filters["status"] = status
+    total_count = frappe.db.count("Org Member", count_filters)
+
+    # T46: Format response
+    data = []
+    for m in members:
+        data.append({
+            "name": m.name,
+            "person": m.person,
+            "member_name": m.member_name,
+            "organization": m.organization,
+            "role": m.role,
+            "status": m.status,
+            "start_date": str(m.start_date) if m.start_date else None,
+            "end_date": str(m.end_date) if m.end_date else None,
+            "is_supervisor": m.is_supervisor or 0,
+            "person_email": m.person_email,
+        })
+
+    # T47: Add INFO-level audit logging
+    logger.info(
+        f"API: get_org_members - Retrieved {len(data)} of {total_count} members "
+        f"for organization '{organization}' (limit={limit}, offset={offset})"
+    )
+
+    return {
+        "data": data,
+        "total_count": total_count,
+        "limit": limit,
+        "offset": offset,
+    }

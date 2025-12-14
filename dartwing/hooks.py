@@ -176,11 +176,12 @@ fixtures = [
 doc_events = {
 	"Address": {
 		"before_delete": "dartwing.dartwing_company.utils.check_address_company_links"
-doc_events = {
+	},
 	"Org Member": {
 		"after_insert": "dartwing.permissions.helpers.create_user_permissions",
 		"on_trash": "dartwing.permissions.helpers.remove_user_permissions",
 		"on_update": "dartwing.permissions.helpers.handle_status_change",
+	},
 	"Person": {
 		"on_trash": "dartwing.dartwing_core.doctype.org_member.org_member.handle_person_deletion"
 	}

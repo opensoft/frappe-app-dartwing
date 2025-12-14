@@ -1,0 +1,340 @@
+openapi: 3.0.3
+info:
+  title: Dartwing Organization API
+  description: API endpoints for organization data access (Feature 009-api-helpers)
+  version: 1.0.0
+  contact:
+    name: Dartwing Team
+
+servers:
+  - url: /api/method
+    description: Frappe API method endpoint
+
+paths:
+  /dartwing.dartwing_core.api.organization_api.get_user_organizations:
+    post:
+      summary: Get User's Organizations
+      description: Returns all organizations the authenticated user belongs to.
+      operationId: getUserOrganizations
+      tags:
+        - Organizations
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserOrganizationsResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dartwing.dartwing_core.doctype.organization.organization.get_organization_with_details:
+    post:
+      summary: Get Organization with Concrete Type Details
+      description: Returns an Organization merged with its concrete type data.
+      operationId: getOrganizationWithDetails
+      tags:
+        - Organizations
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization
+              properties:
+                organization:
+                  type: string
+                  description: Organization name/ID
+                  example: "ORG-2025-00001"
+      responses:
+        '200':
+          description: Organization with concrete type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationWithDetailsResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dartwing.dartwing_core.doctype.organization.organization.get_concrete_doc:
+    post:
+      summary: Get Concrete Type Document
+      description: Returns only the concrete type document for an Organization.
+      operationId: getConcreteDoc
+      tags:
+        - Organizations
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization
+              properties:
+                organization:
+                  type: string
+                  description: Organization name/ID
+                  example: "ORG-2025-00001"
+      responses:
+        '200':
+          description: Concrete type document or null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConcreteDocResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dartwing.dartwing_core.api.organization_api.get_org_members:
+    post:
+      summary: List Organization Members
+      description: Returns paginated list of members for an organization.
+      operationId: getOrgMembers
+      tags:
+        - Organizations
+        - Members
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization
+              properties:
+                organization:
+                  type: string
+                  description: Organization name/ID
+                  example: "ORG-2025-00001"
+                limit:
+                  type: integer
+                  description: Number of records to return (max 100)
+                  default: 20
+                  minimum: 1
+                  maximum: 100
+                offset:
+                  type: integer
+                  description: Number of records to skip
+                  default: 0
+                  minimum: 0
+                status:
+                  type: string
+                  description: Filter by member status
+                  enum: [Active, Inactive, Pending]
+      responses:
+        '200':
+          description: Paginated member list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrgMembersResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Organization not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sid
+
+  schemas:
+    Organization:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "ORG-2025-00001"
+        org_name:
+          type: string
+          example: "Smith Family"
+        org_type:
+          type: string
+          enum: [Family, Company, Nonprofit, Association]
+        logo:
+          type: string
+          nullable: true
+          example: "/files/smith-logo.png"
+        status:
+          type: string
+          enum: [Active, Inactive, Dissolved]
+        linked_doctype:
+          type: string
+          example: "Family"
+        linked_name:
+          type: string
+          example: "FAM-00001"
+        creation:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+
+    UserOrganization:
+      allOf:
+        - $ref: '#/components/schemas/Organization'
+        - type: object
+          properties:
+            role:
+              type: string
+              example: "Parent"
+            membership_status:
+              type: string
+              enum: [Active, Inactive, Pending]
+            is_supervisor:
+              type: integer
+              enum: [0, 1]
+
+    UserOrganizationsResponse:
+      type: object
+      properties:
+        message:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserOrganization'
+            total_count:
+              type: integer
+              example: 3
+
+    ConcreteType:
+      type: object
+      description: Type-specific fields vary by org_type
+      additionalProperties: true
+      properties:
+        name:
+          type: string
+        organization:
+          type: string
+
+    OrganizationWithDetailsResponse:
+      type: object
+      properties:
+        message:
+          allOf:
+            - $ref: '#/components/schemas/Organization'
+            - type: object
+              properties:
+                concrete_type:
+                  $ref: '#/components/schemas/ConcreteType'
+                  nullable: true
+
+    ConcreteDocResponse:
+      type: object
+      properties:
+        message:
+          $ref: '#/components/schemas/ConcreteType'
+          nullable: true
+
+    OrgMember:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "OM-00001"
+        person:
+          type: string
+          example: "PER-00001"
+        member_name:
+          type: string
+          example: "John Smith"
+        organization:
+          type: string
+          example: "ORG-2025-00001"
+        role:
+          type: string
+          example: "Parent"
+        status:
+          type: string
+          enum: [Active, Inactive, Pending]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        is_supervisor:
+          type: integer
+          enum: [0, 1]
+        person_email:
+          type: string
+          format: email
+
+    OrgMembersResponse:
+      type: object
+      properties:
+        message:
+          type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrgMember'
+            total_count:
+              type: integer
+              example: 4
+            limit:
+              type: integer
+              example: 20
+            offset:
+              type: integer
+              example: 0
+
+    ErrorResponse:
+      type: object
+      properties:
+        exc_type:
+          type: string
+          example: "DoesNotExistError"
+        message:
+          type: string
+          example: "Organization ORG-2025-99999 not found"
