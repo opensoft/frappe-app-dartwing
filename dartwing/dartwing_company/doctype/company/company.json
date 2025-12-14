@@ -9,7 +9,6 @@
   "naming_series",
   "organization",
   "column_break_basic",
-  "logo",
   "section_legal_information",
   "legal_name",
   "tax_id",
@@ -51,12 +50,6 @@
   {
    "fieldname": "column_break_basic",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "logo",
-   "fieldtype": "Attach Image",
-   "label": "Logo",
-   "description": "Company logo image"
   },
   {
    "fieldname": "section_legal_information",

@@ -53,7 +53,6 @@
    "fieldtype": "Attach Image",
    "label": "Logo",
    "description": "Organization logo image"
-   "label": "Logo"
   },
   {
    "fieldname": "naming_series",
