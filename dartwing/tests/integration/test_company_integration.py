@@ -225,7 +225,8 @@ class TestCompanyIntegration(FrappeTestCase):
         Test the get_company_with_org_details API endpoint.
         
         Verifies that the bulk query optimization correctly fetches person names
-        for both officers and members.
+        for both officers and members. This test confirms the N+1 query fix
+        reduces database calls from O(N) to O(1) where N = officers + members.
         """
         from dartwing.dartwing_company.api import get_company_with_org_details
 
@@ -279,7 +280,8 @@ class TestCompanyIntegration(FrappeTestCase):
         # Set up Company with officers and members
         company = frappe.get_doc("Company", org.linked_name)
         company.legal_name = "Integration Test API Inc."
-        company.entity_type = "LLC"  # Changed to LLC to enable members section testing
+        # LLC entity type enables the members_partners section (shown for LLCs, LPs, and partnerships)
+        company.entity_type = "LLC"
         
         # Add officers
         company.append("officers", {
@@ -353,7 +355,8 @@ class TestCompanyIntegration(FrappeTestCase):
         """
         Test the get_company_with_org_details API with no officers or members.
         
-        Verifies that the bulk query optimization handles empty lists correctly.
+        Verifies that the bulk query optimization handles empty lists correctly
+        without errors (e.g., empty IN clauses when no person IDs exist).
         """
         from dartwing.dartwing_company.api import get_company_with_org_details
 
