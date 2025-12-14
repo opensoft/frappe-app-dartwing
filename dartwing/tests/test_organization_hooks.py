@@ -466,7 +466,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         org = frappe.get_doc({
             "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Company Cascade",
-            "org_type": "Company"
+            "org_type": DOCTYPE_COMPANY
         })
         org.insert()
         org.reload()
@@ -485,7 +485,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         org = frappe.get_doc({
             "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Association Cascade",
-            "org_type": "Association"
+            "org_type": DOCTYPE_ASSOCIATION
         })
         org.insert()
         org.reload()
@@ -504,7 +504,7 @@ class TestOrganizationBidirectionalHooks(FrappeTestCase):
         org = frappe.get_doc({
             "doctype": DOCTYPE_ORGANIZATION,
             "org_name": f"{TEST_PREFIX}Nonprofit Cascade",
-            "org_type": "Nonprofit"
+            "org_type": DOCTYPE_NONPROFIT
         })
         org.insert()
         org.reload()
