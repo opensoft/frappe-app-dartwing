@@ -384,7 +384,7 @@ class Organization(Document):
                 # Re-raise with clearer message about link constraints
                 logger.error(
                     f"Cannot delete {self.linked_doctype} {self.linked_name}: "
-                    f"Other records still reference it"
+                    f"Other records still reference it. {str(e)}"
                 )
                 frappe.throw(
                     _("Cannot delete {0} {1}: Other records still reference it").format(
