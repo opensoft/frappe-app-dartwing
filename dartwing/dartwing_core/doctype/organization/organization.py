@@ -380,7 +380,7 @@ class Organization(Document):
                     f"Cascade deleted {self.linked_doctype} {self.linked_name} "
                     f"for Organization {self.name}"
                 )
-            except frappe.LinkExistsError as e:
+            except frappe.LinkExistsError:
                 # Re-raise with clearer message about link constraints
                 logger.error(
                     f"Cannot delete {self.linked_doctype} {self.linked_name}: "
