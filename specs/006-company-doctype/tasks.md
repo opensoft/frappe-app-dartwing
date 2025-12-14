@@ -46,7 +46,7 @@ Based on plan.md, this is a Frappe DocType module with paths:
 - [x] T011 [P] Create organization_member_partner.json with fields: person (Link->Person, reqd), ownership_percent (Percent), capital_contribution (Currency), voting_rights (Percent) in dartwing/dartwing_core/doctype/organization_member_partner/organization_member_partner.json
 - [x] T012 [P] Create organization_member_partner.py (empty controller) in dartwing/dartwing_core/doctype/organization_member_partner/organization_member_partner.py
 - [x] T013 Create OrganizationMixin class in dartwing/dartwing_core/mixins/organization_mixin.py with org_name, logo, org_status properties
-- [ ] T014 Run bench migrate to create child table database tables
+- [ ] T014 Run `bench migrate` to create child table database tables
 
 **Checkpoint**: Foundation ready - child tables and mixin exist, user story implementation can begin
 
@@ -66,7 +66,7 @@ Based on plan.md, this is a Frappe DocType module with paths:
 - [x] T018 [US1] Create company.py controller inheriting OrganizationMixin in dartwing/dartwing_company/doctype/company/company.py
 - [x] T019 [US1] Update Organization.py to remove "if != Family" guard and add Company creation logic with legal_name mapping in dartwing/dartwing_core/doctype/organization/organization.py
 - [x] T020 [US1] Add cascade delete logic for Company in Organization.on_trash() method in dartwing/dartwing_core/doctype/organization/organization.py
-- [ ] T021 [US1] Run bench migrate to create Company table
+- [ ] T021 [US1] Run `bench migrate` to create Company table
 - [ ] T022 [US1] Test: Create Organization with org_type="Company" and verify Company auto-creation
 
 **Checkpoint**: User Story 1 complete - Companies are auto-created from Organizations
@@ -88,7 +88,7 @@ Based on plan.md, this is a Frappe DocType module with paths:
 - [x] T027 [P] [US2] Add jurisdiction_state (Data) field to company.json in dartwing/dartwing_company/doctype/company/company.json
 - [x] T028 [P] [US2] Add formation_date (Date) field to company.json in dartwing/dartwing_company/doctype/company/company.json
 - [x] T029 [US2] Add section breaks for legal information grouping in company.json in dartwing/dartwing_company/doctype/company/company.json
-- [ ] T030 [US2] Run bench migrate to apply schema changes
+- [ ] T030 [US2] Run `bench migrate` to apply schema changes
 - [ ] T031 [US2] Test: Edit Company legal fields and verify persistence
 
 **Checkpoint**: User Story 2 complete - Legal entity information can be recorded
@@ -105,7 +105,7 @@ Based on plan.md, this is a Frappe DocType module with paths:
 
 - [x] T032 [US3] Add officers section break to company.json in dartwing/dartwing_company/doctype/company/company.json
 - [x] T033 [US3] Add officers (Table->Organization Officer) field to company.json in dartwing/dartwing_company/doctype/company/company.json
-- [ ] T034 [US3] Run bench migrate to apply schema changes
+- [ ] T034 [US3] Run `bench migrate` to apply schema changes
 - [ ] T035 [US3] Test: Add officer with Person, title, start_date and verify child table storage
 
 **Checkpoint**: User Story 3 complete - Officers can be tracked
@@ -123,7 +123,7 @@ Based on plan.md, this is a Frappe DocType module with paths:
 - [x] T036 [US4] Add section_ownership with depends_on condition for LLC/LP/LLP/GP entity types in dartwing/dartwing_company/doctype/company/company.json
 - [x] T037 [US4] Add members_partners (Table->Organization Member Partner) field to company.json in dartwing/dartwing_company/doctype/company/company.json
 - [x] T038 [US4] Add ownership percentage validation warning in company.py validate() method in dartwing/dartwing_company/doctype/company/company.py
-- [ ] T039 [US4] Run bench migrate to apply schema changes
+- [ ] T039 [US4] Run `bench migrate` to apply schema changes
 - [ ] T040 [US4] Test: Set entity_type to LLC, verify ownership section visible, add member and verify storage
 - [ ] T041 [US4] Test: Set entity_type to C-Corp, verify ownership section hidden
 
@@ -143,7 +143,7 @@ Based on plan.md, this is a Frappe DocType module with paths:
 - [x] T043 [P] [US5] Add registered_address (Link->Address) field to company.json in dartwing/dartwing_company/doctype/company/company.json
 - [x] T044 [P] [US5] Add physical_address (Link->Address) field to company.json in dartwing/dartwing_company/doctype/company/company.json
 - [x] T045 [P] [US5] Add registered_agent (Link->Person) field to company.json in dartwing/dartwing_company/doctype/company/company.json
-- [ ] T046 [US5] Run bench migrate to apply schema changes
+- [ ] T046 [US5] Run `bench migrate` to apply schema changes
 - [ ] T047 [US5] Test: Link Address and Person to Company address fields
 
 **Checkpoint**: User Story 5 complete - Address management functional
