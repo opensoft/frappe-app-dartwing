@@ -142,6 +142,22 @@ class TestPermissionAPI(FrappeTestCase):
             })
             perm.insert(ignore_permissions=True)
 
+    def _create_restricted_user(self, email, first_name, last_name):
+        """Helper to create a test user without System Manager role."""
+        if not frappe.db.exists("User", email):
+            user = frappe.get_doc({
+                "doctype": "User",
+                "email": email,
+                "first_name": first_name,
+                "last_name": last_name,
+                "enabled": 1,
+                "user_type": "System User",
+                "roles": [{"role": "Guest"}]  # No real permissions
+            })
+            user.flags.ignore_permissions = True
+            user.insert(ignore_permissions=True)
+        return email
+
     # =========================================================================
     # Test get_user_organizations API
     # =========================================================================
@@ -153,8 +169,8 @@ class TestPermissionAPI(FrappeTestCase):
         with self.assertRaises(frappe.PermissionError):
             frappe.call("dartwing.permissions.api.get_user_organizations")
 
-    def test_get_user_organizations_no_permissions(self):
-        """Test that user with no permissions gets empty list."""
+    def test_get_user_organizations_no_test_orgs_exist(self):
+        """Test that System Manager sees no API Test orgs when none exist yet."""
         frappe.set_user("test_api_user1@example.com")
         
         result = frappe.call("dartwing.permissions.api.get_user_organizations")
@@ -166,7 +182,7 @@ class TestPermissionAPI(FrappeTestCase):
 
     def test_get_user_organizations_with_permissions(self):
         """Test that user gets organizations they have permission to."""
-        person = self._create_test_person("user1org", "test_api_user1@example.com")
+        self._create_test_person("user1org", "test_api_user1@example.com")
         org1, family1 = self._create_test_organization("1", "Family")
         org2, company2 = self._create_test_organization("2", "Company")
 
@@ -246,19 +262,7 @@ class TestPermissionAPI(FrappeTestCase):
         org1, _ = self._create_test_organization("checkaccess2", "Company")
         
         # Create a user without System Manager role for this test
-        test_user_email = "test_noperm@example.com"
-        if not frappe.db.exists("User", test_user_email):
-            user = frappe.get_doc({
-                "doctype": "User",
-                "email": test_user_email,
-                "first_name": "No",
-                "last_name": "Permission",
-                "enabled": 1,
-                "user_type": "System User",
-                "roles": [{"role": "Guest"}]  # No real permissions
-            })
-            user.flags.ignore_permissions = True
-            user.insert(ignore_permissions=True)
+        test_user_email = self._create_restricted_user("test_noperm@example.com", "No", "Permission")
         
         try:
             frappe.set_user(test_user_email)
@@ -329,19 +333,7 @@ class TestPermissionAPI(FrappeTestCase):
         org1, _ = self._create_test_organization("members2", "Company")
         
         # Create user without System Manager
-        test_user_email = "test_nomember@example.com"
-        if not frappe.db.exists("User", test_user_email):
-            user = frappe.get_doc({
-                "doctype": "User",
-                "email": test_user_email,
-                "first_name": "No",
-                "last_name": "Member",
-                "enabled": 1,
-                "user_type": "System User",
-                "roles": [{"role": "Guest"}]
-            })
-            user.flags.ignore_permissions = True
-            user.insert(ignore_permissions=True)
+        test_user_email = self._create_restricted_user("test_nomember@example.com", "No", "Member")
         
         try:
             frappe.set_user(test_user_email)
@@ -471,19 +463,7 @@ class TestPermissionAPI(FrappeTestCase):
     def test_get_permission_audit_log_non_system_manager(self):
         """Test that non-System Manager cannot access audit log."""
         # Create user without System Manager
-        test_user_email = "test_noaudit@example.com"
-        if not frappe.db.exists("User", test_user_email):
-            user = frappe.get_doc({
-                "doctype": "User",
-                "email": test_user_email,
-                "first_name": "No",
-                "last_name": "Audit",
-                "enabled": 1,
-                "user_type": "System User",
-                "roles": [{"role": "Guest"}]
-            })
-            user.flags.ignore_permissions = True
-            user.insert(ignore_permissions=True)
+        test_user_email = self._create_restricted_user("test_noaudit@example.com", "No", "Audit")
         
         try:
             frappe.set_user(test_user_email)

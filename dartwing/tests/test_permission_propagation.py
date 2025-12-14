@@ -118,7 +118,6 @@ class TestPermissionPropagation(FrappeTestCase):
     def _create_test_organization(self, name_suffix, org_type="Family", with_concrete=True):
         """Helper to create a test Organization with optional concrete type."""
         # Create concrete type first if requested
-        concrete_name = None
         if with_concrete:
             concrete = frappe.get_doc({
                 "doctype": org_type,
