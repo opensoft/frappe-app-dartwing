@@ -13,8 +13,6 @@ from frappe.tests import IntegrationTestCase
 from unittest.mock import patch, MagicMock
 
 from dartwing.permissions.helpers import (
-    create_user_permissions,
-    remove_user_permissions,
     _cleanup_orphaned_permissions,
     ORGANIZATION_DOCTYPES,
 )
