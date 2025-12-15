@@ -5,9 +5,17 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from dartwing.dartwing_core.mixins import OrganizationMixin
 
-class Nonprofit(Document):
-	"""Nonprofit document for managing charitable organizations."""
+
+class Nonprofit(Document, OrganizationMixin):
+	"""
+	Nonprofit DocType - represents charitable and tax-exempt organizations.
+
+	Inherits from OrganizationMixin to provide access to parent Organization
+	properties (org_name, logo, org_status) and methods (get_organization_doc,
+	update_org_name).
+	"""
 
 	def validate(self):
 		"""Validate required fields and defaults."""

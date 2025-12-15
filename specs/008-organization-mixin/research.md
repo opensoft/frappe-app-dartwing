@@ -13,22 +13,26 @@ This feature enhances an existing implementation. The OrganizationMixin already 
 
 **Question**: What is the most efficient way to update a single field on a related document in Frappe?
 
-**Decision**: Use `frappe.db.set_value()` for single-field updates
+**Decision**: Use `frappe.get_doc().save()` for permission-enforced updates
 
 **Rationale**:
-- `frappe.db.set_value()` performs a direct SQL UPDATE without loading the full document
-- Significantly more efficient than `get_doc()` → modify → `save()`
-- Automatically triggers `update_modified` timestamp update
-- Respects Frappe permission system when called without `update_modified=False`
+- `frappe.db.set_value()` performs a direct SQL UPDATE but does NOT enforce permissions
+- For multi-tenant security (Organization is the permission boundary per Architecture Section 8.2.1),
+  we must explicitly check permissions before updating
+- `get_doc()` + `check_permission()` + `save()` ensures proper access control and audit logging
+- Trade-off: Less efficient but necessary for security
 
 **Alternatives Considered**:
-1. `frappe.get_doc().save()` - Rejected: Loads entire document, triggers all hooks unnecessarily
-2. Raw SQL - Rejected: Bypasses Frappe's permission system and audit trail
-3. `doc.db_set()` - Rejected: Only available on document instances, not for related documents
+1. `frappe.db.set_value()` - Rejected: Bypasses Frappe's permission system (security vulnerability)
+2. Raw SQL - Rejected: Bypasses permissions and audit trail
+3. `doc.db_set()` - Rejected: Also bypasses permissions
 
 **Implementation Pattern**:
 ```python
-frappe.db.set_value("Organization", self.organization, "org_name", new_name)
+org = frappe.get_doc("Organization", self.organization)
+org.check_permission("write")
+org.org_name = new_name
+org.save()
 ```
 
 ---
@@ -129,19 +133,29 @@ def update_org_name(self, new_name: str):
 
 **Question**: Should the mixin check permissions before updating?
 
-**Decision**: No, let Frappe's permission system handle it
+**Decision**: Yes, explicitly check write permission before updating
 
 **Rationale**:
-- Per clarification: "Let the underlying permission system raise its standard permission error"
-- `frappe.db.set_value()` respects permissions by default
-- Adding custom permission checks would duplicate Frappe's logic
-- Keeps mixin simple and consistent with Frappe patterns
+- **CORRECTION**: `frappe.db.set_value()` does NOT enforce permissions - it performs direct SQL
+- Per PRD REQ-ORG-002: "Complete data isolation between Organizations"
+- Per Architecture Section 8.2.1: "Organization is the permission boundary"
+- Must use `doc.check_permission("write")` before modifying Organization data
+- `doc.save()` also runs document hooks and audit logging
 
 **Implementation Pattern**:
 ```python
-# No permission check needed - Frappe handles it
-frappe.db.set_value("Organization", self.organization, "org_name", new_name)
+org = frappe.get_doc("Organization", self.organization)
+org.check_permission("write")  # Raises PermissionError if denied
+org.org_name = new_name
+org.save()  # Runs validations, hooks, audit logging
 ```
+
+**Security Note**: Be cautious when using `frappe.db.set_value()` for cross-document
+updates in multi-tenant contexts. It bypasses Frappe's permission system, validation
+hooks, and audit logging. Consider the security implications - use `frappe.get_doc()` +
+`doc.save()` instead when permission enforcement, validations, or audit trails are required.
+Valid use cases for `frappe.db.set_value()` exist in internal/system operations where
+permissions are pre-verified.
 
 ---
 
@@ -151,9 +165,9 @@ All technical context items resolved. No NEEDS CLARIFICATION markers remain.
 
 | Item | Resolution | Source |
 |------|------------|--------|
-| Update method pattern | `frappe.db.set_value()` | Frappe best practices |
+| Update method pattern | `get_doc()` + `check_permission()` + `save()` | Security requirement (PRD REQ-ORG-002) |
 | Validation approach | `frappe.throw()` | Existing codebase patterns |
 | Inheritance order | Document first | Working Company implementation |
 | Cache invalidation | Call `_clear_organization_cache()` | Existing mixin pattern |
 | Missing org error | `frappe.throw()` | Spec clarification |
-| Permission handling | Delegate to Frappe | Spec clarification |
+| Permission handling | Explicit `check_permission("write")` | Architecture Section 8.2.1 |
