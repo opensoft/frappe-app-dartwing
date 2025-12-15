@@ -8,12 +8,15 @@ import frappe
 from frappe.utils import add_to_date, now_datetime
 
 
-def cleanup_old_jobs(retention_days: int = 30):
+def cleanup_old_jobs(retention_days: int = 30, batch_size: int = 100):
     """
     Delete completed/failed jobs older than retention period.
 
+    Uses batched commits to prevent long-running transactions and lock timeouts.
+
     Args:
         retention_days: Number of days to retain jobs (default: 30)
+        batch_size: Number of deletions per commit (default: 100)
 
     Returns:
         Count of jobs deleted
@@ -32,17 +35,22 @@ def cleanup_old_jobs(retention_days: int = 30):
     )
 
     deleted_count = 0
-    for job_id in jobs:
+    for i, job_id in enumerate(jobs):
         try:
             frappe.delete_doc("Background Job", job_id, force=True, delete_permanently=True)
             deleted_count += 1
+
+            # Commit every batch_size deletions to prevent long transactions
+            if (i + 1) % batch_size == 0:
+                frappe.db.commit()
         except Exception as e:
             frappe.log_error(
                 f"Failed to delete old job {job_id}: {e}",
                 "Background Job Cleanup",
             )
 
-    if deleted_count:
+    # Final commit for remaining deletions
+    if deleted_count > 0 and deleted_count % batch_size != 0:
         frappe.db.commit()
 
     return deleted_count

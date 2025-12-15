@@ -41,6 +41,11 @@ class JobContext:
         """
         Update job progress and broadcast to connected clients.
 
+        Note: Progress updates are buffered and use update_modified=False to avoid
+        unnecessary database overhead. Progress data is eventually consistent and
+        may not survive job crashes. For critical state that must persist across
+        failures, use checkpoints stored in input_parameters or external storage.
+
         Args:
             percent: Progress percentage (0-100)
             message: Optional status message describing current step

@@ -6,6 +6,7 @@
 	"engine": "InnoDB",
 	"field_order": [
 		"background_job",
+		"organization",
 		"from_status",
 		"to_status",
 		"column_break_1",
@@ -24,6 +25,16 @@
 			"label": "Background Job",
 			"options": "Background Job",
 			"reqd": 1
+		},
+		{
+			"fieldname": "organization",
+			"fieldtype": "Link",
+			"in_standard_filter": 1,
+			"label": "Organization",
+			"options": "Organization",
+			"fetch_from": "background_job.organization",
+			"read_only": 1,
+			"description": "Auto-populated from Background Job for direct filtering"
 		},
 		{
 			"fieldname": "from_status",

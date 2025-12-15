@@ -493,10 +493,12 @@ def _enqueue_job(job, is_retry: bool = False):
     queue = queue_map.get(job.priority, "default")
 
     # Enqueue using Frappe's background jobs
+    # Use enqueue_after_commit to ensure job record is persisted before RQ picks it up
     frappe.enqueue(
         "dartwing.dartwing_core.background_jobs.executor.execute_job",
         job_id=job.name,
         queue=queue,
         timeout=job.timeout_seconds or 300,
         is_async=True,
+        enqueue_after_commit=True,
     )
