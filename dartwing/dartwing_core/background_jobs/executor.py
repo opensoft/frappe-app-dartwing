@@ -5,11 +5,11 @@ Handles job execution with timeout handling, checkpoint support, and error
 classification.
 """
 
-import signal
 import frappe
 from frappe import _
 from frappe.utils import now_datetime
 from typing import Any, Callable
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from dartwing.dartwing_core.background_jobs.progress import JobContext, publish_job_status_changed
 from dartwing.dartwing_core.background_jobs.errors import (
@@ -147,7 +147,10 @@ def _get_handler(job_type: str) -> Callable:
 
 def _execute_with_timeout(handler: Callable, context: JobContext, timeout_seconds: int) -> Any:
     """
-    Execute handler with timeout.
+    Execute handler with portable thread-based timeout.
+
+    Uses ThreadPoolExecutor for cross-platform compatibility (works on Windows
+    and in non-main threads, unlike signal.SIGALRM).
 
     Args:
         handler: Job handler function
@@ -160,19 +163,12 @@ def _execute_with_timeout(handler: Callable, context: JobContext, timeout_second
     Raises:
         JobTimeoutError: If execution exceeds timeout
     """
-
-    def timeout_handler(signum, frame):
-        raise JobTimeoutError(f"Job exceeded {timeout_seconds}s timeout")
-
-    # Set up signal handler (only works in main thread)
-    old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(timeout_seconds)
-
-    try:
-        return handler(context)
-    finally:
-        signal.alarm(0)  # Cancel alarm
-        signal.signal(signal.SIGALRM, old_handler)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(handler, context)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except FuturesTimeoutError:
+            raise JobTimeoutError(f"Job exceeded {timeout_seconds}s timeout")
 
 
 def _handle_success(job, result: Any):

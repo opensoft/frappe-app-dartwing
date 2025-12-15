@@ -24,11 +24,17 @@ def get_metrics(organization: str = None) -> dict:
         filters["organization"] = organization
     elif "System Manager" not in frappe.get_roles():
         # Non-admin must have organization filter
-        orgs = frappe.get_all(
-            "Org Member",
-            filters={"user": frappe.session.user, "status": "Active"},
-            pluck="organization",
-        )
+        # Find Person linked to current user, then get their org memberships
+        person = frappe.db.get_value("Person", {"frappe_user": frappe.session.user}, "name")
+        if person:
+            orgs = frappe.get_all(
+                "Org Member",
+                filters={"person": person, "status": "Active"},
+                pluck="organization",
+            )
+        else:
+            orgs = []
+
         if orgs:
             filters["organization"] = ("in", orgs)
         else:
@@ -55,23 +61,26 @@ def _empty_metrics() -> dict:
 
 
 def _get_job_count_by_status(filters: dict) -> dict:
-    """Get count of jobs by status."""
-    org_filter = ""
+    """Get count of jobs by status with parameterized queries."""
+    conditions = ["1=1"]
+    values = {}
+
     if filters.get("organization"):
         if isinstance(filters["organization"], tuple):
-            orgs = filters["organization"][1]
-            org_list = ", ".join([f"'{o}'" for o in orgs])
-            org_filter = f"AND organization IN ({org_list})"
+            conditions.append("organization IN %(orgs)s")
+            values["orgs"] = filters["organization"][1]
         else:
-            org_filter = f"AND organization = '{filters['organization']}'"
+            conditions.append("organization = %(org)s")
+            values["org"] = filters["organization"]
 
     result = frappe.db.sql(
         f"""
         SELECT status, COUNT(*) as count
         FROM `tabBackground Job`
-        WHERE 1=1 {org_filter}
+        WHERE {" AND ".join(conditions)}
         GROUP BY status
         """,
+        values,
         as_dict=True,
     )
 
@@ -79,24 +88,26 @@ def _get_job_count_by_status(filters: dict) -> dict:
 
 
 def _get_queue_depth_by_priority(filters: dict) -> dict:
-    """Get count of queued jobs by priority."""
-    org_filter = ""
+    """Get count of queued jobs by priority with parameterized queries."""
+    conditions = ["status IN ('Pending', 'Queued')"]
+    values = {}
+
     if filters.get("organization"):
         if isinstance(filters["organization"], tuple):
-            orgs = filters["organization"][1]
-            org_list = ", ".join([f"'{o}'" for o in orgs])
-            org_filter = f"AND organization IN ({org_list})"
+            conditions.append("organization IN %(orgs)s")
+            values["orgs"] = filters["organization"][1]
         else:
-            org_filter = f"AND organization = '{filters['organization']}'"
+            conditions.append("organization = %(org)s")
+            values["org"] = filters["organization"]
 
     result = frappe.db.sql(
         f"""
         SELECT priority, COUNT(*) as count
         FROM `tabBackground Job`
-        WHERE status IN ('Pending', 'Queued')
-        {org_filter}
+        WHERE {" AND ".join(conditions)}
         GROUP BY priority
         """,
+        values,
         as_dict=True,
     )
 
@@ -105,16 +116,19 @@ def _get_queue_depth_by_priority(filters: dict) -> dict:
 
 def _get_processing_time(filters: dict) -> dict:
     """Get average and p95 processing time for completed jobs in last hour."""
-    org_filter = ""
+    conditions = ["status = 'Completed'", "completed_at >= %(one_hour_ago)s", "started_at IS NOT NULL"]
+    values = {}
+
     if filters.get("organization"):
         if isinstance(filters["organization"], tuple):
-            orgs = filters["organization"][1]
-            org_list = ", ".join([f"'{o}'" for o in orgs])
-            org_filter = f"AND organization IN ({org_list})"
+            conditions.append("organization IN %(orgs)s")
+            values["orgs"] = filters["organization"][1]
         else:
-            org_filter = f"AND organization = '{filters['organization']}'"
+            conditions.append("organization = %(org)s")
+            values["org"] = filters["organization"]
 
     one_hour_ago = add_to_date(now_datetime(), hours=-1)
+    values["one_hour_ago"] = one_hour_ago
 
     result = frappe.db.sql(
         f"""
@@ -122,12 +136,9 @@ def _get_processing_time(filters: dict) -> dict:
             AVG(TIMESTAMPDIFF(SECOND, started_at, completed_at)) as avg_seconds,
             COUNT(*) as total_count
         FROM `tabBackground Job`
-        WHERE status = 'Completed'
-        AND completed_at >= %s
-        AND started_at IS NOT NULL
-        {org_filter}
+        WHERE {" AND ".join(conditions)}
         """,
-        (one_hour_ago,),
+        values,
         as_dict=True,
     )
 
@@ -138,13 +149,10 @@ def _get_processing_time(filters: dict) -> dict:
         f"""
         SELECT TIMESTAMPDIFF(SECOND, started_at, completed_at) as duration
         FROM `tabBackground Job`
-        WHERE status = 'Completed'
-        AND completed_at >= %s
-        AND started_at IS NOT NULL
-        {org_filter}
+        WHERE {" AND ".join(conditions)}
         ORDER BY duration
         """,
-        (one_hour_ago,),
+        values,
         as_list=True,
     )
 
@@ -163,16 +171,19 @@ def _get_processing_time(filters: dict) -> dict:
 
 def _get_failure_rate_by_type(filters: dict) -> dict:
     """Get failure rate by job type for jobs in last 24 hours."""
-    org_filter = ""
+    conditions = ["created_at >= %(one_day_ago)s"]
+    values = {}
+
     if filters.get("organization"):
         if isinstance(filters["organization"], tuple):
-            orgs = filters["organization"][1]
-            org_list = ", ".join([f"'{o}'" for o in orgs])
-            org_filter = f"AND organization IN ({org_list})"
+            conditions.append("organization IN %(orgs)s")
+            values["orgs"] = filters["organization"][1]
         else:
-            org_filter = f"AND organization = '{filters['organization']}'"
+            conditions.append("organization = %(org)s")
+            values["org"] = filters["organization"]
 
     one_day_ago = add_to_date(now_datetime(), hours=-24)
+    values["one_day_ago"] = one_day_ago
 
     result = frappe.db.sql(
         f"""
@@ -181,12 +192,11 @@ def _get_failure_rate_by_type(filters: dict) -> dict:
             COUNT(*) as total,
             SUM(CASE WHEN status IN ('Failed', 'Dead Letter', 'Timed Out') THEN 1 ELSE 0 END) as failed
         FROM `tabBackground Job`
-        WHERE created_at >= %s
-        {org_filter}
+        WHERE {" AND ".join(conditions)}
         GROUP BY job_type
         HAVING total > 0
         """,
-        (one_day_ago,),
+        values,
         as_dict=True,
     )
 

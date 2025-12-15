@@ -51,8 +51,9 @@ def submit_job(
     # Generate hash for duplicate detection
     job_hash = generate_job_hash(job_type, organization, parameters or {})
 
-    # Check for duplicates
-    existing = _check_duplicate(job_hash, job_type_doc.deduplication_window or 300)
+    # Atomic duplicate check with row locking to prevent race conditions
+    # Lock any existing non-terminal job with same hash during the check
+    existing = _check_duplicate_with_lock(job_hash, job_type_doc.deduplication_window or 300)
     if existing:
         frappe.throw(
             _(
@@ -67,14 +68,31 @@ def submit_job(
     job.organization = organization
     job.owner_user = frappe.session.user
     job.status = "Pending"
-    job.priority = priority or job_type_doc.default_priority or "Normal"
+    job.priority = priority if priority is not None else (job_type_doc.default_priority or "Normal")
     job.input_parameters = json.dumps(parameters) if parameters else None
     job.job_hash = job_hash
-    job.timeout_seconds = job_type_doc.default_timeout or 300
-    job.max_retries = job_type_doc.max_retries or 5
+    job.timeout_seconds = job_type_doc.default_timeout if job_type_doc.default_timeout is not None else 300
+    job.max_retries = job_type_doc.max_retries if job_type_doc.max_retries is not None else 5
     job.depends_on = depends_on
     job.created_at = now_datetime()
-    job.insert(ignore_permissions=True)
+
+    try:
+        job.insert(ignore_permissions=True)
+    except frappe.DuplicateEntryError:
+        # Handle race condition: another request inserted between our check and insert
+        existing = frappe.db.get_value(
+            "Background Job",
+            {"job_hash": job_hash, "status": ("not in", ["Completed", "Dead Letter", "Canceled"])},
+            ["name", "status"],
+            as_dict=True,
+        )
+        if existing:
+            frappe.throw(
+                _("Duplicate job detected. Existing job: {0} (status: {1})").format(existing.name, existing.status),
+                exc=frappe.DuplicateEntryError,
+            )
+        # If no existing found (edge case), re-raise original error
+        raise
 
     # Enqueue the job
     _enqueue_job(job)
@@ -118,6 +136,9 @@ def cancel_job(job_id: str) -> "frappe.Document":
     """
     Cancel a pending or running job.
 
+    Uses row-level locking to prevent race conditions where job status
+    changes between the check and the update.
+
     Args:
         job_id: Job to cancel
 
@@ -128,6 +149,13 @@ def cancel_job(job_id: str) -> "frappe.Document":
         frappe.ValidationError: Cannot cancel job in current status
         frappe.PermissionError: User lacks permission to cancel
     """
+    # Lock the row to prevent concurrent modification (race condition fix)
+    # This ensures the job status doesn't change between our check and update
+    frappe.db.sql(
+        "SELECT name FROM `tabBackground Job` WHERE name = %s FOR UPDATE",
+        (job_id,)
+    )
+
     job = frappe.get_doc("Background Job", job_id)
 
     # Check permission - owner or admin can cancel
@@ -225,12 +253,17 @@ def list_jobs(
     # Non-admin users must filter by organization
     if not frappe.has_permission("Background Job", "read"):
         if not organization:
-            # Get user's organizations
-            orgs = frappe.get_all(
-                "Org Member",
-                filters={"user": frappe.session.user, "status": "Active"},
-                pluck="organization",
-            )
+            # Get user's organizations via Person -> Org Member chain
+            person = frappe.db.get_value("Person", {"frappe_user": frappe.session.user}, "name")
+            if person:
+                orgs = frappe.get_all(
+                    "Org Member",
+                    filters={"person": person, "status": "Active"},
+                    pluck="organization",
+                )
+            else:
+                orgs = []
+
             if orgs:
                 filters["organization"] = ("in", orgs)
             else:
@@ -329,15 +362,23 @@ def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
 
 
 def _validate_organization_access(organization: str):
-    """Validate user has access to organization."""
+    """Validate user has access to organization via Person -> Org Member."""
     # System Manager can access all
     if "System Manager" in frappe.get_roles():
         return
 
-    # Check if user is member of organization
+    # Find Person linked to current user
+    person = frappe.db.get_value("Person", {"frappe_user": frappe.session.user}, "name")
+    if not person:
+        frappe.throw(
+            _("You don't have access to organization {0}").format(organization),
+            frappe.PermissionError,
+        )
+
+    # Check if person is member of organization
     is_member = frappe.db.exists(
         "Org Member",
-        {"organization": organization, "user": frappe.session.user, "status": "Active"},
+        {"organization": organization, "person": person, "status": "Active"},
     )
     if not is_member:
         frappe.throw(
@@ -374,7 +415,7 @@ def _get_job_type(job_type: str) -> "frappe.Document":
 
 
 def _check_duplicate(job_hash: str, window_seconds: int) -> Optional["frappe.Document"]:
-    """Check for existing duplicate job within window."""
+    """Check for existing duplicate job within window (non-locking version)."""
     cutoff = add_to_date(now_datetime(), seconds=-window_seconds)
 
     existing = frappe.db.get_value(
@@ -389,6 +430,39 @@ def _check_duplicate(job_hash: str, window_seconds: int) -> Optional["frappe.Doc
     )
 
     return existing
+
+
+def _check_duplicate_with_lock(job_hash: str, window_seconds: int) -> Optional[dict]:
+    """
+    Check for existing duplicate job within window with row locking.
+
+    Uses SELECT ... FOR UPDATE to prevent race conditions where two concurrent
+    requests both pass the duplicate check before either inserts.
+
+    Args:
+        job_hash: The job hash to check
+        window_seconds: Deduplication window in seconds
+
+    Returns:
+        Dict with name and status if duplicate found, None otherwise
+    """
+    cutoff = add_to_date(now_datetime(), seconds=-window_seconds)
+
+    # Use FOR UPDATE to lock any matching rows during this transaction
+    result = frappe.db.sql(
+        """
+        SELECT name, status
+        FROM `tabBackground Job`
+        WHERE job_hash = %(job_hash)s
+        AND creation >= %(cutoff)s
+        AND status NOT IN ('Completed', 'Dead Letter', 'Canceled')
+        FOR UPDATE
+        """,
+        {"job_hash": job_hash, "cutoff": cutoff},
+        as_dict=True,
+    )
+
+    return result[0] if result else None
 
 
 def _enqueue_job(job, is_retry: bool = False):

@@ -285,5 +285,19 @@
 	"sort_order": "DESC",
 	"states": [],
 	"track_changes": 1,
-	"user_permission_dependant_doctype": "Organization"
+	"user_permission_dependant_doctype": "Organization",
+	"indexes": [
+		{
+			"fields": ["job_hash"]
+		},
+		{
+			"fields": ["status", "next_retry_at"]
+		},
+		{
+			"fields": ["status", "modified"]
+		},
+		{
+			"fields": ["organization", "status"]
+		}
+	]
 }
