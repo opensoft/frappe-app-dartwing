@@ -1,0 +1,196 @@
+"""
+Metrics for Background Job Engine.
+
+Provides operational metrics for monitoring job queue health.
+"""
+
+import frappe
+from frappe.utils import now_datetime, add_to_date
+
+
+def get_metrics(organization: str = None) -> dict:
+    """
+    Get operational metrics for job monitoring.
+
+    Args:
+        organization: Filter by organization (admin sees all if None)
+
+    Returns:
+        Dict with job_count_by_status, queue_depth_by_priority,
+        processing_time, failure_rate_by_type
+    """
+    filters = {}
+    if organization:
+        filters["organization"] = organization
+    elif "System Manager" not in frappe.get_roles():
+        # Non-admin must have organization filter
+        orgs = frappe.get_all(
+            "Org Member",
+            filters={"user": frappe.session.user, "status": "Active"},
+            pluck="organization",
+        )
+        if orgs:
+            filters["organization"] = ("in", orgs)
+        else:
+            return _empty_metrics()
+
+    return {
+        "job_count_by_status": _get_job_count_by_status(filters),
+        "queue_depth_by_priority": _get_queue_depth_by_priority(filters),
+        "processing_time": _get_processing_time(filters),
+        "failure_rate_by_type": _get_failure_rate_by_type(filters),
+        "timestamp": str(now_datetime()),
+    }
+
+
+def _empty_metrics() -> dict:
+    """Return empty metrics structure."""
+    return {
+        "job_count_by_status": {},
+        "queue_depth_by_priority": {},
+        "processing_time": {"average_seconds": 0, "p95_seconds": 0},
+        "failure_rate_by_type": {},
+        "timestamp": str(now_datetime()),
+    }
+
+
+def _get_job_count_by_status(filters: dict) -> dict:
+    """Get count of jobs by status."""
+    org_filter = ""
+    if filters.get("organization"):
+        if isinstance(filters["organization"], tuple):
+            orgs = filters["organization"][1]
+            org_list = ", ".join([f"'{o}'" for o in orgs])
+            org_filter = f"AND organization IN ({org_list})"
+        else:
+            org_filter = f"AND organization = '{filters['organization']}'"
+
+    result = frappe.db.sql(
+        f"""
+        SELECT status, COUNT(*) as count
+        FROM `tabBackground Job`
+        WHERE 1=1 {org_filter}
+        GROUP BY status
+        """,
+        as_dict=True,
+    )
+
+    return {row.status: row.count for row in result}
+
+
+def _get_queue_depth_by_priority(filters: dict) -> dict:
+    """Get count of queued jobs by priority."""
+    org_filter = ""
+    if filters.get("organization"):
+        if isinstance(filters["organization"], tuple):
+            orgs = filters["organization"][1]
+            org_list = ", ".join([f"'{o}'" for o in orgs])
+            org_filter = f"AND organization IN ({org_list})"
+        else:
+            org_filter = f"AND organization = '{filters['organization']}'"
+
+    result = frappe.db.sql(
+        f"""
+        SELECT priority, COUNT(*) as count
+        FROM `tabBackground Job`
+        WHERE status IN ('Pending', 'Queued')
+        {org_filter}
+        GROUP BY priority
+        """,
+        as_dict=True,
+    )
+
+    return {row.priority: row.count for row in result}
+
+
+def _get_processing_time(filters: dict) -> dict:
+    """Get average and p95 processing time for completed jobs in last hour."""
+    org_filter = ""
+    if filters.get("organization"):
+        if isinstance(filters["organization"], tuple):
+            orgs = filters["organization"][1]
+            org_list = ", ".join([f"'{o}'" for o in orgs])
+            org_filter = f"AND organization IN ({org_list})"
+        else:
+            org_filter = f"AND organization = '{filters['organization']}'"
+
+    one_hour_ago = add_to_date(now_datetime(), hours=-1)
+
+    result = frappe.db.sql(
+        f"""
+        SELECT
+            AVG(TIMESTAMPDIFF(SECOND, started_at, completed_at)) as avg_seconds,
+            COUNT(*) as total_count
+        FROM `tabBackground Job`
+        WHERE status = 'Completed'
+        AND completed_at >= %s
+        AND started_at IS NOT NULL
+        {org_filter}
+        """,
+        (one_hour_ago,),
+        as_dict=True,
+    )
+
+    avg_seconds = result[0].avg_seconds if result and result[0].avg_seconds else 0
+
+    # Get p95 using a percentile approach
+    p95_result = frappe.db.sql(
+        f"""
+        SELECT TIMESTAMPDIFF(SECOND, started_at, completed_at) as duration
+        FROM `tabBackground Job`
+        WHERE status = 'Completed'
+        AND completed_at >= %s
+        AND started_at IS NOT NULL
+        {org_filter}
+        ORDER BY duration
+        """,
+        (one_hour_ago,),
+        as_list=True,
+    )
+
+    p95_seconds = 0
+    if p95_result:
+        durations = [r[0] for r in p95_result if r[0] is not None]
+        if durations:
+            p95_index = int(len(durations) * 0.95)
+            p95_seconds = durations[min(p95_index, len(durations) - 1)]
+
+    return {
+        "average_seconds": round(avg_seconds, 2) if avg_seconds else 0,
+        "p95_seconds": round(p95_seconds, 2) if p95_seconds else 0,
+    }
+
+
+def _get_failure_rate_by_type(filters: dict) -> dict:
+    """Get failure rate by job type for jobs in last 24 hours."""
+    org_filter = ""
+    if filters.get("organization"):
+        if isinstance(filters["organization"], tuple):
+            orgs = filters["organization"][1]
+            org_list = ", ".join([f"'{o}'" for o in orgs])
+            org_filter = f"AND organization IN ({org_list})"
+        else:
+            org_filter = f"AND organization = '{filters['organization']}'"
+
+    one_day_ago = add_to_date(now_datetime(), hours=-24)
+
+    result = frappe.db.sql(
+        f"""
+        SELECT
+            job_type,
+            COUNT(*) as total,
+            SUM(CASE WHEN status IN ('Failed', 'Dead Letter', 'Timed Out') THEN 1 ELSE 0 END) as failed
+        FROM `tabBackground Job`
+        WHERE created_at >= %s
+        {org_filter}
+        GROUP BY job_type
+        HAVING total > 0
+        """,
+        (one_day_ago,),
+        as_dict=True,
+    )
+
+    return {
+        row.job_type: round(row.failed / row.total, 4) if row.total else 0
+        for row in result
+    }

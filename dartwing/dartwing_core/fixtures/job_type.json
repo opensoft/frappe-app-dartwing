@@ -1,0 +1,38 @@
+[
+	{
+		"doctype": "Job Type",
+		"type_name": "sample_job",
+		"display_name": "Sample Background Job",
+		"description": "Sample job handler for testing the background job engine. Accepts duration, fail_type, and fail_at_progress parameters.",
+		"handler_method": "dartwing.dartwing_core.background_jobs.samples.execute_sample_job",
+		"default_timeout": 60,
+		"default_priority": "Normal",
+		"max_retries": 3,
+		"deduplication_window": 300,
+		"is_enabled": 1
+	},
+	{
+		"doctype": "Job Type",
+		"type_name": "echo_job",
+		"display_name": "Echo Job",
+		"description": "Simple echo job that immediately returns input parameters. Useful for quick testing.",
+		"handler_method": "dartwing.dartwing_core.background_jobs.samples.execute_echo_job",
+		"default_timeout": 30,
+		"default_priority": "Normal",
+		"max_retries": 1,
+		"deduplication_window": 60,
+		"is_enabled": 1
+	},
+	{
+		"doctype": "Job Type",
+		"type_name": "long_running_job",
+		"display_name": "Long Running Job",
+		"description": "Long-running job for testing timeout handling. Accepts duration parameter.",
+		"handler_method": "dartwing.dartwing_core.background_jobs.samples.execute_long_running_job",
+		"default_timeout": 1800,
+		"default_priority": "Low",
+		"max_retries": 2,
+		"deduplication_window": 600,
+		"is_enabled": 1
+	}
+]

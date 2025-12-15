@@ -1,0 +1,102 @@
+{
+	"actions": [],
+	"autoname": "hash",
+	"creation": "2025-12-15 00:00:00.000000",
+	"doctype": "DocType",
+	"engine": "InnoDB",
+	"field_order": [
+		"background_job",
+		"from_status",
+		"to_status",
+		"column_break_1",
+		"timestamp",
+		"actor",
+		"details_section",
+		"message",
+		"retry_attempt"
+	],
+	"fields": [
+		{
+			"fieldname": "background_job",
+			"fieldtype": "Link",
+			"in_list_view": 1,
+			"in_standard_filter": 1,
+			"label": "Background Job",
+			"options": "Background Job",
+			"reqd": 1
+		},
+		{
+			"fieldname": "from_status",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "From Status",
+			"description": "Previous status (null for creation)"
+		},
+		{
+			"fieldname": "to_status",
+			"fieldtype": "Data",
+			"in_list_view": 1,
+			"label": "To Status",
+			"reqd": 1,
+			"description": "New status"
+		},
+		{
+			"fieldname": "column_break_1",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "timestamp",
+			"fieldtype": "Datetime",
+			"in_list_view": 1,
+			"label": "Timestamp",
+			"reqd": 1,
+			"description": "When transition occurred"
+		},
+		{
+			"fieldname": "actor",
+			"fieldtype": "Link",
+			"label": "Actor",
+			"options": "User",
+			"description": "Who triggered change (system if null)"
+		},
+		{
+			"fieldname": "details_section",
+			"fieldtype": "Section Break",
+			"label": "Details"
+		},
+		{
+			"fieldname": "message",
+			"fieldtype": "Text",
+			"label": "Message",
+			"description": "Additional context (error details)"
+		},
+		{
+			"fieldname": "retry_attempt",
+			"fieldtype": "Int",
+			"label": "Retry Attempt",
+			"description": "Which retry attempt (if retry)"
+		}
+	],
+	"index_web_pages_for_search": 0,
+	"links": [],
+	"modified": "2025-12-15 00:00:00.000000",
+	"modified_by": "Administrator",
+	"module": "Dartwing Core",
+	"name": "Job Execution Log",
+	"naming_rule": "Random",
+	"owner": "Administrator",
+	"permissions": [
+		{
+			"read": 1,
+			"role": "System Manager"
+		},
+		{
+			"read": 1,
+			"role": "Dartwing Admin"
+		}
+	],
+	"sort_field": "timestamp",
+	"sort_order": "DESC",
+	"states": [],
+	"track_changes": 0
+}

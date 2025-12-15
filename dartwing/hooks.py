@@ -159,6 +159,10 @@ fixtures = [
 	{
 		"doctype": "Role Template",
 		"filters": []
+	},
+	{
+		"doctype": "Job Type",
+		"filters": []
 	}
 ]
 
@@ -204,23 +208,18 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"dartwing_frappe.tasks.all"
-# 	],
-# 	"daily": [
-# 		"dartwing_frappe.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"dartwing_frappe.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"dartwing_frappe.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"dartwing_frappe.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"cron": {
+		# Process retry queue every minute
+		"* * * * *": [
+			"dartwing.dartwing_core.background_jobs.scheduler.process_retry_queue",
+			"dartwing.dartwing_core.background_jobs.scheduler.process_dependent_jobs",
+		],
+	},
+	"daily": [
+		"dartwing.dartwing_core.background_jobs.cleanup.daily_cleanup",
+	],
+}
 
 # Testing
 # -------
