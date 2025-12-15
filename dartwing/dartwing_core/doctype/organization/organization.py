@@ -254,8 +254,6 @@ class Organization(Document):
         7. Log success for audit trail
         8. On error: log and re-raise to trigger transaction rollback
         """
-    def create_concrete_type(self):
-        """Create the concrete type document (e.g., Family, Company) and link it back."""
         concrete_doctype = ORG_TYPE_MAP.get(self.org_type)
 
         if not concrete_doctype:
@@ -339,12 +337,6 @@ class Organization(Document):
     def _delete_concrete_type(self):
         """
         Delete the linked concrete type document (cascade delete).
-            frappe.log_error(f"Error creating concrete type {concrete_doctype}: {str(e)}")
-            frappe.throw(
-                _("Failed to create {0} record. Please try again or contact support.").format(
-                    concrete_doctype
-                )
-            )
 
         Implements FR-005, FR-006, FR-012, FR-013.
 
@@ -380,7 +372,7 @@ class Organization(Document):
                     f"Cascade deleted {self.linked_doctype} {self.linked_name} "
                     f"for Organization {self.name}"
                 )
-            except frappe.LinkExistsError:
+            except frappe.LinkExistsError as e:
                 # Re-raise with clearer message about link constraints
                 logger.error(
                     f"Cannot delete {self.linked_doctype} {self.linked_name}: "

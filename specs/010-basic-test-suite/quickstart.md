@@ -32,6 +32,22 @@ bench --site dartwing.local run-tests --app dartwing \
 # Permission propagation tests
 bench --site dartwing.local run-tests --app dartwing \
   --module dartwing.tests.test_permission_propagation
+
+# OrganizationMixin tests
+bench --site dartwing.local run-tests --app dartwing \
+  --module dartwing.dartwing_core.mixins.test_organization_mixin
+
+# Integration workflow tests
+bench --site dartwing.local run-tests --app dartwing \
+  --module dartwing.tests.integration.test_full_workflow
+
+# Role Template tests
+bench --site dartwing.local run-tests --app dartwing \
+  --module dartwing.dartwing_core.doctype.role_template.test_role_template
+
+# Permission API tests
+bench --site dartwing.local run-tests --app dartwing \
+  --module dartwing.tests.test_permission_api
 ```
 
 ### Pattern Matching
@@ -45,6 +61,12 @@ bench --site dartwing.local run-tests --app dartwing -k "permission"
 
 # All API tests
 bench --site dartwing.local run-tests --app dartwing -k "api"
+
+# All integration tests
+bench --site dartwing.local run-tests --app dartwing -k "workflow"
+
+# All mixin tests
+bench --site dartwing.local run-tests --app dartwing -k "mixin"
 ```
 
 ### Verbose Output

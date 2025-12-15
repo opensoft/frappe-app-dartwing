@@ -7,7 +7,9 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "company_name",
   "organization",
+  "status",
   "column_break_basic",
   "section_legal_information",
   "legal_name",
@@ -38,6 +40,15 @@
    "default": "CO-.#####"
   },
   {
+   "fieldname": "company_name",
+   "fieldtype": "Data",
+   "label": "Company Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Display name of the company (synced from Organization)"
+  },
+  {
    "fieldname": "organization",
    "fieldtype": "Link",
    "label": "Organization",
@@ -46,6 +57,16 @@
    "read_only": 1,
    "in_standard_filter": 1,
    "description": "Parent organization for multi-tenant isolation"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Company status (synced from Organization)"
   },
   {
    "fieldname": "column_break_basic",

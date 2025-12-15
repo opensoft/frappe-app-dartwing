@@ -25,6 +25,17 @@ class Family(Document):
 		if not self.created_date:
 			self.created_date = frappe.utils.today()
 
+	def after_insert(self):
+		"""Create Organization after Family is created (bidirectional linking)."""
+		# Skip if already linked or if created from Organization hooks
+		if self.organization or getattr(self.flags, "from_organization", False):
+			return
+
+		from dartwing.dartwing_core.doctype.organization.organization import create_organization_for_family
+		org_name = create_organization_for_family(self)
+		if org_name:
+			self.db_set("organization", org_name, update_modified=False)
+
 	def _generate_unique_slug(self):
 		"""Generate a unique slug from the family name."""
 		base = frappe.utils.slug(self.family_name)

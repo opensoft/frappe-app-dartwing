@@ -2,10 +2,10 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 
 
-class TestRoleTemplate(IntegrationTestCase):
+class TestRoleTemplate(FrappeTestCase):
     """Test cases for Role Template DocType."""
 
     # =========================================================================

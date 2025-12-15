@@ -2,11 +2,11 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 from frappe.utils import today
 
 
-class TestOrgMember(IntegrationTestCase):
+class TestOrgMember(FrappeTestCase):
     """Test cases for Org Member DocType."""
 
     @classmethod
