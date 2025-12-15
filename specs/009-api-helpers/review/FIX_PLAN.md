@@ -318,4 +318,150 @@ def get_org_members(
 
 ---
 
-**STATUS: P1 IMPLEMENTATION COMPLETE - READY FOR STAGING**
+**STATUS: P2 IMPLEMENTATION IN PROGRESS**
+
+---
+
+## 6. P2 Medium Priority Fix Plan
+
+### Task 7: P2-001 — Restrict Email Visibility to Supervisors
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-001 |
+| **Type** | Security |
+| **File** | `dartwing/dartwing_core/api/organization_api.py` |
+| **Problem** | `person_email` returned to any user with Organization read permission. Violates RBAC principle. |
+| **Fix** | Check if current user is supervisor for the organization; only include `person_email` in response if true. |
+| **Compliance** | Per `dartwing_core_arch.md` Section 8.2 RBAC model. |
+
+---
+
+### Task 8: P2-002 — Error Semantics (401/403/404)
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-002 |
+| **Status** | **ALREADY COMPLETED IN P1-006** |
+| **Note** | Guest check and existence check were added as part of P1-006 parameter validation. |
+
+---
+
+### Task 9: P2-003 — Add Database Index on Org Member.person
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-003 |
+| **Type** | Performance |
+| **File** | `dartwing/dartwing_core/doctype/org_member/org_member.json` |
+| **Problem** | No index on `person` field causes full table scans in `get_user_organizations()`. |
+| **Fix** | Add index configuration to DocType JSON. |
+| **Compliance** | Performance requirement per `dartwing_core_prd.md`. |
+
+---
+
+### Task 10: P2-004 — Optimize Pagination with Window Functions
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-004 |
+| **Type** | Performance |
+| **File** | `dartwing/dartwing_core/api/organization_api.py` |
+| **Problem** | Two separate queries for data and count in `get_org_members()`. |
+| **Fix** | Use `COUNT(*) OVER() as total_count` window function to get count in single query. |
+| **Compliance** | MariaDB 10.6+ supports window functions per arch spec. |
+
+---
+
+### Task 11: P2-005 — Add Rate Limiting to API Methods
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-005 |
+| **Type** | Security |
+| **Files** | `dartwing/dartwing_core/api/organization_api.py`, `organization.py` |
+| **Problem** | No rate limiting enables DoS attacks from authenticated users. |
+| **Fix** | Add `@frappe.rate_limit()` decorator to all whitelisted API methods. |
+| **Compliance** | Security requirement per `dartwing_core_arch.md` Section 10.3. |
+
+---
+
+### Task 12: P2-006 — Remove Duplicate Field-Setting Logic
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-006 |
+| **Type** | Maintainability |
+| **File** | `dartwing/dartwing_core/doctype/organization/organization.py` |
+| **Problem** | `ORG_FIELD_MAP` uses `company_name` but hardcoded logic uses `legal_name`. Duplicate field-setting. |
+| **Fix** | Update `ORG_FIELD_MAP` to use `legal_name` per architecture. Remove hardcoded block. |
+| **Compliance** | Per `dartwing_core_arch.md` Section 3.4 (Company Concrete JSON). |
+
+---
+
+### Task 13: P2-007 — Extract Magic Numbers
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-007 |
+| **Status** | **ALREADY COMPLETED IN P1-006** |
+| **Note** | `DEFAULT_PAGE_LIMIT` and `MAX_PAGE_LIMIT` constants were added as part of P1-006. |
+
+---
+
+### Task 14: P2-008 — Standardize Error Handling Pattern
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P2-008 |
+| **Type** | Code Quality |
+| **Files** | `dartwing/dartwing_core/doctype/organization/organization.py`, `organization_api.py` |
+| **Problem** | Mixed use of `frappe.throw()` and `raise`. |
+| **Fix** | Standardize on `frappe.throw(_("message"), frappe.ExceptionType)` for user-facing errors. |
+| **Compliance** | Frappe convention for API methods. |
+
+---
+
+## 7. P2 Execution Checklist
+
+- [x] Task 7: P2-001 (email visibility restriction)
+- [x] Task 8: P2-002 (error semantics - done in P1)
+- [x] Task 9: P2-003 (database index)
+- [x] Task 10: P2-004 (pagination optimization)
+- [x] Task 11: P2-005 (rate limiting)
+- [x] Task 12: P2-006 (duplicate field logic)
+- [x] Task 13: P2-007 (magic numbers - done in P1)
+- [x] Task 14: P2-008 (error handling pattern - already compliant)
+- [x] Run test suite to verify P2 fixes (13/13 passed)
+
+---
+
+## 8. P2 Implementation Results
+
+**Date Completed:** 2025-12-14
+**Tests Passed:** 13/13 (dartwing.tests.test_organization_api)
+
+### Completed P2 Tasks
+
+| Task | Issue | Status | Notes |
+|:-----|:------|:-------|:------|
+| Task 7 | P2-001 | ✅ DONE | Added supervisor check; emails only returned for supervisors |
+| Task 8 | P2-002 | ✅ DONE | Completed in P1-006 |
+| Task 9 | P2-003 | ✅ DONE | Added `search_index: 1` to person field in org_member.json |
+| Task 10 | P2-004 | ✅ DONE | Added `COUNT(*) OVER()` window function to eliminate second query |
+| Task 11 | P2-005 | ✅ DONE | Added `@rate_limit(limit=100, seconds=60)` to all 5 API methods |
+| Task 12 | P2-006 | ✅ DONE | Updated ORG_FIELD_MAP to use `legal_name`; removed hardcoded block |
+| Task 13 | P2-007 | ✅ DONE | Completed in P1-006 |
+| Task 14 | P2-008 | ✅ DONE | Already compliant - `frappe.throw()` for user errors, `raise` for internal |
+
+### Files Modified in P2
+
+| File | Changes |
+|:-----|:--------|
+| `dartwing/dartwing_core/api/organization_api.py` | P2-001 (supervisor check), P2-004 (window function), P2-005 (rate limit) |
+| `dartwing/dartwing_core/doctype/organization/organization.py` | P2-005 (rate limit), P2-006 (ORG_FIELD_MAP fix) |
+| `dartwing/dartwing_core/doctype/org_member/org_member.json` | P2-003 (search_index) |
+
+---
+
+**STATUS: P2 IMPLEMENTATION COMPLETE**

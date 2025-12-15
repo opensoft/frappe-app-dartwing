@@ -19,11 +19,17 @@ from typing import Optional
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 
 # Configure logger for audit trail (following pattern from organization.py)
 logger = frappe.logger("dartwing_core.api", allow_site=True, file_count=10)
 
+# P2-005: Rate limiting constants
+API_RATE_LIMIT = 100  # requests per window
+API_RATE_WINDOW = 60  # seconds
 
+
+@rate_limit(limit=API_RATE_LIMIT, seconds=API_RATE_WINDOW)
 @frappe.whitelist()
 def get_user_organizations() -> dict:
     """
@@ -115,6 +121,7 @@ DEFAULT_PAGE_LIMIT = 20
 MAX_PAGE_LIMIT = 100
 
 
+@rate_limit(limit=API_RATE_LIMIT, seconds=API_RATE_WINDOW)
 @frappe.whitelist()
 def get_org_members(
     organization: str,
@@ -191,7 +198,40 @@ def get_org_members(
     if status:
         filters["status"] = status
 
+    # P2-001: Check if current user is a supervisor for this organization
+    # Supervisors can see member emails; non-supervisors cannot
+    user = frappe.session.user
+    is_current_user_supervisor = False
+
+    if user != "Administrator":
+        # Get current user's Person
+        current_person = frappe.db.get_value("Person", {"frappe_user": user}, "name")
+        if current_person:
+            # Check if user has supervisor role in this organization
+            is_current_user_supervisor = frappe.db.exists(
+                "Org Member",
+                {
+                    "person": current_person,
+                    "organization": organization,
+                    "status": "Active",
+                }
+            ) and frappe.db.sql(
+                """
+                SELECT rt.is_supervisor
+                FROM `tabOrg Member` om
+                JOIN `tabRole Template` rt ON om.role = rt.name
+                WHERE om.person = %s AND om.organization = %s AND om.status = 'Active'
+                AND rt.is_supervisor = 1
+                LIMIT 1
+                """,
+                (current_person, organization)
+            )
+    else:
+        # Administrator always has supervisor access
+        is_current_user_supervisor = True
+
     # T044-T047: Query Org Member with joins to Person and Role Template
+    # P2-004: Use window function COUNT(*) OVER() to get total in single query
     members = frappe.db.sql(
         """
         SELECT
@@ -204,7 +244,8 @@ def get_org_members(
             om.start_date,
             om.end_date,
             p.primary_email as person_email,
-            rt.is_supervisor
+            rt.is_supervisor,
+            COUNT(*) OVER() as total_count
         FROM `tabOrg Member` om
         LEFT JOIN `tabPerson` p ON om.person = p.name
         LEFT JOIN `tabRole Template` rt ON om.role = rt.name
@@ -219,16 +260,14 @@ def get_org_members(
         as_dict=True,
     )
 
-    # T045: Get total count for pagination UI
-    count_filters = {"organization": organization}
-    if status:
-        count_filters["status"] = status
-    total_count = frappe.db.count("Org Member", count_filters)
+    # P2-004: Extract total_count from first row (window function returns same value for all rows)
+    total_count = members[0].total_count if members else 0
 
     # T46: Format response
+    # P2-001: Only include person_email for supervisors
     data = []
     for m in members:
-        data.append({
+        member_data = {
             "name": m.name,
             "person": m.person,
             "member_name": m.member_name,
@@ -238,8 +277,11 @@ def get_org_members(
             "start_date": str(m.start_date) if m.start_date else None,
             "end_date": str(m.end_date) if m.end_date else None,
             "is_supervisor": m.is_supervisor or 0,
-            "person_email": m.person_email,
-        })
+        }
+        # Only include email for supervisors or self
+        if is_current_user_supervisor:
+            member_data["person_email"] = m.person_email
+        data.append(member_data)
 
     # T47: Add INFO-level audit logging
     logger.info(

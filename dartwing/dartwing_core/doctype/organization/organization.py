@@ -7,9 +7,14 @@ from typing import Dict, Any, Optional
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.rate_limiter import rate_limit
 
 # Configure logger for audit trail
 logger = frappe.logger("dartwing_core.hooks", allow_site=True, file_count=10)
+
+# P2-005: Rate limiting constants
+API_RATE_LIMIT = 100  # requests per window
+API_RATE_WINDOW = 60  # seconds
 
 # DocType name constants (Issue #16)
 DOCTYPE_ORGANIZATION = "Organization"
@@ -30,9 +35,10 @@ ORG_TYPE_MAP = {
 
 # Mapping from org_type to field names for concrete type initialization
 # Each entry defines which fields to copy from Organization to the concrete type
+# P2-006: Updated Company to use `legal_name` per dartwing_core_arch.md Section 3.4
 ORG_FIELD_MAP = {
     "Family": {"name_field": "family_name", "status_field": "status"},
-    "Company": {"name_field": "company_name", "status_field": "status"},
+    "Company": {"name_field": "legal_name", "status_field": "status"},
     "Association": {"name_field": "association_name", "status_field": "status"},
     "Nonprofit": {"name_field": "nonprofit_name", "status_field": "status"},
 }
@@ -309,12 +315,7 @@ class Organization(Document):
             concrete.flags.ignore_permissions = True
             concrete.flags.from_organization = True  # Prevent recursion
 
-            # Set type-specific fields
-            if concrete_doctype == DOCTYPE_FAMILY:
-                concrete.family_name = self.org_name
-                concrete.status = self.status
-            elif concrete_doctype == DOCTYPE_COMPANY:
-                concrete.legal_name = self.org_name
+            # P2-006: Removed hardcoded field-setting block - ORG_FIELD_MAP handles all types
 
             concrete.insert()
 
@@ -400,6 +401,7 @@ class Organization(Document):
 # Whitelisted API Methods (FR-008, FR-009)
 # ============================================================================
 
+@rate_limit(limit=API_RATE_LIMIT, seconds=API_RATE_WINDOW)
 @frappe.whitelist()
 def get_concrete_doc(organization: str) -> Optional[dict]:
     """
@@ -444,6 +446,7 @@ def get_concrete_doc(organization: str) -> Optional[dict]:
     return concrete.as_dict()
 
 
+@rate_limit(limit=API_RATE_LIMIT, seconds=API_RATE_WINDOW)
 @frappe.whitelist()
 def get_organization_with_details(organization: str) -> dict:
     """
@@ -493,6 +496,7 @@ def get_organization_with_details(organization: str) -> dict:
     return result
 
 
+@rate_limit(limit=API_RATE_LIMIT, seconds=API_RATE_WINDOW)
 @frappe.whitelist()
 def validate_organization_links(organization: str) -> dict:
     """
