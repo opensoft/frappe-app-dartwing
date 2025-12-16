@@ -1,229 +1,88 @@
-# GPT52 Code Review — `011-background-job-engine` (`dartwing_core`)
+# GPT52 — Verification Review v2 (011-background-job-engine)
 
-## Context I used (docs + standards)
-
-- Standards: `bench/apps/dartwing/.specify/memory/constitution.md` (note: requested `.frappe/memory/constitution.md` is not present in-repo).
-- Feature intent: Phase 2 **Feature 11: Background Job Engine** in `bench/apps/dartwing/docs/dartwing_core/wip/dartwing_core_features_priority_phase2.md`.
-- PRD reference: `bench/apps/dartwing/docs/dartwing_core/dartwing_core_prd.md` §5.10 (C-16).
-- Related architecture guidance: `bench/apps/dartwing/docs/dartwing_core/background_job_isolation_spec.md`, `bench/apps/dartwing/docs/dartwing_core/observability_spec.md`.
-
-The branch introduces:
-- New DocTypes: `Background Job`, `Job Type`, `Job Execution Log`
-- Engine modules under `dartwing/dartwing_core/background_jobs/`
-- Whitelisted API endpoints: `dartwing/dartwing_core/api/jobs.py`
-- Scheduler hooks + tests + fixtures
+**Module:** `dartwing_core`  
+**Branch:** `011-background-job-engine`  
+**Verification Basis:** `specs/011-background-job-engine/review/FIX_PLAN.md` (no `MASTER_PLAN.md` present for this branch)  
+**Reference Standards:** `bench/apps/dartwing/.specify/memory/constitution.md`, `docs/dartwing_core/dartwing_core_arch.md`, `docs/dartwing_core/dartwing_core_prd.md` (PRD §5.10 C-16)  
+**Feature Name (from Phase 2 priority):** **Background Job Engine (C-16)** — guaranteed, org-scoped async job execution with retries + progress UI (blocks Offline, Fax, Scheduler, Notifications).
 
 ---
 
-## 1. Critical Issues & Blockers (Severity: HIGH)
+## 1. Fix Verification & Regression Check (Severity: CRITICAL)
 
-### 1.1 Org access checks are incorrect (will block real users) and bypass the project’s permission model
+### P1/P2 Fix Plan Verification
 
-**Where**
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/engine.py:331` → `engine._validate_organization_access()`
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/engine.py:225` → `engine.list_jobs()`
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/metrics.py:23` → `metrics.get_metrics()`
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/dead_letter.py:27` → `dead_letter.get_dead_letter_jobs()`
+| Issue ID | Status | Verification Notes (evidence) |
+|---|---|---|
+| **P1-001** | **[SUCCESSFULLY IMPLEMENTED]** | `dartwing_core/background_jobs/metrics.py` uses parameterized queries; org-scoped filtering no longer uses f-string interpolation. Also fixed safe, parameterized `IN (...)` expansion for multi-org filters via `_apply_organization_filter()`. |
+| **P1-002** | **[SUCCESSFULLY IMPLEMENTED]** | `dartwing_core/background_jobs/executor.py` uses `ThreadPoolExecutor`-based timeout (`_execute_with_timeout`) rather than `signal.SIGALRM` (cross-platform + worker-safe). |
+| **P1-003** | **[SUCCESSFULLY IMPLEMENTED]** | Organization access checks use the correct chain (`User → Person.frappe_user → Org Member.person`) in `engine.py` and `metrics.py` for non-admin filtering. |
+| **P1-004** | **[SUCCESSFULLY IMPLEMENTED]** | `dartwing_core/doctype/background_job/background_job.json` includes `indexes` (including `job_hash`, status/next_retry_at, status/modified, org/status) to support hot query paths. |
+| **P1-005** | **[SUCCESSFULLY IMPLEMENTED]** | Duplicate detection is now actually race-safe without a schema-level unique constraint: `engine.py` serializes (org, job_hash) duplicate-check + insert using a distributed lock (`_deduplication_lock`) and preserves dedup-window semantics (0 disables). This resolves the “FOR UPDATE only locks existing rows” gap. |
+| **P1-006** | **[SUCCESSFULLY IMPLEMENTED]** | `cancel_job()` performs `SELECT ... FOR UPDATE` before checking/updating status, preventing the “Queued→Running between check/update” race. |
+| **P1-007** | **[SUCCESSFULLY IMPLEMENTED]** | Verified scheduler hooks exist in `hooks.py` for retry + dependent-job processing, plus daily cleanup. |
+| **P1-008** | **[SUCCESSFULLY IMPLEMENTED]** | Cleanup deletes terminal-state jobs (no invalid transitions); batching is implemented (see P2-005). |
+| **P2-001** | **[FAILED/INCORRECT]** | DB cancellation does not cancel the already-enqueued RQ job. The Fix Plan noted this is conditional without an `rq_job_id` field. Current implementation relies on the handler detecting cancellation and exiting. |
+| **P2-002** | **[SUCCESSFULLY IMPLEMENTED]** | Enqueue uses `enqueue_after_commit=True` to avoid worker picking up an uncommitted DB record. |
+| **P2-003** | **[SUCCESSFULLY IMPLEMENTED]** | Duplicate `"Company"` keys in `hooks.py` are removed; hook dicts no longer silently overwrite. |
+| **P2-004** | **[SUCCESSFULLY IMPLEMENTED]** | All “0 treated as falsy” cases in config defaults are corrected using explicit `is None` checks (notably in `background_job.py` defaults and `engine.py` dedup/rate-limit window handling). |
+| **P2-005** | **[SUCCESSFULLY IMPLEMENTED]** | Cleanup job performs batched commits to avoid long transactions. |
+| **P2-006** | **[SUCCESSFULLY IMPLEMENTED]** | Progress persistence expectation is documented as “eventually consistent” (no per-update commits). |
+| **P2-007** | **[SUCCESSFULLY IMPLEMENTED]** | `Job Execution Log` has an `organization` field (`fetch_from`) and logging now sets `log.organization = self.organization` server-side for reliable filtering. |
+| **P2-008** | **[SUCCESSFULLY IMPLEMENTED]** | Realtime progress/status events publish to org-scoped rooms (`room=f"org:{organization}"`), preventing cross-org leakage. |
 
-**What / Why it’s a blocker**
-- The code queries `Org Member` using a `user` field (e.g., `filters={"user": frappe.session.user, ...}`) but `Org Member` does not have a `user` field in this repo (it links to `Person` + `Organization`).
-- Result: non-`System Manager` users will be incorrectly denied access to submit/list/metric/dead-letter endpoints, making the feature unusable outside admin contexts.
-- It also diverges from the existing “row-level security via `User Permission`” approach already implemented across the app (see `bench/apps/dartwing/dartwing/permissions/*`).
+### Regression / New Critical Issues Check
 
-**Concrete fix (preferred pattern)**
-- Replace org access checks with the existing `User Permission` approach (lowest-risk and consistent with the codebase):
-  - Use `dartwing.permissions.family.get_user_organizations(user)` (or a new shared helper in `dartwing.permissions`) to resolve the user’s org list.
-  - Use `dartwing.permissions.api.check_organization_access(organization)` (or `frappe.has_permission("Organization", "read", organization)`) as the canonical “can user touch this org?” gate.
-- Remove direct `Org Member` membership queries from background job engine modules.
+The following were execution-blockers or PR-stoppers that an automated review agent would flag; they are now addressed:
 
-**Concrete fix (even better long-term)**
-- Add proper doctype-level permission enforcement:
-  - Add `permission_query_conditions` + `has_permission` hooks for `Background Job` and `Job Execution Log`.
-  - Then remove most manual access filtering from `list_jobs()`/`get_job_history()` and rely on standard Frappe behavior.
+1. **Frappe enqueue reserved kwarg collision (CRITICAL)**
+   - **Problem:** Passing `job_id=...` into `frappe.enqueue()` collides with Frappe’s reserved `job_id` param and does **not** reach the executor function, causing runtime failures (jobs never execute).
+   - **Fix Applied:** `engine._enqueue_job()` now passes `background_job_id=job.name`, and `executor.execute_job()` accepts `background_job_id`.  
+   - **Files:** `dartwing_core/background_jobs/engine.py`, `dartwing_core/background_jobs/executor.py`
 
----
+2. **Dependency failure transition violated the state machine (CRITICAL)**
+   - **Problem:** Executor attempted `Queued → Dead Letter`, but `VALID_TRANSITIONS` disallowed it, causing `save()` to throw and leaving jobs in inconsistent states.
+   - **Fix Applied:** Added `Queued → Dead Letter` to `VALID_TRANSITIONS`.  
+   - **File:** `dartwing_core/doctype/background_job/background_job.py`
 
-### 1.2 SQL injection risk in metrics (unsafe SQL string construction)
+3. **Cancellation semantics incorrectly classified as permanent failure (HIGH)**
+   - **Problem:** Handler cancellation raised `PermanentError`, pushing jobs into `Dead Letter` instead of `Canceled`.
+   - **Fix Applied:** Introduced `JobCanceledError` and used it in `JobContext.update_progress()` and sample handlers; executor treats it as a non-failure path.  
+   - **Files:** `dartwing_core/background_jobs/errors.py`, `dartwing_core/background_jobs/progress.py`, `dartwing_core/background_jobs/samples.py`, `dartwing_core/background_jobs/executor.py`
 
-**Where**
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/metrics.py:57` through `metrics.py:196`
-
-**What / Why it’s a blocker**
-- `org_filter` is assembled via f-strings with values interpolated directly into SQL:
-  - `metrics.py:63-66`, `metrics.py:87-91`, `metrics.py:112-116`, `metrics.py:170-174`
-- Even if org names “normally” originate from the DB, this is still unsafe (org names can contain quotes; and this is a reusable metrics module that may be called with user-provided org input).
-- This is a classic injection / query corruption vector and must be fixed before merge.
-
-**Concrete fix**
-- Use parameterized queries (placeholders) or Query Builder (`frappe.qb`) for all metrics queries.
-- If you must build an `IN (...)` list, use placeholders:
-  - Build `placeholders = ", ".join(["%s"] * len(orgs))`
-  - Append params tuple and pass to `frappe.db.sql(query, params)`
-- Avoid `f"AND organization = '{...}'"` patterns entirely.
-
----
-
-### 1.3 Cancellation semantics are incorrect (canceled jobs become “Dead Letter”)
-
-**Where**
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/progress.py:51-56` (`JobContext.update_progress`)
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/executor.py:225-255` (`_handle_failure`)
-- Sample handlers also raise `PermanentError` on cancellation: `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/samples.py:29-38`, `samples.py:76-78`
-
-**What / Why it’s a blocker**
-- A cancel request sets the `Background Job.status = "Canceled"` (`engine.cancel_job()`), but when the running handler checks cancellation and raises `PermanentError`, the executor treats it as a permanent failure and sets status to `Dead Letter` (`executor.py:236-238`).
-- This destroys the meaning of “Canceled”, breaks UI expectations, and could trigger incorrect operational workflows (e.g., admins bulk-retrying “dead letter” jobs that were actually user-canceled).
-
-**Concrete fix**
-- Introduce a dedicated cancellation exception (e.g., `JobCanceledError`) and handle it explicitly:
-  - In `progress.py`, raise `JobCanceledError` instead of `PermanentError`.
-  - In `executor.py`, catch that error (or detect `job.status == "Canceled"` after reload) and finalize as `Canceled` without moving to `Failed/Dead Letter` and without retry scheduling.
-- Ensure state transitions in `Background Job` reflect this intended path (Running → Canceled is already allowed).
+4. **Job history visibility mismatch vs doctype permissions (HIGH)**
+   - **Problem:** `get_job_history()` queried `Job Execution Log` without `ignore_permissions`, but the doctype is read-restricted to admin roles.
+   - **Fix Applied:** `ignore_permissions=True` is used after `_validate_job_access(job)` gating.  
+   - **File:** `dartwing_core/background_jobs/engine.py`
 
 ---
 
-### 1.4 Dependency failure path violates the state machine (Queued → Dead Letter not allowed)
+## 2. Preemptive GitHub Copilot Issue Scan (Severity: HIGH/MEDIUM)
 
-**Where**
-- Dependency handling: `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/executor.py:110-126`
-- State machine: `bench/apps/dartwing/dartwing/dartwing_core/doctype/background_job/background_job.py:14-26`
+### High-Likelihood Copilot Flags (and recommended action)
 
-**What / Why it’s a blocker**
-- When a parent dependency fails, `_check_dependency()` sets child status to `Dead Letter` while the child is still `Queued`.
-- But the state machine does not allow `Queued → Dead Letter` (`background_job.py:18-19`), so `job.save()` will raise a validation error and leave the job stuck/undefined.
+- **Transaction boundaries / explicit commits:** Multiple code paths call `frappe.db.commit()` inside API-like flows (`submit_job`, `_enqueue_job`, `cancel_job`). Copilot often flags this as risky because it prevents clean rollback and can create partial state if downstream steps fail. If you keep this pattern, make it deliberate: treat job submission/cancellation as “write-through” operations and ensure every post-commit step is either idempotent or compensating.
+- **Distributed lock dependency:** `_deduplication_lock()` relies on Redis being available (which is already a dependency for background jobs). If Redis is unavailable, job submission should fail fast with a clear error (currently lock acquisition exceptions may bubble). Consider a friendlier `frappe.throw()` wrapping Redis connection failures.
+- **Rate limit window validation completeness:** `Job Type.validate_rate_limit()` now validates `rate_limit_window >= 1` when rate limiting is enabled, which avoids undefined behavior. Consider also capping the window (e.g., max 24h) to prevent misconfigurations that can create expensive queries.
 
-**Concrete fix (minimal)**
-- Allow `Queued → Dead Letter` in `VALID_TRANSITIONS` for dependency-aborted jobs.
+### Medium-Likelihood Copilot Flags (cleanups)
 
-**Concrete fix (better model)**
-- Introduce a distinct “Waiting/Blocked” status (or keep as `Pending`) for dependency-waiting jobs:
-  - Don’t enqueue the job until dependency is satisfied.
-  - This prevents wasting worker capacity and reduces queue spam (see next issue).
+- **Type hints on whitelisted API methods:** `dartwing_core/api/jobs.py` methods have parameter hints but no return types; adding `-> dict` on these functions reduces review noise.
+- **Consistency of timestamps:** The doctype has both `created_at` and core `creation`. Consider using one canonical field in analytics/queries to avoid drift if any insert path skips setting `created_at` (Frappe always sets `creation`).
 
 ---
 
-### 1.5 Retry/manual retry can race the DB commit and/or enqueue duplicates (job can silently “not run”)
+## 3. Final Cleanliness & Idiomatic Frappe Check (Severity: MEDIUM)
 
-**Where**
-- Manual retry: `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/engine.py:183-192` + `_enqueue_job` at `engine.py:394-428`
-- Automatic retry: `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/retry.py:111-128`
-- Dependent-job scheduler: `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/scheduler.py:23-55`
-
-**What / Why it’s a blocker**
-- `frappe.enqueue()` runs immediately by default. If you enqueue before the transaction is committed, the worker can pick up the job and read stale DB state (e.g., still `Failed`), causing `executor.execute_job()` to exit early because it only runs `Queued` jobs (`executor.py:40-46`).
-- In `engine.retry_job()` you set `status = "Queued"` and `save()`, then call `_enqueue_job()` which does not commit if status is already `"Queued"` (`engine.py:398-410`), so there is no guaranteed commit before enqueue.
-- In scheduler `process_dependent_jobs()`, you select jobs where `status='Queued'` and parent is complete, and enqueue them every minute. Because the status stays `Queued`, you can enqueue the same job repeatedly; the extra worker runs just log and exit (`executor.py:41-46`), but they still burn worker time and queue capacity.
-
-**Concrete fix**
-- Use Frappe’s built-in enqueue safety features:
-  - In `_enqueue_job()`, call `frappe.enqueue(..., enqueue_after_commit=True, job_id=job.name, deduplicate=True)`
-  - Optionally namespace job ids: `job_id=f"background-job:{job.name}"`
-- For dependency-waiting jobs:
-  - Avoid putting them in `Queued` until they are actually eligible to execute (use `Pending`/`Waiting`).
-  - Or, if you keep them `Queued`, store a separate “enqueued marker” (e.g., `enqueued_at` / `rq_job_id`) and skip re-enqueue if already enqueued.
+- **DocType-first philosophy:** The state machine in `Background Job` is now aligned with executor behavior; keep future transitions in the DocType (metadata/controller) and avoid “ad-hoc status writes” from helpers.
+- **Permissions:** Current access logic mixes Frappe permissions (`frappe.has_permission`) with custom org membership checks. This is OK for an API-first multi-tenant model, but the rules should be explicit: who can view/cancel/retry? If the answer is “owner only,” consider tightening `_validate_job_access()` for reads as well (currently any org member can view job status/history once org membership is validated).
+- **Metrics queries:** The SQL injection risk is addressed and org scoping is enforced. If performance becomes a concern, consider shifting the percentile/p95 logic to a more efficient DB-side approach (or maintain rolling aggregates).
 
 ---
 
-### 1.6 Configuration values of `0` don’t work (max retries / dedup window become “defaults”)
+## 4. Final Summary & Sign-Off (Severity: LOW)
 
-**Where**
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/engine.py:55`, `engine.py:73-75`
-- `bench/apps/dartwing/dartwing/dartwing_core/doctype/background_job/background_job.py:103-110`
+Overall, the branch is close to merge-ready: all **P1 items (8/8)** are verified, and **P2 items are effectively complete except P2-001** (RQ job cancellation) which remains unimplemented without storing an RQ job identifier or introducing a deterministic job_id strategy. The code now aligns better with the PRD’s C-16 requirements (guaranteed execution, retries, progress UI, and org scoping), and the major execution correctness issues that would block a PR approval have been addressed.
 
-**What / Why it’s a blocker**
-- `or` / truthiness checks treat `0` as falsy:
-  - `job_type_doc.max_retries or 5` forces retries even when configured as 0.
-  - `job_type_doc.deduplication_window or 300` forces dedup even when configured as 0.
-  - `if not self.max_retries:` will override 0 with defaults.
-- This breaks “metadata-as-data” expectations: admins can’t configure “no retries” / “no deduplication”.
-
-**Concrete fix**
-- Use explicit `is None` checks:
-  - `window = 300 if job_type_doc.deduplication_window is None else job_type_doc.deduplication_window`
-  - Same for retries/timeouts/priority defaults in both engine and doctype controller.
-
----
-
-### 1.7 `input_parameters` is a JSON field, but the engine stores a JSON string (risk of double-encoding)
-
-**Where**
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/engine.py:71`
-- Parameter usage: `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/executor.py:78`
-
-**What / Why it’s a blocker**
-- `Background Job.input_parameters` is defined as `fieldtype: "JSON"` in the DocType JSON, but `engine.submit_job()` stores `json.dumps(parameters)`.
-- Depending on Frappe’s JSON field handling, this can lead to double-encoding and inconsistent handler inputs (handler receives a string instead of dict).
-
-**Concrete fix**
-- Store dicts directly (or `{}`) into the JSON field and let Frappe serialize.
-- In the executor, normalize robustly:
-  - `params = frappe.parse_json(job.input_parameters) or {}`
-  - (and ensure `job.input_parameters` is stored consistently as JSON, not JSON-of-JSON).
-
----
-
-### 1.8 `get_job_history()` is inconsistent with DocType permissions (will error for non-admin)
-
-**Where**
-- `bench/apps/dartwing/dartwing/dartwing_core/background_jobs/engine.py:277-309`
-- `bench/apps/dartwing/dartwing/dartwing_core/doctype/job_execution_log/job_execution_log.json` (permissions are admin-only)
-
-**What / Why it’s a blocker**
-- `engine.get_job_history()` validates job access, then calls `frappe.get_all("Job Execution Log", ...)` with default permission enforcement.
-- For non-admin roles, this will raise permission errors (despite them being allowed to see the job’s status via other endpoints).
-
-**Concrete fix**
-- Decide the intended product behavior and implement consistently:
-  - If org members should see history: grant read permission appropriately and add permission query conditions for row-level scoping.
-  - If history is admin-only: remove/lock down the endpoint and keep it aligned.
-
----
-
-## 2. Suggestions for Improvement (Severity: MEDIUM)
-
-### 2.1 Align “org scoping” with existing Dartwing permission helpers
-
-- Centralize user-org resolution and access checks using `dartwing.permissions` so this feature matches the rest of the stack and doesn’t fork the security model.
-- This will also reduce repeated logic across `engine.py`, `metrics.py`, and `dead_letter.py`.
-
-### 2.2 Use `job_id`/`deduplicate` on `frappe.enqueue` to prevent queue spam
-
-- `_enqueue_job()` should use `job_id` and `deduplicate=True` (supported by Frappe) so repeated scheduling doesn’t flood Redis/RQ with duplicates.
-- Consider storing the RQ `job_id` (or `enqueued_at`) on the `Background Job` doctype for operational visibility/debugging.
-
-### 2.3 Prefer built-in `creation/modified` timestamps unless there’s a strong reason for `created_at`
-
-- Several queries use `created_at` (custom) while others use `creation` (system). Mixing increases cognitive load and can lead to subtle reporting bugs.
-- If you keep `created_at`, standardize all time-based filters to use it consistently and ensure it’s always set (including migrations/fixtures).
-
-### 2.4 Improve concurrency guarantees for retry/dependency schedulers
-
-- Guard against multiple scheduler workers enqueuing the same work:
-  - Update rows atomically (e.g., “claim jobs to enqueue” via an update query) before enqueueing.
-  - Or rely on `deduplicate=True` + `job_id` consistently.
-
-### 2.5 Data model/indexing for expected query patterns
-
-- Add DB indexes for:
-  - `organization`, `status`, `priority`, `job_type`, `next_retry_at`, `depends_on`, `job_hash`
-- This will matter quickly once you have retries + UI polling + metrics dashboards.
-
-### 2.6 Status and priority values as constants / enums
-
-- Consolidate status/priority strings in a single module to reduce typos and keep transitions consistent across engine/executor/scheduler.
-
----
-
-## 3. General Feedback & Summary (Severity: LOW)
-
-The overall structure is a strong start: you modeled the job engine using DocTypes (`Job Type` as metadata-as-data, `Background Job` as durable state) and separated execution concerns cleanly (`engine` vs `executor` vs `retry` vs `scheduler`). The state machine + execution log are good foundations for auditability and a future UI. The main work needed before merge is to align access control with the existing `User Permission`-based security model, fix the SQL injection risk in metrics, and correct cancellation/dependency state handling so job lifecycle semantics are reliable.
-
-**Future technical debt to track**
-- Tighten the contract between `Background Job` and the underlying RQ job (store/monitor job_id, worker failures, hard timeouts).
-- Add explicit permission query conditions for `Background Job`/`Job Execution Log` so Desk + API behave consistently.
-- Expand tests to cover non-admin users with org-scoped permissions (the happy path right now mostly exercises admin behavior).
-
-**Questions to confirm before finalizing behavior**
-- Should *all* org members be able to view/cancel org-scoped jobs, or only the submitting user (owner) + admins?
-- Do you want dependency-waiting jobs to be visible as “Queued”, or should they have a distinct “Waiting/Blocked” status for UI clarity?
+**FINAL VERIFICATION SIGN-OFF:** Not granted yet — implement or formally defer **P2-001** (RQ cancellation) with an explicit product decision, then re-run the full test suite (`bench --site <site> run-tests --app dartwing`).
 

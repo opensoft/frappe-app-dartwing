@@ -25,7 +25,7 @@ class JobTimeoutError(TransientError):
     pass
 
 
-def execute_job(background_job_id: str) -> None:
+def execute_job(background_job_id: str | None = None, job_id: str | None = None) -> None:
     """
     Execute a background job.
 
@@ -33,7 +33,19 @@ def execute_job(background_job_id: str) -> None:
 
     Args:
         background_job_id: Background Job ID to execute
+        job_id: Backward-compatible alias for already-enqueued RQ jobs
     """
+    if background_job_id is None:
+        background_job_id = job_id
+    elif job_id is not None and job_id != background_job_id:
+        frappe.log_error(
+            f"execute_job called with mismatched IDs: background_job_id={background_job_id}, job_id={job_id}",
+            "Background Job Executor",
+        )
+
+    if not background_job_id:
+        raise TypeError("execute_job() missing required argument: 'background_job_id'")
+
     job = frappe.get_doc("Background Job", background_job_id)
 
     # Validate job can be executed

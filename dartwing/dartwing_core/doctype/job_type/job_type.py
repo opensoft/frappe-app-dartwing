@@ -98,6 +98,11 @@ class JobType(Document):
         if self.rate_limit is not None and self.rate_limit < 0:
             frappe.throw(_("Rate limit cannot be negative. Use 0 or leave empty for no limit."))
 
+        # If rate limiting is enabled, the window must be positive
+        if self.rate_limit is not None and self.rate_limit != 0:
+            if self.rate_limit_window is not None and self.rate_limit_window < 1:
+                frappe.throw(_("Rate limit window must be at least 1 second"))
+
         # Cap at reasonable value to prevent misconfiguration
         # Use explicit None check to handle 0 correctly (0 means "no limit", so skip this check)
         if self.rate_limit is not None and self.rate_limit != 0 and self.rate_limit > 10000:

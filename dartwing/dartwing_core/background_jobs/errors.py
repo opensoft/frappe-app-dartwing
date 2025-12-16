@@ -57,6 +57,17 @@ class PermanentError(JobError):
     is_retryable = False
 
 
+class JobCanceledError(JobError):
+    """
+    Raised by handlers when they detect the job has been canceled.
+
+    This is not a failure condition and should result in the job remaining in
+    "Canceled" status (not "Dead Letter").
+    """
+
+    is_retryable = False
+
+
 def classify_error(exception: Exception) -> bool:
     """
     Classify an exception as retryable or not.
@@ -76,6 +87,8 @@ def classify_error(exception: Exception) -> bool:
     """
     # Explicit job error types
     if isinstance(exception, PermanentError):
+        return False
+    if isinstance(exception, JobCanceledError):
         return False
     if isinstance(exception, TransientError):
         return True

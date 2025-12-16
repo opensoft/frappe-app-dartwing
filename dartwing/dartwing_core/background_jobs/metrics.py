@@ -49,6 +49,37 @@ def get_metrics(organization: str = None) -> dict:
     }
 
 
+def _apply_organization_filter(filters: dict, conditions: list[str], values: dict) -> None:
+    """
+    Apply organization filter to SQL conditions + parameter dict.
+
+    Supports:
+    - filters["organization"] = "ORG-001"
+    - filters["organization"] = ("in", ["ORG-001", "ORG-002"])
+    """
+    org_filter = filters.get("organization")
+    if not org_filter:
+        return
+
+    if isinstance(org_filter, tuple):
+        orgs = list(org_filter[1] or [])
+        if not orgs:
+            conditions.append("1=0")
+            return
+
+        placeholders = []
+        for idx, org in enumerate(orgs):
+            key = f"org_{idx}"
+            placeholders.append(f"%({key})s")
+            values[key] = org
+
+        conditions.append(f"organization IN ({', '.join(placeholders)})")
+        return
+
+    conditions.append("organization = %(org)s")
+    values["org"] = org_filter
+
+
 def _empty_metrics() -> dict:
     """Return empty metrics structure."""
     return {
@@ -65,13 +96,7 @@ def _get_job_count_by_status(filters: dict) -> dict:
     conditions = ["1=1"]
     values = {}
 
-    if filters.get("organization"):
-        if isinstance(filters["organization"], tuple):
-            conditions.append("organization IN %(orgs)s")
-            values["orgs"] = filters["organization"][1]
-        else:
-            conditions.append("organization = %(org)s")
-            values["org"] = filters["organization"]
+    _apply_organization_filter(filters, conditions, values)
 
     result = frappe.db.sql(
         f"""
@@ -92,13 +117,7 @@ def _get_queue_depth_by_priority(filters: dict) -> dict:
     conditions = ["status IN ('Pending', 'Queued')"]
     values = {}
 
-    if filters.get("organization"):
-        if isinstance(filters["organization"], tuple):
-            conditions.append("organization IN %(orgs)s")
-            values["orgs"] = filters["organization"][1]
-        else:
-            conditions.append("organization = %(org)s")
-            values["org"] = filters["organization"]
+    _apply_organization_filter(filters, conditions, values)
 
     result = frappe.db.sql(
         f"""
@@ -119,13 +138,7 @@ def _get_processing_time(filters: dict) -> dict:
     conditions = ["status = 'Completed'", "completed_at >= %(one_hour_ago)s", "started_at IS NOT NULL"]
     values = {}
 
-    if filters.get("organization"):
-        if isinstance(filters["organization"], tuple):
-            conditions.append("organization IN %(orgs)s")
-            values["orgs"] = filters["organization"][1]
-        else:
-            conditions.append("organization = %(org)s")
-            values["org"] = filters["organization"]
+    _apply_organization_filter(filters, conditions, values)
 
     one_hour_ago = add_to_date(now_datetime(), hours=-1)
     values["one_hour_ago"] = one_hour_ago
@@ -174,13 +187,7 @@ def _get_failure_rate_by_type(filters: dict) -> dict:
     conditions = ["created_at >= %(one_day_ago)s"]
     values = {}
 
-    if filters.get("organization"):
-        if isinstance(filters["organization"], tuple):
-            conditions.append("organization IN %(orgs)s")
-            values["orgs"] = filters["organization"][1]
-        else:
-            conditions.append("organization = %(org)s")
-            values["org"] = filters["organization"]
+    _apply_organization_filter(filters, conditions, values)
 
     one_day_ago = add_to_date(now_datetime(), hours=-24)
     values["one_day_ago"] = one_day_ago

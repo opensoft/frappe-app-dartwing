@@ -15,7 +15,7 @@ from frappe.utils import now_datetime
 VALID_TRANSITIONS = {
     None: ["Pending"],  # Creation
     "Pending": ["Queued", "Canceled"],
-    "Queued": ["Running", "Canceled"],
+    "Queued": ["Running", "Canceled", "Dead Letter"],
     "Running": ["Completed", "Failed", "Dead Letter", "Canceled", "Timed Out"],
     "Failed": ["Queued", "Dead Letter"],  # Retry or exhaust
     "Timed Out": ["Queued", "Dead Letter"],  # Retry or exhaust
@@ -102,10 +102,10 @@ class BackgroundJob(Document):
 
             if self.job_type:
                 job_type = frappe.get_cached_doc("Job Type", self.job_type)
-                if not self.timeout_seconds:
-                    self.timeout_seconds = job_type.default_timeout or 300
-                if not self.max_retries:
-                    self.max_retries = job_type.max_retries or 5
+                if self.timeout_seconds is None:
+                    self.timeout_seconds = job_type.default_timeout if job_type.default_timeout is not None else 300
+                if self.max_retries is None:
+                    self.max_retries = job_type.max_retries if job_type.max_retries is not None else 5
                 if not self.priority:
                     self.priority = job_type.default_priority or "Normal"
 
@@ -125,6 +125,7 @@ class BackgroundJob(Document):
         # Create log entry
         log = frappe.new_doc("Job Execution Log")
         log.background_job = self.name
+        log.organization = self.organization
         log.from_status = old_status
         log.to_status = self.status
         log.timestamp = now_datetime()

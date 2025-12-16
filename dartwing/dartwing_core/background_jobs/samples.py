@@ -7,7 +7,7 @@ Provides example job handlers for testing the job engine.
 import time
 import frappe
 from dartwing.dartwing_core.background_jobs.progress import JobContext
-from dartwing.dartwing_core.background_jobs.errors import TransientError, PermanentError
+from dartwing.dartwing_core.background_jobs.errors import TransientError, PermanentError, JobCanceledError
 
 
 def execute_sample_job(context: JobContext) -> dict:
@@ -33,7 +33,7 @@ def execute_sample_job(context: JobContext) -> dict:
     for i in range(steps):
         # Check for cancellation
         if context.is_canceled():
-            raise PermanentError("Job was canceled")
+            raise JobCanceledError("Job was canceled")
 
         progress = (i + 1) * 10
         context.update_progress(progress, f"Processing step {i + 1} of {steps}...")
@@ -87,7 +87,7 @@ def execute_long_running_job(context: JobContext) -> dict:
 
     while True:
         if context.is_canceled():
-            raise PermanentError("Job was canceled")
+            raise JobCanceledError("Job was canceled")
 
         elapsed = time.time() - start_time
         progress = min(100, int((elapsed / duration) * 100))
