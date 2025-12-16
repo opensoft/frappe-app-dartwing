@@ -8,7 +8,9 @@ for real-time updates to connected clients.
 import frappe
 from frappe.utils import now_datetime
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Optional
+
+from dartwing.dartwing_core.background_jobs.errors import JobCanceledError
 
 
 @dataclass
@@ -37,7 +39,7 @@ class JobContext:
     timeout_seconds: int = 300
     _canceled: bool = field(default=False, repr=False)
 
-    def update_progress(self, percent: int, message: str = None):
+    def update_progress(self, percent: int, message: Optional[str] = None) -> None:
         """
         Update job progress and broadcast to connected clients.
 
@@ -55,9 +57,7 @@ class JobContext:
         """
         # Check for cancellation at checkpoint
         if self.is_canceled():
-            from dartwing.dartwing_core.background_jobs.errors import PermanentError
-
-            raise PermanentError("Job was canceled")
+            raise JobCanceledError("Job was canceled")
 
         # Clamp percent to valid range
         percent = max(0, min(100, percent))
@@ -98,13 +98,31 @@ class JobContext:
         return False
 
 
+def _validate_broadcast_params(job_id: str, organization: str) -> bool:
+    """
+    Validate job exists and belongs to claimed organization.
+
+    This security check prevents cross-tenant data leakage via Socket.IO.
+    An attacker cannot spoof organization IDs to receive job updates
+    from other organizations.
+
+    Returns:
+        True if valid (job exists and belongs to organization)
+        False if invalid (silently fail to avoid exposing validation to attackers)
+    """
+    if not frappe.db.exists("Organization", organization):
+        return False
+    job_org = frappe.db.get_value("Background Job", job_id, "organization")
+    return job_org == organization
+
+
 def publish_job_progress(
     job_id: str,
     organization: str,
     status: str,
     progress: int,
-    progress_message: str = None,
-):
+    progress_message: Optional[str] = None,
+) -> None:
     """
     Publish job progress update via Socket.IO.
 
@@ -115,6 +133,10 @@ def publish_job_progress(
         progress: Progress percentage
         progress_message: Optional progress description
     """
+    # Security: Validate job belongs to claimed organization
+    if not _validate_broadcast_params(job_id, organization):
+        return  # Silent fail - don't expose validation to attackers
+
     frappe.publish_realtime(
         event="job_progress",
         message={
@@ -133,9 +155,9 @@ def publish_job_status_changed(
     organization: str,
     from_status: str,
     to_status: str,
-    output_reference: str = None,
-    error_message: str = None,
-):
+    output_reference: Optional[str] = None,
+    error_message: Optional[str] = None,
+) -> None:
     """
     Publish job status change event via Socket.IO.
 
@@ -147,6 +169,10 @@ def publish_job_status_changed(
         output_reference: Optional output reference for completed jobs
         error_message: Optional error message for failed jobs
     """
+    # Security: Validate job belongs to claimed organization
+    if not _validate_broadcast_params(job_id, organization):
+        return  # Silent fail - don't expose validation to attackers
+
     message = {
         "job_id": job_id,
         "from_status": from_status,

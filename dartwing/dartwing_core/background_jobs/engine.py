@@ -6,10 +6,11 @@ Provides the main API for job submission, status checking, and management.
 
 import hashlib
 import json
+from contextlib import contextmanager
 import frappe
 from frappe import _
 from frappe.utils import now_datetime, add_to_date
-from typing import Optional
+from typing import Optional, Iterator
 
 
 def submit_job(
@@ -54,51 +55,43 @@ def submit_job(
     # Generate hash for duplicate detection
     job_hash = generate_job_hash(job_type, organization, parameters or {})
 
-    # Atomic duplicate check with row locking to prevent race conditions
-    # Lock any existing non-terminal job with same hash during the check
-    existing = _check_duplicate_with_lock(job_hash, job_type_doc.deduplication_window or 300)
-    if existing:
-        frappe.throw(
-            _(
-                "Duplicate job detected. Existing job: {0} (status: {1})"
-            ).format(existing.name, existing.status),
-            exc=frappe.DuplicateEntryError,
-        )
+    deduplication_window_seconds = (
+        job_type_doc.deduplication_window
+        if job_type_doc.deduplication_window is not None
+        else 300
+    )
 
-    # Create job document
-    job = frappe.new_doc("Background Job")
-    job.job_type = job_type
-    job.organization = organization
-    job.owner_user = frappe.session.user
-    job.status = "Pending"
-    job.priority = priority if priority is not None else (job_type_doc.default_priority or "Normal")
-    job.input_parameters = json.dumps(parameters) if parameters else None
-    job.job_hash = job_hash
-    job.timeout_seconds = job_type_doc.default_timeout if job_type_doc.default_timeout is not None else 300
-    job.max_retries = job_type_doc.max_retries if job_type_doc.max_retries is not None else 5
-    job.depends_on = depends_on
-    job.created_at = now_datetime()
+    def create_and_enqueue() -> "frappe.Document":
+        job = frappe.new_doc("Background Job")
+        job.job_type = job_type
+        job.organization = organization
+        job.owner_user = frappe.session.user
+        job.status = "Pending"
+        job.priority = priority if priority is not None else (job_type_doc.default_priority or "Normal")
+        job.input_parameters = json.dumps(parameters) if parameters is not None else None
+        job.job_hash = job_hash
+        job.timeout_seconds = job_type_doc.default_timeout if job_type_doc.default_timeout is not None else 300
+        job.max_retries = job_type_doc.max_retries if job_type_doc.max_retries is not None else 5
+        job.depends_on = depends_on
+        job.created_at = now_datetime()
 
-    try:
         job.insert(ignore_permissions=True)
-    except frappe.DuplicateEntryError:
-        # Handle race condition: another request inserted between our check and insert
-        existing = frappe.db.get_value(
-            "Background Job",
-            {"job_hash": job_hash, "status": ("not in", ["Completed", "Dead Letter", "Canceled"])},
-            ["name", "status"],
-            as_dict=True,
-        )
-        if existing:
-            frappe.throw(
-                _("Duplicate job detected. Existing job: {0} (status: {1})").format(existing.name, existing.status),
-                exc=frappe.DuplicateEntryError,
-            )
-        # If no existing found (edge case), re-raise original error
-        raise
+        _enqueue_job(job)
+        return job
 
-    # Enqueue the job
-    _enqueue_job(job)
+    # Duplicate detection is disabled when deduplication_window_seconds is 0
+    if deduplication_window_seconds and deduplication_window_seconds > 0:
+        with _deduplication_lock(organization=organization, job_hash=job_hash):
+            existing = _check_duplicate(job_hash, deduplication_window_seconds)
+            if existing:
+                frappe.throw(
+                    _("Duplicate job detected. Existing job: {0} (status: {1})").format(existing.name, existing.status),
+                    exc=frappe.DuplicateEntryError,
+                )
+
+            job = create_and_enqueue()
+    else:
+        job = create_and_enqueue()
 
     return job
 
@@ -328,6 +321,7 @@ def get_job_history(job_id: str) -> dict:
         filters={"background_job": job_id},
         fields=["from_status", "to_status", "timestamp", "actor", "message", "retry_attempt"],
         order_by="timestamp asc",
+        ignore_permissions=True,
     )
 
     return {
@@ -357,6 +351,9 @@ def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
     """
     Generate unique hash for duplicate detection.
 
+    Uses frappe.as_json() for stable serialization of Frappe types
+    (datetime, date, Decimal, etc.) that would crash with standard json.dumps().
+
     Args:
         job_type: Job type name
         organization: Organization name
@@ -365,7 +362,8 @@ def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
     Returns:
         16-character hex hash
     """
-    content = f"{job_type}:{organization}:{json.dumps(params, sort_keys=True)}"
+    params_json = frappe.as_json(params, sort_keys=True)
+    content = f"{job_type}:{organization}:{params_json}"
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
@@ -408,6 +406,12 @@ def _validate_job_access(job, require_write: bool = False):
     # Check organization access
     _validate_organization_access(job.organization)
 
+    if require_write:
+        # Only users with explicit write permission on the doctype may modify
+        # other members' jobs.
+        if not frappe.has_permission("Background Job", "write"):
+            frappe.throw(_("You don't have permission to modify this job"), frappe.PermissionError)
+
 
 def _get_job_type(job_type: str) -> "frappe.Document":
     """Get and validate job type document."""
@@ -448,7 +452,9 @@ def _check_rate_limit(job_type_doc: "frappe.Document"):
     if _is_system_manager():
         return
 
-    window_seconds = job_type_doc.rate_limit_window or 60
+    window_seconds = job_type_doc.rate_limit_window if job_type_doc.rate_limit_window is not None else 60
+    if window_seconds < 1:
+        frappe.throw(_("Rate limit window must be at least 1 second"))
     cutoff = add_to_date(now_datetime(), seconds=-window_seconds)
 
     # Count recent jobs by this user for this job type
@@ -488,37 +494,27 @@ def _check_duplicate(job_hash: str, window_seconds: int) -> Optional["frappe.Doc
     return existing
 
 
-def _check_duplicate_with_lock(job_hash: str, window_seconds: int) -> Optional[dict]:
+@contextmanager
+def _deduplication_lock(organization: str, job_hash: str, timeout_seconds: int = 30) -> Iterator[None]:
     """
-    Check for existing duplicate job within window with row locking.
+    Serialize duplicate detection + insert across workers.
 
-    Uses SELECT ... FOR UPDATE to prevent race conditions where two concurrent
-    requests both pass the duplicate check before either inserts.
-
-    Args:
-        job_hash: The job hash to check
-        window_seconds: Deduplication window in seconds
-
-    Returns:
-        Dict with name and status if duplicate found, None otherwise
+    This is required because the current schema intentionally does not enforce a
+    unique constraint on job_hash (the same job must be allowed again after the
+    deduplication window). A distributed lock prevents concurrent inserts of the
+    same (organization, job_hash) within the same window.
     """
-    cutoff = add_to_date(now_datetime(), seconds=-window_seconds)
-
-    # Use FOR UPDATE to lock any matching rows during this transaction
-    result = frappe.db.sql(
-        """
-        SELECT name, status
-        FROM `tabBackground Job`
-        WHERE job_hash = %(job_hash)s
-        AND creation >= %(cutoff)s
-        AND status NOT IN ('Completed', 'Dead Letter', 'Canceled')
-        FOR UPDATE
-        """,
-        {"job_hash": job_hash, "cutoff": cutoff},
-        as_dict=True,
-    )
-
-    return result[0] if result else None
+    lock_key = f"dartwing_core:background_job:dedup:{organization}:{job_hash}"
+    lock = frappe.cache().lock(lock_key, timeout=timeout_seconds)
+    lock.acquire()
+    try:
+        yield
+    finally:
+        try:
+            lock.release()
+        except Exception:
+            # If Redis connection drops, the lock will expire by timeout.
+            pass
 
 
 def _enqueue_job(job, is_retry: bool = False):
@@ -552,9 +548,9 @@ def _enqueue_job(job, is_retry: bool = False):
     # Use enqueue_after_commit to ensure job record is persisted before RQ picks it up
     frappe.enqueue(
         "dartwing.dartwing_core.background_jobs.executor.execute_job",
-        job_id=job.name,
+        background_job_id=job.name,
         queue=queue,
-        timeout=job.timeout_seconds or 300,
+        timeout=job.timeout_seconds if job.timeout_seconds is not None else 300,
         is_async=True,
         enqueue_after_commit=True,
     )

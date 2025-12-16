@@ -6,8 +6,7 @@ classification.
 """
 
 import frappe
-from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import now_datetime, add_to_date
 from typing import Any, Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
@@ -16,7 +15,7 @@ from dartwing.dartwing_core.background_jobs.errors import (
     classify_error,
     get_error_type,
     TransientError,
-    PermanentError,
+    JobCanceledError,
 )
 
 
@@ -26,21 +25,21 @@ class JobTimeoutError(TransientError):
     pass
 
 
-def execute_job(job_id: str):
+def execute_job(background_job_id: str) -> None:
     """
     Execute a background job.
 
     This is the main entry point called by Frappe's background worker.
 
     Args:
-        job_id: Background Job ID to execute
+        background_job_id: Background Job ID to execute
     """
-    job = frappe.get_doc("Background Job", job_id)
+    job = frappe.get_doc("Background Job", background_job_id)
 
     # Validate job can be executed
     if job.status not in ["Queued"]:
         frappe.log_error(
-            f"Job {job_id} cannot be executed in status {job.status}",
+            f"Job {background_job_id} cannot be executed in status {job.status}",
             "Background Job Executor",
         )
         return
@@ -76,13 +75,15 @@ def execute_job(job_id: str):
         job_type=job.job_type,
         organization=job.organization,
         parameters=frappe.parse_json(job.input_parameters) if job.input_parameters else {},
-        timeout_seconds=job.timeout_seconds or 300,
+        timeout_seconds=job.timeout_seconds if job.timeout_seconds is not None else 300,
     )
 
     # Execute with timeout
     try:
-        result = _execute_with_timeout(handler, context, job.timeout_seconds or 300)
+        result = _execute_with_timeout(handler, context, context.timeout_seconds)
         _handle_success(job, result)
+    except JobCanceledError:
+        _handle_canceled(job)
     except JobTimeoutError as e:
         _handle_timeout(job, e)
     except Exception as e:
@@ -125,8 +126,12 @@ def _check_dependency(job) -> bool:
         )
         return False
 
-    # Parent still in progress - re-queue this job
-    # The scheduler will pick it up again later
+    # Parent still in progress (Pending/Queued/Running)
+    # Schedule retry so scheduler picks this job up again after delay
+    # This prevents orphaned jobs that would otherwise wait forever
+    job.next_retry_at = add_to_date(now_datetime(), seconds=30)
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
     return False
 
 
@@ -253,4 +258,25 @@ def _handle_failure(job, error: Exception, is_handler_error: bool = False):
     frappe.log_error(
         f"Job {job.name} failed: {error}",
         "Background Job Executor",
+    )
+
+
+def _handle_canceled(job) -> None:
+    """Handle job cancellation from within a running handler."""
+    job.reload()
+    if job.status == "Canceled":
+        return
+
+    old_status = job.status
+    job.status = "Canceled"
+    job.canceled_at = now_datetime()
+    job.canceled_by = frappe.session.user
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    publish_job_status_changed(
+        job_id=job.name,
+        organization=job.organization,
+        from_status=old_status,
+        to_status="Canceled",
     )

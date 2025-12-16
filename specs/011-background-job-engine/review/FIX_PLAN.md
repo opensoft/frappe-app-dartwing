@@ -1,7 +1,8 @@
-# Master Fix Plan: Background Job Engine (011-background-job-engine)
+# Master Fix Plan v2.0: Background Job Engine (011-background-job-engine)
 
 **Created By:** Director of Engineering / Lead Developer
-**Date:** 2025-12-15
+**Date:** 2025-12-16
+**Version:** 2.0 (Post-Review Iteration)
 **Branch:** `011-background-job-engine`
 **Module:** `dartwing_core`
 
@@ -9,509 +10,239 @@
 
 ## Overview
 
-This document provides a detailed implementation plan for all issues identified in MASTER_REVIEW.md, organized by priority (P1 → P2 → P3) with specific file changes, code fixes, and compliance notes.
+This document provides a detailed implementation plan for all **new issues** identified in MASTER_REVIEW.md v2.0, following verification that all original P1/P2 items from v1.0 have been successfully implemented.
+
+**Status Summary:**
+- Original P1 (8 tasks): ✅ ALL VERIFIED COMPLETE
+- Original P2 (8 tasks): ✅ ALL VERIFIED COMPLETE (P2-001 deferred by design)
+- **NEW P1 (3 tasks): 🔄 IN PROGRESS**
+- **NEW P2 (3 tasks): ⏳ PENDING APPROVAL**
+- **NEW P3 (6 tasks): ⏳ DEFERRED TO POST-MERGE**
 
 **Execution Rule:** Execute P1 fixes first. Wait for approval before proceeding to P2 or P3.
 
 ---
 
-## P1: Critical Security & Correctness Issues (8 Tasks)
+## P1: Critical Issues (3 Tasks) - APPROVED FOR IMPLEMENTATION
 
-### Task 1: Fix SQL Injection in Metrics Module
+### Task 1: Add Socket.IO Permission Validation
 
 | Attribute | Value |
 |-----------|-------|
-| **Issue ID** | P1-001 |
-| **Consensus** | 4/4 Unanimous |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/metrics.py` |
+| **Issue ID** | P1-NEW-001 |
+| **Source Reviewer** | sonn45 |
+| **Severity** | CRITICAL - Security |
+| **Files Affected** | `dartwing/dartwing_core/background_jobs/progress.py` |
 
-**Problem:** Lines 59-66, 83-90, 108-115, 166-173 use f-string interpolation with user-controlled `organization` parameter.
+**Problem:** `publish_job_progress()` (lines 101-128) and `publish_job_status_changed()` (lines 131-167) broadcast Socket.IO events without validating:
+1. The organization exists in the database
+2. The job belongs to the claimed organization
 
-**Plan:** Replace all f-string SQL construction with parameterized queries using `%(param)s` syntax for all four functions:
-- `_get_job_count_by_status()`
-- `_get_queue_depth_by_priority()`
-- `_get_processing_time()`
-- `_get_failure_rate_by_type()`
+An attacker could spoof organization IDs to receive cross-tenant job updates, violating multi-tenant isolation.
 
-**Compliance Note:** Aligns with PRD C-01 "Complete data isolation between Organizations (no data leakage)" and Architecture Section 8 Security Architecture.
+**Plan:**
+1. Add `_validate_broadcast_params(job_id, organization)` helper function
+2. Call validation at start of both broadcast functions
+3. Silently return on validation failure (don't expose validation to attackers)
+
+**Implementation:**
+```python
+def _validate_broadcast_params(job_id: str, organization: str) -> bool:
+    """
+    Validate job exists and belongs to claimed organization.
+
+    Returns False (invalid) if:
+    - Organization doesn't exist
+    - Job doesn't exist
+    - Job belongs to a different organization
+    """
+    if not frappe.db.exists("Organization", organization):
+        return False
+    job_org = frappe.db.get_value("Background Job", job_id, "organization")
+    return job_org == organization
+```
+
+**Compliance Note:**
+- Architecture Section 8.2.1 requires "Permission Query Hook" for all data access
+- PRD C-01 mandates "Complete data isolation between Organizations (no data leakage)"
 
 ---
 
-### Task 2: Replace Signal-Based Timeout with Thread-Safe Implementation
+### Task 2: Fix Orphaned Dependent Jobs
 
 | Attribute | Value |
 |-----------|-------|
-| **Issue ID** | P1-002 |
-| **Consensus** | 3/4 (gemi30, sonn45, opus45) |
+| **Issue ID** | P1-NEW-002 |
+| **Source Reviewer** | sonn45 |
+| **Severity** | CRITICAL - Functional |
 | **Files Affected** | `dartwing/dartwing_core/background_jobs/executor.py` |
 
-**Problem:** Lines 148-176 use `signal.SIGALRM` which only works on Unix main thread and can corrupt state.
+**Problem:** In `_check_dependency()` (lines 93-131), when a parent job is still in progress, the function returns `False` without setting `next_retry_at`. The job remains in "Queued" status forever without being re-picked by the scheduler.
 
-**Plan:** Replace `_execute_with_timeout()` with `concurrent.futures.ThreadPoolExecutor`:
+**Plan:**
+1. Add import for `add_to_date` from `frappe.utils`
+2. Set `next_retry_at` to 30 seconds in future when dependency is pending
+3. Commit the change so scheduler can pick it up
+
+**Implementation:**
 ```python
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-
-def _execute_with_timeout(handler: Callable, context: JobContext, timeout_seconds: int) -> Any:
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(handler, context)
-        try:
-            return future.result(timeout=timeout_seconds)
-        except FuturesTimeoutError:
-            raise JobTimeoutError(f"Job exceeded {timeout_seconds}s timeout")
+# When parent is still in progress (Pending/Queued/Running):
+if parent_status in ["Pending", "Queued", "Running"]:
+    # Parent still in progress - schedule retry
+    job.next_retry_at = add_to_date(now_datetime(), seconds=30)
+    job.save(ignore_permissions=True)
+    frappe.db.commit()
+    return False
 ```
 
-**Compliance Note:** PRD specifies "iOS, Android, Web, Desktop" support - signal.SIGALRM prevents Windows compatibility. Architecture specifies "Offline-First Mobile Apps" requiring portable background job execution.
+**Compliance Note:**
+- PRD C-16 explicitly requires "guaranteed execution with progress UI"
+- Jobs silently stuck in Queued status violates this requirement
 
 ---
 
-### Task 3: Fix Incorrect Field Reference in Organization Access Checks
+### Task 3: Fix JSON Serialization Instability
 
 | Attribute | Value |
 |-----------|-------|
-| **Issue ID** | P1-003 |
-| **Consensus** | 2/4 (GPT52, opus45) |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/engine.py`, `dartwing/dartwing_core/background_jobs/metrics.py` |
-
-**Problem:** Lines 338-341 query `Org Member` with `user` field, but Architecture docs define chain: `User → Person.frappe_user → Org Member.person → Organization`.
-
-**Locations to fix:**
-1. `_validate_organization_access()` at line 338
-2. `list_jobs()` at line 229
-3. `get_metrics()` at line 29 in metrics.py
-
-**Plan:** Query Person first by `frappe_user`, then check Org Member by `person`:
-```python
-def _validate_organization_access(organization: str):
-    if "System Manager" in frappe.get_roles():
-        return
-
-    person = frappe.db.get_value("Person", {"frappe_user": frappe.session.user}, "name")
-    if not person:
-        frappe.throw(_("You don't have access to organization {0}").format(organization), frappe.PermissionError)
-
-    is_member = frappe.db.exists(
-        "Org Member",
-        {"organization": organization, "person": person, "status": "Active"},
-    )
-    if not is_member:
-        frappe.throw(_("You don't have access to organization {0}").format(organization), frappe.PermissionError)
-```
-
-**Compliance Note:** Architecture Section 3.8 defines `Org Member` with `person` Link field (not `user`). Architecture Section 8.2.1 shows permission flow: `User → Org Member → Organization`.
-
----
-
-### Task 4: Add Database Indexes for Performance
-
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P1-004 |
-| **Consensus** | 3/4 (GPT52, sonn45, opus45) |
-| **Files Affected** | `dartwing/dartwing_core/doctype/background_job/background_job.json` |
-
-**Problem:** Critical query paths lack indexes. Current JSON has no `indexes` array.
-
-**Plan:** Add indexes array to DocType JSON:
-```json
-"indexes": [
-    {"fields": ["job_hash"]},
-    {"fields": ["status", "next_retry_at"]},
-    {"fields": ["status", "modified"]},
-    {"fields": ["organization", "status"]}
-]
-```
-
-**Compliance Note:** PRD Target Metric "API response time (simple queries) < 200ms" requires indexed queries. The retry scheduler runs every minute per hooks.py line 200.
-
----
-
-### Task 5: Fix Race Condition in Duplicate Detection
-
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P1-005 |
-| **Consensus** | 3/4 (GPT52, sonn45, opus45) |
+| **Issue ID** | P1-NEW-003 |
+| **Source Reviewer** | gemi30 |
+| **Severity** | CRITICAL - Stability |
 | **Files Affected** | `dartwing/dartwing_core/background_jobs/engine.py` |
 
-**Problem:** Lines 54-77 have gap between duplicate check and insert where concurrent requests can both pass.
+**Problem:** Line 362 uses `json.dumps(params, sort_keys=True)` which crashes with `TypeError` if `params` contains `datetime`, `date`, or `Decimal` objects (common in Frappe job parameters).
 
-**Plan:** Use try/except with DuplicateEntryError fallback:
+**Plan:**
+1. Replace `json.dumps()` with `frappe.as_json()` which handles Frappe-specific types
+2. Ensure `sort_keys=True` is passed for deterministic hashing
+
+**Implementation:**
 ```python
-def submit_job(...):
-    job_hash = generate_job_hash(job_type, organization, parameters or {})
+def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
+    """
+    Generate unique hash for duplicate detection.
 
-    job = frappe.new_doc("Background Job")
-    job.job_hash = job_hash
-    # ... set all fields ...
-
-    try:
-        job.insert(ignore_permissions=True)
-    except frappe.DuplicateEntryError:
-        existing = frappe.db.get_value(
-            "Background Job",
-            {"job_hash": job_hash, "status": ("not in", ["Completed", "Dead Letter", "Canceled"])},
-            ["name", "status"],
-            as_dict=True
-        )
-        if existing:
-            frappe.throw(_("Duplicate job: {0}").format(existing.name), exc=frappe.DuplicateEntryError)
-
-    _enqueue_job(job)
-    return job
+    Uses frappe.as_json() for stable serialization of Frappe types
+    (datetime, date, Decimal, etc.).
+    """
+    params_json = frappe.as_json(params, sort_keys=True)
+    content = f"{job_type}:{organization}:{params_json}"
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
 ```
 
-**Note:** This requires the `job_hash` index from Task 4 to have a unique constraint for non-terminal statuses, OR we rely on the index + retry logic.
-
-**Compliance Note:** PRD C-16 requires "guaranteed execution" - race conditions can cause duplicate job execution violating this.
-
----
-
-### Task 6: Fix Race Condition in Job Cancellation
-
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P1-006 |
-| **Consensus** | 2/4 (GPT52, sonn45) |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/engine.py` |
-
-**Problem:** `cancel_job()` at line 117 lacks locking - job can transition to Running between check and update.
-
-**Plan:** Add `SELECT ... FOR UPDATE` locking:
-```python
-def cancel_job(job_id: str) -> "frappe.Document":
-    # Lock the row to prevent concurrent modification
-    frappe.db.sql(
-        "SELECT name FROM `tabBackground Job` WHERE name = %s FOR UPDATE",
-        (job_id,)
-    )
-
-    job = frappe.get_doc("Background Job", job_id)
-    _validate_job_access(job, require_write=True)
-
-    if not job.can_cancel():
-        frappe.throw(_("Cannot cancel job in status: {0}").format(job.status))
-
-    # ... rest of cancellation logic ...
-```
-
-**Compliance Note:** Background Job Isolation Spec requires proper job state management. Race conditions violate the state machine contract.
+**Compliance Note:**
+- `frappe.as_json()` is the idiomatic Frappe pattern per Architecture Doc
+- Handles datetime, date, Decimal, and other Frappe-specific types
 
 ---
 
-### Task 7: Verify Scheduler Hooks (Already Present - Mark as Verified)
+## P2: Medium Issues (3 Tasks) - PENDING APPROVAL
 
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P1-007 |
-| **Consensus** | 1/4 (sonn45) - Single-point finding |
-| **Files Affected** | `dartwing/hooks.py` |
-
-**Finding:** Scheduler events ARE correctly registered at lines 197-208:
-```python
-scheduler_events = {
-    "cron": {
-        "* * * * *": [
-            "dartwing.dartwing_core.background_jobs.scheduler.process_retry_queue",
-            "dartwing.dartwing_core.background_jobs.scheduler.process_dependent_jobs",
-        ],
-    },
-    "daily": [
-        "dartwing.dartwing_core.background_jobs.cleanup.daily_cleanup",
-    ],
-}
-```
-
-**Plan:** No change needed. Mark as VERIFIED - scheduler hooks are present.
-
-**Compliance Note:** This aligns with Background Job Isolation Spec which requires scheduled retry processing.
-
----
-
-### Task 8: Audit State Machine in Cleanup (Already Compliant)
-
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P1-008 |
-| **Consensus** | 2/4 (GPT52, sonn45) |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/cleanup.py` |
-
-**Finding:** cleanup.py uses `frappe.delete_doc()` which is appropriate for terminal-state jobs (Completed, Dead Letter, Canceled). No state transitions occur - jobs are permanently deleted.
-
-**Plan:** No change needed. Mark as VERIFIED - cleanup properly deletes terminal-state jobs without state machine violations.
-
-**Note:** The cleanup does need batched commits (see P2-005), but the state machine is correct.
-
----
-
-## P2: Reliability & Correctness Issues (8 Tasks)
-
-### Task 9: Cancel RQ Jobs on Cancellation
+### Task 4: Document RQ Cancellation Limitation (P2-001)
 
 | Attribute | Value |
 |-----------|-------|
 | **Issue ID** | P2-001 |
-| **Consensus** | 2/4 (GPT52, sonn45) |
+| **Status** | DEFERRED - GitHub Issue #34 tracks implementation |
 | **Files Affected** | `dartwing/dartwing_core/background_jobs/engine.py` |
 
-**Problem:** `cancel_job()` marks DB record but doesn't cancel RQ job.
-
-**Plan:** Add RQ job cancellation after DB update (combined with P1-006 fix):
-```python
-# After setting job.status = "Canceled"
-if hasattr(job, 'rq_job_id') and job.rq_job_id:
-    try:
-        from frappe.utils.background_jobs import get_queue
-        queue_map = {"Critical": "short", "High": "short", "Normal": "default", "Low": "long"}
-        queue = get_queue(queue_map.get(job.priority, "default"))
-        rq_job = queue.fetch_job(job.rq_job_id)
-        if rq_job:
-            rq_job.cancel()
-    except Exception:
-        pass  # RQ job may have already started
-```
-
-**Note:** Background Job DocType doesn't have `rq_job_id` field - may need to add it, OR skip this enhancement if we rely on job checking its own status.
-
-**Compliance Note:** PRD C-16 requires "guaranteed execution" - stale RQ jobs violate predictable behavior.
+**Plan:** Add explicit documentation to `cancel_job()` docstring noting that cancellation is cooperative via `is_canceled()` polling, not immediate RQ job termination.
 
 ---
 
-### Task 10: Use enqueue_after_commit for Transaction Safety
+### Task 5: Remove Premature Commit (P2-002)
 
 | Attribute | Value |
 |-----------|-------|
 | **Issue ID** | P2-002 |
-| **Consensus** | 2/4 (gemi30, sonn45) |
 | **Files Affected** | `dartwing/dartwing_core/background_jobs/engine.py` |
 
-**Problem:** `_enqueue_job()` at line 394 enqueues immediately after insert, risking orphaned RQ jobs if enqueue fails before commit.
-
-**Plan:** Add `enqueue_after_commit=True` to frappe.enqueue call at line 422:
-```python
-frappe.enqueue(
-    "dartwing.dartwing_core.background_jobs.executor.execute_job",
-    job_id=job.name,
-    queue=queue,
-    timeout=job.timeout_seconds or 300,
-    is_async=True,
-    enqueue_after_commit=True,  # Add this parameter
-)
-```
-
-**Compliance Note:** Frappe best practice for transaction-safe background job queuing.
+**Plan:** Remove explicit `frappe.db.commit()` from `_enqueue_job()` line 525. The `enqueue_after_commit=True` parameter already handles transaction boundary.
 
 ---
 
-### Task 11: Fix Duplicate Key in hooks.py
+### Task 6: Add Redis Failure Handling (P2-003)
 
 | Attribute | Value |
 |-----------|-------|
 | **Issue ID** | P2-003 |
-| **Consensus** | 2/4 (opus45, sonn45) |
-| **Files Affected** | `dartwing/hooks.py` |
-
-**Problem:** Lines 125-126 and 134-135 have duplicate `"Company"` keys - Python dict silently overwrites.
-
-**Current code:**
-```python
-permission_query_conditions = {
-    "Company": "dartwing.dartwing_company.permissions.get_permission_query_conditions_company",
-    "Company": "dartwing.permissions.company.get_permission_query_conditions",  # overwrites
-}
-```
-
-**Plan:** Remove the duplicate entry, keeping the correct one based on codebase convention. Likely keep the `dartwing.permissions.company` version for consistency with other doctypes.
-
-**Compliance Note:** Architecture Section 8.2.2 requires proper permission hooks for all concrete types.
-
----
-
-### Task 12: Fix Config 0 Values Treated as Falsy
-
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P2-004 |
-| **Consensus** | 1/4 (GPT52) |
 | **Files Affected** | `dartwing/dartwing_core/background_jobs/engine.py` |
 
-**Problem:** Line 70 uses `or` which treats `0` as falsy:
-```python
-job.priority = priority or job_type_doc.default_priority or "Normal"
-```
-
-**Plan:** Use explicit None checks:
-```python
-job.priority = priority if priority is not None else (job_type_doc.default_priority or "Normal")
-job.timeout_seconds = job_type_doc.default_timeout if job_type_doc.default_timeout is not None else 300
-job.max_retries = job_type_doc.max_retries if job_type_doc.max_retries is not None else 5
-```
-
-**Compliance Note:** Background Job Isolation Spec defines configurable timeouts per queue - `0` may be intentional for "no timeout".
+**Plan:** Wrap Redis lock acquisition in try/except and throw user-friendly error on Redis connection failure.
 
 ---
 
-### Task 13: Add Batched Commits to Cleanup Job
+## P3: Low Priority (6 Tasks) - DEFERRED TO POST-MERGE
 
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P2-005 |
-| **Consensus** | 2/4 (opus45, sonn45) |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/cleanup.py` |
-
-**Problem:** Lines 35-47 delete in loop but only commit once at end. Long transactions risk lock timeouts.
-
-**Plan:** Add batch commits:
-```python
-def cleanup_old_jobs(retention_days: int = 30, batch_size: int = 100):
-    # ... existing query ...
-
-    deleted_count = 0
-    for i, job_id in enumerate(jobs):
-        try:
-            frappe.delete_doc("Background Job", job_id, force=True, delete_permanently=True)
-            deleted_count += 1
-
-            if (i + 1) % batch_size == 0:
-                frappe.db.commit()
-        except Exception as e:
-            frappe.log_error(...)
-
-    if deleted_count % batch_size != 0:
-        frappe.db.commit()
-
-    return deleted_count
-```
-
-**Compliance Note:** PRD Target Metric requires <200ms API response - long cleanup transactions can block other queries.
+| Task | Issue ID | Description |
+|------|----------|-------------|
+| 7 | P3-001 | Refactor `submit_job()` complexity |
+| 8 | P3-002 | Add return type hints to public API |
+| 9 | P3-003 | Add rate limit window cap (max 24 hours) |
+| 10 | P3-004 | Add progress update throttling |
+| 11 | P3-005 | Extract magic numbers to config |
+| 12 | P3-006 | Include `retry_attempt` in job history |
 
 ---
 
-### Task 14: Progress Update Commit Strategy (Document Only)
+## Verification of Original FIX_PLAN v1.0 Items
 
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P2-006 |
-| **Consensus** | 1/4 (opus45) |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/progress.py` |
+### P1 Original (All 8 VERIFIED ✅)
 
-**Problem:** `update_progress` doesn't commit, so progress may be lost on crash.
+| Task | Issue | Status | Evidence |
+|------|-------|--------|----------|
+| 1 | SQL Injection | ✅ VERIFIED | Parameterized queries in metrics.py |
+| 2 | SIGALRM Timeout | ✅ VERIFIED | ThreadPoolExecutor in executor.py |
+| 3 | User Field Reference | ✅ VERIFIED | Person→Org Member chain in engine.py |
+| 4 | Database Indexes | ✅ VERIFIED | Indexes in background_job.json |
+| 5 | Duplicate Race Condition | ✅ VERIFIED | Distributed lock in engine.py |
+| 6 | Cancel Race Condition | ✅ VERIFIED | SELECT FOR UPDATE in engine.py |
+| 7 | Scheduler Hooks | ✅ VERIFIED | Hooks present in hooks.py |
+| 8 | State Machine Cleanup | ✅ VERIFIED | Terminal deletion in cleanup.py |
 
-**Plan:** Document that progress is "eventually consistent" rather than adding commits (which would slow job execution). Add docstring clarification:
-```python
-def update_progress(...):
-    """
-    Update job progress. Note: Progress updates are buffered and may not
-    survive job crashes. Use checkpoints for critical state.
-    """
-```
+### P2 Original (All 8 VERIFIED ✅)
 
-**Compliance Note:** PRD C-16 requires "progress UI" but doesn't mandate persistence guarantees for progress data.
-
----
-
-### Task 15: Add Organization Field to Job Execution Log
-
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P2-007 |
-| **Consensus** | 1/4 (opus45) |
-| **Files Affected** | `dartwing/dartwing_core/doctype/job_execution_log/job_execution_log.json` |
-
-**Problem:** Log links to Background Job but not Organization directly, requiring joins for org-filtered queries.
-
-**Plan:** Add organization field with fetch_from:
-```json
-{
-    "fieldname": "organization",
-    "fieldtype": "Link",
-    "label": "Organization",
-    "options": "Organization",
-    "fetch_from": "background_job.organization",
-    "read_only": 1
-}
-```
-
-**Compliance Note:** PRD C-01 requires "complete data isolation" - direct org field enables efficient permission filtering.
+| Task | Issue | Status | Evidence |
+|------|-------|--------|----------|
+| 9 | RQ Cancel | ⏸️ DEFERRED | GitHub Issue #34 |
+| 10 | enqueue_after_commit | ✅ VERIFIED | Present at line 551 |
+| 11 | Duplicate hooks.py Keys | ✅ VERIFIED | No duplicates |
+| 12 | Falsy Config Values | ✅ VERIFIED | `is not None` checks |
+| 13 | Batched Cleanup | ✅ VERIFIED | Batch commits in cleanup.py |
+| 14 | Progress Commit | ✅ VERIFIED | Documented as eventual |
+| 15 | Org Field on Log | ✅ VERIFIED | Field with fetch_from |
+| 16 | Socket.IO Room Scoping | ✅ VERIFIED | `room=f"org:{organization}"` |
 
 ---
 
-### Task 16: Socket.IO Room Scoping for Permission Validation
+## Execution Log
 
-| Attribute | Value |
-|-----------|-------|
-| **Issue ID** | P2-008 |
-| **Consensus** | 1/4 (sonn45) |
-| **Files Affected** | `dartwing/dartwing_core/background_jobs/progress.py` |
+### P1 Execution (2025-12-16)
 
-**Problem:** Socket.IO events broadcast without org-scoped room names.
+| Task | Start | End | Status |
+|------|-------|-----|--------|
+| Task 3 (JSON) | 2025-12-16 | 2025-12-16 | ✅ COMPLETE |
+| Task 1 (Socket.IO) | 2025-12-16 | 2025-12-16 | ✅ COMPLETE |
+| Task 2 (Orphaned Jobs) | 2025-12-16 | 2025-12-16 | ✅ COMPLETE |
 
-**Plan:** Use organization-scoped rooms:
-```python
-def _broadcast_progress(job_id: str, organization: str, progress_data: dict):
-    room = f"job_progress:{organization}"
-    frappe.publish_realtime(
-        "job_progress",
-        {"job_id": job_id, **progress_data},
-        room=room
-    )
-```
+### Changes Made
 
-**Compliance Note:** Architecture Section 2.2 specifies "Socket.IO channels scoped to `sync:<doctype>:<org>`".
+**engine.py (P1-NEW-003):**
+- `generate_job_hash()`: Replaced `json.dumps(params, sort_keys=True)` with `frappe.as_json(params, sort_keys=True)`
+- Added docstring noting Frappe type handling
 
----
+**progress.py (P1-NEW-001):**
+- Added `_validate_broadcast_params(job_id, organization)` helper function
+- Added validation call at start of `publish_job_progress()`
+- Added validation call at start of `publish_job_status_changed()`
 
-## P3: Quality & Maintainability Improvements (6 Tasks)
-
-| Task | Issue ID | Description | Priority |
-|------|----------|-------------|----------|
-| 17 | P3-001 | Add handler method import validation in job_type.py | Post-merge |
-| 18 | P3-002 | Consider using Frappe Query Builder for metrics.py | Post-merge |
-| 19 | P3-003 | Add rate limiting for job submission | Post-merge |
-| 20 | P3-004 | Add comprehensive metrics tests | Post-merge |
-| 21 | P3-005 | Add API documentation (OpenAPI) | Post-merge |
-| 22 | P3-006 | Add performance/load testing | Post-merge |
-
-**Note:** P3 items are deferred to follow-up PRs per MASTER_REVIEW.md guidance.
+**executor.py (P1-NEW-002):**
+- Added import: `add_to_date` from `frappe.utils`
+- In `_check_dependency()`: Added `next_retry_at` scheduling when parent is still in progress
+- Prevents orphaned jobs that would wait forever
 
 ---
 
-## Summary of High-Impact Decisions
-
-### P1 Critical Fixes Requiring Architectural Changes
-
-| Task | Change Type | Impact |
-|------|-------------|--------|
-| Task 1 (SQL Injection) | Security fix | All metric queries rewritten |
-| Task 2 (SIGALRM) | Platform compatibility | Executor timeout mechanism replaced |
-| Task 3 (User field) | Data model alignment | Permission checks rewritten to use Person |
-| Task 4 (Indexes) | Schema change | Database migration required |
-| Task 5 (Race condition) | Concurrency fix | Submit flow restructured |
-| Task 6 (Cancel race) | Concurrency fix | Cancel flow adds locking |
-
-### Judgment Calls / Deviations from MASTER_REVIEW.md
-
-| Issue | MASTER_REVIEW Recommendation | My Decision | Rationale |
-|-------|------------------------------|-------------|-----------|
-| P1-007 (Scheduler hooks) | "Verification Required" | **VERIFIED - No change needed** | Hooks exist at lines 197-208 |
-| P1-008 (State machine) | "Use transition_to method" | **VERIFIED - No change needed** | Cleanup deletes, doesn't transition |
-| P2-001 (RQ cancel) | "Cancel RQ job" | **Conditional** | Background Job DocType lacks `rq_job_id` field - skip unless field added |
-| P2-006 (Progress commit) | "Commit periodically" | **Document only** | Commits in progress loop would slow execution |
-
----
-
-## Execution Order
-
-For P1 execution, proceed in this order to minimize conflicts:
-
-1. **Task 4** - Add indexes (schema change, no code conflicts)
-2. **Task 1** - Fix SQL injection in metrics.py
-3. **Task 3** - Fix user field in engine.py + metrics.py
-4. **Task 2** - Replace SIGALRM in executor.py
-5. **Task 5** - Fix duplicate detection race in engine.py
-6. **Task 6** - Fix cancel race in engine.py
-7. **Task 7** - Mark as verified (no change)
-8. **Task 8** - Mark as verified (no change)
-
----
-
-**I have completed the Master Fix Plan. Please review and approve this plan for execution. I will wait for your 'APPROVE' command before moving to Phase 3: Implementation.**
+*Plan approved by user on 2025-12-16*
+*P1 execution completed on 2025-12-16*
+*Reference: MASTER_REVIEW.md v2.0*
