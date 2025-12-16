@@ -35,10 +35,11 @@ ORG_TYPE_MAP = {
 
 # Mapping from org_type to field names for concrete type initialization
 # Each entry defines which fields to copy from Organization to the concrete type
-# P2-006: Updated Company to use `legal_name` per dartwing_core_arch.md Section 3.4
+# P2-006: Updated to match actual DocType field names in each module
+# Note: Company (dartwing_company) uses legal_name and has no status field
 ORG_FIELD_MAP = {
     "Family": {"name_field": "family_name", "status_field": "status"},
-    "Company": {"name_field": "legal_name", "status_field": "status"},
+    "Company": {"name_field": "legal_name"},  # No status field in dartwing_company.Company
     "Association": {"name_field": "association_name", "status_field": "status"},
     "Nonprofit": {"name_field": "nonprofit_name", "status_field": "status"},
 }
@@ -227,7 +228,14 @@ class Organization(Document):
         return {"valid": len(errors) == 0, "errors": errors, "warnings": warnings}
 
     def after_insert(self):
-        """Create concrete type document after organization is created (FR-001)."""
+        """Create concrete type document after organization is created (FR-001).
+
+        Flags:
+            skip_concrete_type (bool): Set to True to prevent automatic concrete type
+                creation. Used when creating Organization for existing concrete types
+                or in test scenarios where concrete type creation should be skipped
+                to prevent recursion or unwanted side effects.
+        """
         # Skip if this was created by a concrete type (to prevent recursion)
         if getattr(self.flags, "skip_concrete_type", False):
             return
@@ -315,7 +323,9 @@ class Organization(Document):
             concrete.flags.ignore_permissions = True
             concrete.flags.from_organization = True  # Prevent recursion
 
-            # P2-006: Removed hardcoded field-setting block - ORG_FIELD_MAP handles all types
+            # P2-006: Field mapping is now handled dynamically via ORG_FIELD_MAP (lines 288-310)
+            # which maps org_name → concrete's name field (e.g., family_name, legal_name)
+            # and status → concrete's status field. See ORG_FIELD_MAP constant at module level.
 
             concrete.insert()
 
@@ -324,13 +334,15 @@ class Organization(Document):
 
             # Audit logging (FR-012)
             logger.info(
-                f"Created {concrete_doctype} {concrete.name} for Organization {self.name}"
+                f"User '{frappe.session.user}' created {concrete_doctype} {concrete.name} "
+                f"for Organization {self.name}"
             )
 
         except Exception as e:
             # Error logging (FR-012)
             logger.error(
-                f"Failed to create concrete type for Organization {self.name}: {str(e)}"
+                f"User '{frappe.session.user}': Failed to create concrete type for "
+                f"Organization {self.name}: {str(e)}"
             )
             # Re-raise to trigger transaction rollback (FR-011)
             raise
@@ -370,14 +382,14 @@ class Organization(Document):
                 )
                 # Audit logging (FR-012)
                 logger.info(
-                    f"Cascade deleted {self.linked_doctype} {self.linked_name} "
-                    f"for Organization {self.name}"
+                    f"User '{frappe.session.user}' cascade deleted {self.linked_doctype} "
+                    f"{self.linked_name} for Organization {self.name}"
                 )
             except frappe.LinkExistsError as e:
                 # Re-raise with clearer message about link constraints
                 logger.error(
-                    f"Cannot delete {self.linked_doctype} {self.linked_name}: "
-                    f"Other records still reference it. {str(e)}"
+                    f"User '{frappe.session.user}': Cannot delete {self.linked_doctype} "
+                    f"{self.linked_name}: Other records still reference it. {str(e)}"
                 )
                 frappe.throw(
                     _("Cannot delete {0} {1}: Other records still reference it").format(
@@ -386,14 +398,15 @@ class Organization(Document):
                 )
             except Exception as e:
                 logger.error(
-                    f"Error deleting {self.linked_doctype} {self.linked_name}: {str(e)}"
+                    f"User '{frappe.session.user}': Error deleting {self.linked_doctype} "
+                    f"{self.linked_name}: {str(e)}"
                 )
                 raise
         else:
             # Warning log when concrete type not found (FR-006, FR-012)
             logger.warning(
-                f"Concrete type {self.linked_doctype} {self.linked_name} "
-                f"not found during cascade delete for Organization {self.name}"
+                f"User '{frappe.session.user}': Concrete type {self.linked_doctype} "
+                f"{self.linked_name} not found during cascade delete for Organization {self.name}"
             )
 
 
@@ -419,29 +432,29 @@ def get_concrete_doc(organization: str) -> Optional[dict]:
         DoesNotExistError: If the Organization does not exist
         PermissionError: If user lacks read permission for the organization
     """
-    logger.info(f"API: get_concrete_doc called for Organization '{organization}'")
+    logger.info(f"API: get_concrete_doc - User '{frappe.session.user}' requested Organization '{organization}'")
 
     # T029: Add explicit permission check using frappe.has_permission
     if not frappe.has_permission(DOCTYPE_ORGANIZATION, "read", organization):
-        logger.warning(f"API: get_concrete_doc - Permission denied for '{organization}'")
+        logger.warning(f"API: get_concrete_doc - User '{frappe.session.user}' denied access to '{organization}'")
         frappe.throw(_("Not permitted to access this organization"), frappe.PermissionError)
     org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
 
     if not org.linked_doctype or not org.linked_name:
-        logger.info(f"API: get_concrete_doc - No linked concrete type for '{organization}'")
+        logger.info(f"API: get_concrete_doc - User '{frappe.session.user}' found no linked concrete type for '{organization}'")
         return None
 
     if not frappe.db.exists(org.linked_doctype, org.linked_name):
         logger.warning(
-            f"API: get_concrete_doc - Concrete type {org.linked_doctype} "
+            f"API: get_concrete_doc - User '{frappe.session.user}': Concrete type {org.linked_doctype} "
             f"'{org.linked_name}' not found for Organization '{organization}'"
         )
         return None
 
     concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
     logger.info(
-        f"API: get_concrete_doc - Returning {org.linked_doctype} '{org.linked_name}' "
-        f"for Organization '{organization}'"
+        f"API: get_concrete_doc - User '{frappe.session.user}' retrieved {org.linked_doctype} "
+        f"'{org.linked_name}' for Organization '{organization}'"
     )
     return concrete.as_dict()
 
@@ -464,11 +477,11 @@ def get_organization_with_details(organization: str) -> dict:
         DoesNotExistError: If the Organization does not exist
         PermissionError: If user lacks read permission for the organization
     """
-    logger.info(f"API: get_organization_with_details called for '{organization}'")
+    logger.info(f"API: get_organization_with_details - User '{frappe.session.user}' requested '{organization}'")
 
     # T022: Add explicit permission check using frappe.has_permission
     if not frappe.has_permission(DOCTYPE_ORGANIZATION, "read", organization):
-        logger.warning(f"API: get_organization_with_details - Permission denied for '{organization}'")
+        logger.warning(f"API: get_organization_with_details - User '{frappe.session.user}' denied access to '{organization}'")
         frappe.throw(_("Not permitted to access this organization"), frappe.PermissionError)
     org = frappe.get_doc(DOCTYPE_ORGANIZATION, organization)
     result = org.as_dict()
@@ -480,17 +493,17 @@ def get_organization_with_details(organization: str) -> dict:
             concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
             result["concrete_type"] = concrete.as_dict()
             logger.info(
-                f"API: get_organization_with_details - Including {org.linked_doctype} "
+                f"API: get_organization_with_details - User '{frappe.session.user}' retrieved {org.linked_doctype} "
                 f"'{org.linked_name}' for Organization '{organization}'"
             )
         except frappe.DoesNotExistError:
             logger.warning(
-                f"API: get_organization_with_details - Concrete type {org.linked_doctype} "
+                f"API: get_organization_with_details - User '{frappe.session.user}': Concrete type {org.linked_doctype} "
                 f"'{org.linked_name}' not found for Organization '{organization}'"
             )
             result["concrete_type"] = None
     else:
-        logger.info(f"API: get_organization_with_details - No linked concrete type for '{organization}'")
+        logger.info(f"API: get_organization_with_details - User '{frappe.session.user}' found no linked concrete type for '{organization}'")
         result["concrete_type"] = None
 
     return result

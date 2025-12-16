@@ -13,6 +13,26 @@ API Methods:
 
 Note: get_organization_with_details() and get_concrete_doc() are defined in
 dartwing_core/doctype/organization/organization.py as they are document-centric.
+
+API Versioning Notice (P3-005):
+-------------------------------
+This module provides NEW API endpoints that differ from the legacy endpoints in
+`dartwing/permissions/api.py`. Key differences:
+
+1. get_user_organizations():
+   - THIS module: Returns orgs based on Org Member table (membership data)
+   - LEGACY (permissions/api.py): Returns orgs based on User Permission table
+   - USE THIS for: Membership-aware org lists (shows roles, status, supervisor flag)
+   - USE LEGACY for: Permission-only checks (simpler, faster)
+
+2. get_org_members() vs get_organization_members():
+   - THIS module: Paginated (limit/offset), status enum filter, supervisor email privacy
+   - LEGACY (permissions/api.py): include_inactive boolean, no pagination
+   - USE THIS for: Flutter client member lists with pagination
+   - USE LEGACY for: Simple member fetches without pagination needs
+
+Recommendation: For new Flutter integrations, prefer this module's endpoints.
+The legacy endpoints in permissions/api.py remain supported for backward compatibility.
 """
 
 from typing import Optional
@@ -27,6 +47,49 @@ logger = frappe.logger("dartwing_core.api", allow_site=True, file_count=10)
 # P2-005: Rate limiting constants
 API_RATE_LIMIT = 100  # requests per window
 API_RATE_WINDOW = 60  # seconds
+
+# CR-003: Cache TTL for supervisor status (seconds)
+# Supervisor status rarely changes during active sessions
+SUPERVISOR_CACHE_TTL = 60
+
+
+def _is_supervisor_cached(person: str, organization: str) -> bool:
+    """
+    Check if person has supervisor role in organization, with caching.
+
+    CR-003: Caches result for 60 seconds to reduce DB load since
+    supervisor status rarely changes during active sessions.
+
+    Args:
+        person: Person document name
+        organization: Organization document name
+
+    Returns:
+        bool: True if person has active supervisor role
+    """
+    cache_key = f"supervisor_check:{frappe.local.site}:{person}:{organization}"
+
+    # Try to get from cache first
+    cached = frappe.cache.get_value(cache_key)
+    if cached is not None:
+        return cached
+
+    # Query database
+    is_supervisor = bool(frappe.db.sql(
+        """
+        SELECT 1 FROM `tabOrg Member` om
+        JOIN `tabRole Template` rt ON om.role = rt.name
+        WHERE om.person = %s AND om.organization = %s
+        AND om.status = 'Active' AND rt.is_supervisor = 1
+        LIMIT 1
+        """,
+        (person, organization)
+    ))
+
+    # Cache result with TTL
+    frappe.cache.set_value(cache_key, is_supervisor, expires_in_sec=SUPERVISOR_CACHE_TTL)
+
+    return is_supervisor
 
 
 @rate_limit(limit=API_RATE_LIMIT, seconds=API_RATE_WINDOW)
@@ -169,7 +232,7 @@ def get_org_members(
 
     # T038: Permission check (403)
     if not frappe.has_permission("Organization", "read", organization):
-        logger.warning(f"API: get_org_members - Permission denied for '{organization}'")
+        logger.warning(f"API: get_org_members - User '{frappe.session.user}' denied access to '{organization}'")
         frappe.throw(_("Not permitted to access this organization"), frappe.PermissionError)
 
     # P1-006: Validate and clamp limit parameter
@@ -199,36 +262,21 @@ def get_org_members(
         filters["status"] = status
 
     # P2-001: Check if current user is a supervisor for this organization
-    # Supervisors can see member emails; non-supervisors cannot
+    # Supervisors can see member emails; non-supervisors can only see their own
     user = frappe.session.user
+    current_person = None
     is_current_user_supervisor = False
 
-    if user != "Administrator":
-        # Get current user's Person
-        current_person = frappe.db.get_value("Person", {"frappe_user": user}, "name")
-        if current_person:
-            # Check if user has supervisor role in this organization
-            is_current_user_supervisor = frappe.db.exists(
-                "Org Member",
-                {
-                    "person": current_person,
-                    "organization": organization,
-                    "status": "Active",
-                }
-            ) and frappe.db.sql(
-                """
-                SELECT rt.is_supervisor
-                FROM `tabOrg Member` om
-                JOIN `tabRole Template` rt ON om.role = rt.name
-                WHERE om.person = %s AND om.organization = %s AND om.status = 'Active'
-                AND rt.is_supervisor = 1
-                LIMIT 1
-                """,
-                (current_person, organization)
-            )
-    else:
+    if user == "Administrator":
         # Administrator always has supervisor access
         is_current_user_supervisor = True
+    else:
+        # Get current user's Person (needed for both supervisor check and self-email visibility)
+        current_person = frappe.db.get_value("Person", {"frappe_user": user}, "name")
+        if current_person:
+            # CR-001: Single query to check supervisor role (fixes boolean logic and redundant queries)
+            # CR-003: Use cached check to reduce DB load during active sessions
+            is_current_user_supervisor = _is_supervisor_cached(current_person, organization)
 
     # T044-T047: Query Org Member with joins to Person and Role Template
     # P2-004: Use window function COUNT(*) OVER() to get total in single query
@@ -260,8 +308,12 @@ def get_org_members(
         as_dict=True,
     )
 
-    # P2-004: Extract total_count from first row (window function returns same value for all rows)
-    total_count = members[0].total_count if members else 0
+    # P2-004: Extract total_count from first row
+    # Note: total_count comes from COUNT(*) OVER() window function in the SQL query above.
+    # This value is identical across all rows, so we only need to read it from the first row.
+    # The window function calculates total matching rows BEFORE LIMIT is applied.
+    # CR-004: Use .get() for defensive access in case query format changes
+    total_count = members[0].get("total_count", 0) if members else 0
 
     # T46: Format response
     # P2-001: Only include person_email for supervisors
@@ -274,19 +326,20 @@ def get_org_members(
             "organization": m.organization,
             "role": m.role,
             "status": m.status,
-            "start_date": str(m.start_date) if m.start_date else None,
-            "end_date": str(m.end_date) if m.end_date else None,
+            "start_date": m.start_date.isoformat() if m.start_date else None,
+            "end_date": m.end_date.isoformat() if m.end_date else None,
             "is_supervisor": m.is_supervisor or 0,
         }
-        # Only include email for supervisors or self
-        if is_current_user_supervisor:
+        # CR-002: Include email for supervisors OR users viewing their own record
+        # CR-005: Guard against current_person being None (user not linked to Person)
+        if is_current_user_supervisor or (current_person and m.person == current_person):
             member_data["person_email"] = m.person_email
         data.append(member_data)
 
     # T47: Add INFO-level audit logging
     logger.info(
-        f"API: get_org_members - Retrieved {len(data)} of {total_count} members "
-        f"for organization '{organization}' (limit={limit}, offset={offset})"
+        f"API: get_org_members - User '{frappe.session.user}' retrieved {len(data)} of {total_count} "
+        f"members for organization '{organization}' (limit={limit}, offset={offset})"
     )
 
     return {

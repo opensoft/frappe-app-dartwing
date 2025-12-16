@@ -464,4 +464,183 @@ def get_org_members(
 
 ---
 
-**STATUS: P2 IMPLEMENTATION COMPLETE**
+**STATUS: P3 IMPLEMENTATION IN PROGRESS**
+
+---
+
+## 9. P3 Low Priority Fix Plan
+
+### Task 15: P3-001 — Raw SQL vs Frappe ORM
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-001 |
+| **Type** | Maintainability |
+| **Status** | **SKIPPED - NOT BLOCKING** |
+| **Note** | Raw SQL with parameterization is secure. ORM migration is a future enhancement, not a bug fix. |
+
+---
+
+### Task 16: P3-002 — Add User Context to Audit Logs
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-002 |
+| **Type** | Audit/Compliance |
+| **Files** | `organization.py`, `organization_api.py` |
+| **Problem** | Some log messages don't include user context for compliance trails. |
+| **Fix** | Include `frappe.session.user` in all INFO-level audit logs. |
+
+---
+
+### Task 17: P3-003 — Date Serialization ISO Format
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-003 |
+| **Type** | API Consistency |
+| **File** | `organization_api.py` |
+| **Problem** | `str(m.start_date)` produces inconsistent date formats. |
+| **Fix** | Use `.isoformat()` for ISO 8601 format expected by Flutter. |
+
+---
+
+### Task 18: P3-004 — Permission-Focused Tests
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-004 |
+| **Type** | Test Quality |
+| **File** | `test_organization_api.py` |
+| **Problem** | Tests use `ignore_permissions=True` extensively. |
+| **Fix** | Add dedicated tests verifying real permission flow. |
+
+---
+
+### Task 19: P3-005 — Document API Differences
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-005 |
+| **Type** | API Design |
+| **Files** | `organization_api.py`, `permissions/api.py` |
+| **Problem** | Potential duplication with existing `permissions/api.py` endpoints. |
+| **Fix** | Add deprecation notice or document intentional differences. |
+
+---
+
+### Task 20: P3-006 — Integration Tests
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-006 |
+| **Type** | Test Coverage |
+| **File** | `test_organization_api.py` |
+| **Problem** | No HTTP endpoint verification. |
+| **Fix** | Add tests using `frappe.call()` to verify full API flow. |
+
+---
+
+### Task 21: P3-007 — validate_organization_links Tests
+
+| Attribute | Value |
+|:----------|:------|
+| **Issue ID** | P3-007 |
+| **Type** | Test Coverage |
+| **File** | `test_organization_api.py` |
+| **Problem** | No test coverage for `validate_organization_links()` API. |
+| **Fix** | Add tests for valid links, broken links, and unlinked organizations. |
+
+---
+
+## 10. P3 Execution Checklist
+
+- [x] Task 15: P3-001 (Raw SQL - skipped, not blocking)
+- [x] Task 16: P3-002 (audit log user context)
+- [x] Task 17: P3-003 (date serialization)
+- [x] Task 18: P3-004 (permission-focused tests)
+- [x] Task 19: P3-005 (API documentation)
+- [x] Task 20: P3-006 (integration tests)
+- [x] Task 21: P3-007 (validate_organization_links tests)
+- [x] Run test suite to verify P3 fixes (26/26 passed)
+
+---
+
+## 11. P3 Implementation Results
+
+**Date Completed:** 2025-12-15
+
+### Completed P3 Tasks
+
+| Task | Issue | Status | Notes |
+|:-----|:------|:-------|:------|
+| Task 15 | P3-001 | ⏭️ SKIPPED | Raw SQL with parameterization is secure; ORM migration deferred |
+| Task 16 | P3-002 | ✅ DONE | Added `frappe.session.user` to all audit logs in organization.py and organization_api.py |
+| Task 17 | P3-003 | ✅ DONE | Changed `str(date)` to `.isoformat()` for ISO 8601 compliance |
+| Task 18 | P3-004 | ✅ DONE | Added 6 permission-focused tests (User Permission flow, supervisor email visibility, has_access field, auth/404/validation errors) |
+| Task 19 | P3-005 | ✅ DONE | Added module docstrings explaining API versioning and differences between new and legacy endpoints |
+| Task 20 | P3-006 | ✅ DONE | Added 3 integration tests using `frappe.call()` for HTTP-like flow |
+| Task 21 | P3-007 | ✅ DONE | Added 4 tests for validate_organization_links API (valid, broken, unlinked, not found) |
+
+### Files Modified in P3
+
+| File | Changes |
+|:-----|:--------|
+| `dartwing/dartwing_core/api/organization_api.py` | P3-002 (user context in logs), P3-003 (ISO dates), P3-005 (API versioning docstring) |
+| `dartwing/dartwing_core/doctype/organization/organization.py` | P3-002 (user context in all audit logs) |
+| `dartwing/permissions/api.py` | P3-005 (note about newer endpoints) |
+| `dartwing/tests/test_organization_api.py` | P3-004 (6 tests), P3-006 (3 tests), P3-007 (4 tests) - Added 13 new test methods |
+
+### New Test Methods Added
+
+1. `test_permission_flow_with_user_permission` - Verifies User Permission grants access
+2. `test_email_visibility_supervisor_only` - Verifies email privacy for supervisors
+3. `test_has_access_field_accuracy` - Verifies has_access boolean
+4. `test_authentication_required_401` - Verifies 401 for Guest
+5. `test_nonexistent_org_returns_404` - Verifies 404 for missing org
+6. `test_invalid_status_filter_returns_validation_error` - Verifies validation
+7. `test_api_via_frappe_call` - Integration test using frappe.call()
+8. `test_api_response_includes_metadata` - Verifies pagination metadata
+9. `test_date_format_is_iso8601` - Verifies ISO 8601 date format
+10. `test_validate_organization_links_valid` - Tests link validation for valid org
+11. `test_validate_organization_links_missing_concrete` - Tests broken link detection
+12. `test_validate_organization_links_unlinked` - Tests unlinked org validation
+13. `test_validate_organization_links_not_found` - Tests 404 error handling
+
+---
+
+**STATUS: ALL P1, P2, P3 IMPLEMENTATION COMPLETE**
+
+---
+
+## 12. Final Summary
+
+### Implementation Metrics
+
+| Priority | Total Issues | Completed | Skipped | Success Rate |
+|:---------|:-------------|:----------|:--------|:-------------|
+| P1 Critical | 6 | 6 | 0 | 100% |
+| P2 Medium | 8 | 8 | 0 | 100% |
+| P3 Low | 7 | 6 | 1 | 86% (P3-001 intentionally skipped) |
+| **Total** | **21** | **20** | **1** | **95%** |
+
+### Test Suite Expansion
+
+| Metric | Before | After | Change |
+|:-------|:-------|:------|:-------|
+| Test Methods | 13 | 26 | +13 (100% increase) |
+| Test Categories | 4 | 8 | +4 new categories |
+
+### Files Modified
+
+| Module | Files Changed | Lines Changed (approx) |
+|:-------|:--------------|:-----------------------|
+| dartwing_core/api | 1 | ~80 |
+| dartwing_core/doctype | 2 | ~60 |
+| permissions | 2 | ~15 |
+| tests | 1 | ~220 |
+| **Total** | **6** | **~375** |
+
+---
+
+**End of Fix Plan**
