@@ -33,15 +33,18 @@ def submit_job(
         Background Job document
 
     Raises:
-        frappe.ValidationError: Invalid input parameters
+        frappe.ValidationError: Invalid input parameters or rate limit exceeded
         frappe.PermissionError: User lacks permission
-        DuplicateJobError: Duplicate job submission detected
+        frappe.DuplicateEntryError: Duplicate job submission detected
     """
     # Validate user can submit jobs for this organization
     _validate_organization_access(organization)
 
     # Get job type configuration
     job_type_doc = _get_job_type(job_type)
+
+    # Check rate limit before proceeding
+    _check_rate_limit(job_type_doc)
 
     # Check for permission requirement
     if job_type_doc.requires_permission:
@@ -345,6 +348,11 @@ def get_job_history(job_id: str) -> dict:
 # Internal helper functions
 
 
+def _is_system_manager() -> bool:
+    """Check if current user has System Manager role."""
+    return "System Manager" in frappe.get_roles()
+
+
 def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
     """
     Generate unique hash for duplicate detection.
@@ -364,7 +372,7 @@ def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
 def _validate_organization_access(organization: str):
     """Validate user has access to organization via Person -> Org Member."""
     # System Manager can access all
-    if "System Manager" in frappe.get_roles():
+    if _is_system_manager():
         return
 
     # Find Person linked to current user
@@ -390,7 +398,7 @@ def _validate_organization_access(organization: str):
 def _validate_job_access(job, require_write: bool = False):
     """Validate user has access to view/modify job."""
     # System Manager can access all
-    if "System Manager" in frappe.get_roles():
+    if _is_system_manager():
         return
 
     # Owner can always access their own jobs
@@ -412,6 +420,54 @@ def _get_job_type(job_type: str) -> "frappe.Document":
         frappe.throw(_("Job Type '{0}' is disabled").format(job_type))
 
     return job_type_doc
+
+
+def _check_rate_limit(job_type_doc: "frappe.Document"):
+    """
+    Check if user has exceeded rate limit for this job type.
+
+    Args:
+        job_type_doc: Job Type document with rate limit configuration
+
+    Raises:
+        frappe.ValidationError: If rate limit exceeded
+
+    Note:
+        This rate limit check has a minor race condition window where concurrent
+        requests could all check the count before any job is created, allowing
+        slightly more jobs than the limit. This is acceptable as rate limiting is
+        a soft UX protection, not a hard security boundary. The window is typically
+        <100ms and unlikely to cause significant limit violations in practice.
+    """
+    # Skip if no rate limit configured (None or 0 both mean "no limit")
+    # Note: 'if not rate_limit' is True when rate_limit is None or 0 (both falsy)
+    if not job_type_doc.rate_limit:
+        return
+
+    # System Manager bypasses rate limiting (check early to avoid DB query)
+    if _is_system_manager():
+        return
+
+    window_seconds = job_type_doc.rate_limit_window or 60
+    cutoff = add_to_date(now_datetime(), seconds=-window_seconds)
+
+    # Count recent jobs by this user for this job type
+    recent_count = frappe.db.count(
+        "Background Job",
+        {
+            "job_type": job_type_doc.name,
+            "owner_user": frappe.session.user,
+            "creation": (">=", cutoff),
+        },
+    )
+
+    if recent_count >= job_type_doc.rate_limit:
+        frappe.throw(
+            _(
+                "Rate limit exceeded for '{0}' jobs. You have submitted {1} of {2} allowed "
+                "submissions in the last {3} seconds. Please wait before submitting more jobs."
+            ).format(job_type_doc.name, recent_count, job_type_doc.rate_limit, window_seconds)
+        )
 
 
 def _check_duplicate(job_hash: str, window_seconds: int) -> Optional["frappe.Document"]:
