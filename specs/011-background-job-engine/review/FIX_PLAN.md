@@ -243,6 +243,24 @@ def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
 
 ---
 
+### P2 Execution (2025-12-16)
+
+| Task | Start | End | Status |
+|------|-------|-----|--------|
+| Task 4 (RQ Doc) | 2025-12-16 | 2025-12-16 | ✅ COMPLETE |
+| Task 5 (Commit) | 2025-12-16 | 2025-12-16 | ✅ COMPLETE |
+| Task 6 (Redis) | 2025-12-16 | 2025-12-16 | ✅ COMPLETE |
+
+### P2 Changes Made
+
+**engine.py (P2-001, P2-002, P2-003):**
+- `cancel_job()`: Added docstring noting cooperative cancellation via `is_canceled()` and GitHub Issue #34
+- `_enqueue_job()`: Removed explicit `frappe.db.commit()`, added docstring explaining why
+- `_deduplication_lock()`: Wrapped lock acquisition in try/except with user-friendly error message
+
+---
+
 *Plan approved by user on 2025-12-16*
 *P1 execution completed on 2025-12-16*
+*P2 execution completed on 2025-12-16*
 *Reference: MASTER_REVIEW.md v2.0*

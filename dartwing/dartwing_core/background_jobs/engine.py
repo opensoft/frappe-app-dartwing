@@ -135,6 +135,13 @@ def cancel_job(job_id: str) -> "frappe.Document":
     Uses row-level locking to prevent race conditions where job status
     changes between the check and the update.
 
+    Note: This function marks the job as canceled in the database but does NOT
+    immediately terminate a running RQ worker. Running jobs detect cancellation
+    cooperatively by calling `JobContext.is_canceled()` at progress checkpoints.
+    Jobs that don't check for cancellation will run to completion.
+
+    See GitHub Issue #34 for planned RQ job termination enhancement.
+
     Args:
         job_id: Job to cancel
 
@@ -503,10 +510,18 @@ def _deduplication_lock(organization: str, job_hash: str, timeout_seconds: int =
     unique constraint on job_hash (the same job must be allowed again after the
     deduplication window). A distributed lock prevents concurrent inserts of the
     same (organization, job_hash) within the same window.
+
+    Raises:
+        frappe.ValidationError: If Redis is unavailable
     """
     lock_key = f"dartwing_core:background_job:dedup:{organization}:{job_hash}"
-    lock = frappe.cache().lock(lock_key, timeout=timeout_seconds)
-    lock.acquire()
+    try:
+        lock = frappe.cache().lock(lock_key, timeout=timeout_seconds)
+        lock.acquire()
+    except Exception as e:
+        frappe.log_error(f"Redis lock acquisition failed: {e}", "Background Job Engine")
+        frappe.throw(_("Job submission temporarily unavailable. Please try again."))
+
     try:
         yield
     finally:
@@ -518,7 +533,14 @@ def _deduplication_lock(organization: str, job_hash: str, timeout_seconds: int =
 
 
 def _enqueue_job(job, is_retry: bool = False):
-    """Enqueue job for background execution."""
+    """
+    Enqueue job for background execution.
+
+    Note: We intentionally do NOT call frappe.db.commit() here. The
+    enqueue_after_commit=True parameter ensures the RQ job is only
+    enqueued after the outer transaction commits. This preserves
+    atomicity when submit_job() is called within a larger transaction.
+    """
     from dartwing.dartwing_core.background_jobs.progress import publish_job_status_changed
 
     # Update status to Queued
@@ -526,7 +548,7 @@ def _enqueue_job(job, is_retry: bool = False):
         old_status = job.status
         job.status = "Queued"
         job.save(ignore_permissions=True)
-        frappe.db.commit()
+        # Removed: frappe.db.commit() - rely on enqueue_after_commit=True
 
         publish_job_status_changed(
             job_id=job.name,
