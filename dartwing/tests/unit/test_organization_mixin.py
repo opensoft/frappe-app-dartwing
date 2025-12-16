@@ -32,10 +32,20 @@ class TestOrganizationMixin(FrappeTestCase):
     def _cleanup_test_data(cls):
         """Remove test Organization and Family records."""
         # Delete test families first (due to foreign key)
-        for name in frappe.get_all("Family", filters={"family_name": ["like", "Test Mixin%"]}, pluck="name"):
+        family_names = frappe.get_all(
+            "Family",
+            filters={"family_name": ["like", "Test Mixin%"]},
+            pluck="name",
+        )
+        for name in family_names:
             frappe.delete_doc("Family", name, force=True)
         # Delete test organizations
-        for name in frappe.get_all("Organization", filters={"org_name": ["like", "Test Mixin%"]}, pluck="name"):
+        org_names = frappe.get_all(
+            "Organization",
+            filters={"org_name": ["like", "Test Mixin%"]},
+            pluck="name",
+        )
+        for name in org_names:
             frappe.delete_doc("Organization", name, force=True)
 
     def setUp(self):
@@ -197,6 +207,7 @@ class TestOrganizationMixin(FrappeTestCase):
             with self.assertRaises(frappe.ValidationError) as context:
                 family.update_org_name("New Name")
 
-            self.assertIn("Cannot update organization name: No organization linked", str(context.exception))
+            expected_msg = "Cannot update organization name: No organization linked"
+            self.assertIn(expected_msg, str(context.exception))
         finally:
             frappe.delete_doc("Family", orphan_family.name, force=True)
