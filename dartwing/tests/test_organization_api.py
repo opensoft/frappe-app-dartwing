@@ -62,9 +62,10 @@ class TestOrganizationAPI(FrappeTestCase):
             })
             cls.test_person.insert(ignore_permissions=True)
         else:
-            cls.test_person = frappe.get_doc(
-                "Person", {"frappe_user": "apitest@example.com"}
+            person_name = frappe.db.get_value(
+                "Person", {"frappe_user": "apitest@example.com"}, "name"
             )
+            cls.test_person = frappe.get_doc("Person", person_name)
 
         # Create a second Person linked to no_perm_user
         if not frappe.db.exists("Person", {"frappe_user": "noperm@example.com"}):
@@ -77,9 +78,10 @@ class TestOrganizationAPI(FrappeTestCase):
             })
             cls.no_perm_person.insert(ignore_permissions=True)
         else:
-            cls.no_perm_person = frappe.get_doc(
-                "Person", {"frappe_user": "noperm@example.com"}
+            person_name = frappe.db.get_value(
+                "Person", {"frappe_user": "noperm@example.com"}, "name"
             )
+            cls.no_perm_person = frappe.get_doc("Person", person_name)
 
         # Create test Organization (Company type) - auto-creates linked Company
         if not frappe.db.exists("Organization", {"org_name": "API Test Company"}):
@@ -90,9 +92,10 @@ class TestOrganizationAPI(FrappeTestCase):
             })
             cls.test_company_org.insert(ignore_permissions=True)
         else:
-            cls.test_company_org = frappe.get_doc(
-                "Organization", {"org_name": "API Test Company"}
+            org_name = frappe.db.get_value(
+                "Organization", {"org_name": "API Test Company"}, "name"
             )
+            cls.test_company_org = frappe.get_doc("Organization", org_name)
 
         # Create test Organization (Family type) - auto-creates linked Family
         if not frappe.db.exists("Organization", {"org_name": "API Test Family"}):
@@ -103,9 +106,10 @@ class TestOrganizationAPI(FrappeTestCase):
             })
             cls.test_family_org.insert(ignore_permissions=True)
         else:
-            cls.test_family_org = frappe.get_doc(
-                "Organization", {"org_name": "API Test Family"}
+            org_name = frappe.db.get_value(
+                "Organization", {"org_name": "API Test Family"}, "name"
             )
+            cls.test_family_org = frappe.get_doc("Organization", org_name)
 
         # Create Organization with no linked concrete type for testing
         if not frappe.db.exists("Organization", {"org_name": "API Test Unlinked"}):
@@ -117,9 +121,10 @@ class TestOrganizationAPI(FrappeTestCase):
             cls.unlinked_org.flags.skip_concrete_type = True
             cls.unlinked_org.insert(ignore_permissions=True)
         else:
-            cls.unlinked_org = frappe.get_doc(
-                "Organization", {"org_name": "API Test Unlinked"}
+            org_name = frappe.db.get_value(
+                "Organization", {"org_name": "API Test Unlinked"}, "name"
             )
+            cls.unlinked_org = frappe.get_doc("Organization", org_name)
 
     def setUp(self):
         """Set up before each test."""
@@ -563,13 +568,13 @@ class TestOrganizationAPI(FrappeTestCase):
         """
         from dartwing.dartwing_core.api.organization_api import get_user_organizations
 
-        # Create membership for test_person
+        # Create membership for test_person without granting access (Pending members get no User Permission)
         member = frappe.get_doc({
             "doctype": "Org Member",
             "person": self.test_person.name,
             "organization": self.test_company_org.name,
             "role": "Employee",
-            "status": "Active",
+            "status": "Pending",
         })
         member.insert(ignore_permissions=True)
 
@@ -699,7 +704,6 @@ class TestOrganizationAPI(FrappeTestCase):
         P3-006: Verifies P3-003 date serialization fix.
         """
         from dartwing.dartwing_core.api.organization_api import get_org_members
-        import re
 
         # Create member with specific dates
         member = frappe.get_doc({

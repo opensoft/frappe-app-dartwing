@@ -67,10 +67,11 @@ def _is_supervisor_cached(person: str, organization: str) -> bool:
     Returns:
         bool: True if person has active supervisor role
     """
+    cache = frappe.cache() if callable(getattr(frappe, "cache", None)) else frappe.cache
     cache_key = f"supervisor_check:{frappe.local.site}:{person}:{organization}"
 
     # Try to get from cache first
-    cached = frappe.cache.get_value(cache_key)
+    cached = cache.get_value(cache_key)
     if cached is not None:
         return cached
 
@@ -87,7 +88,7 @@ def _is_supervisor_cached(person: str, organization: str) -> bool:
     ))
 
     # Cache result with TTL
-    frappe.cache.set_value(cache_key, is_supervisor, expires_in_sec=SUPERVISOR_CACHE_TTL)
+    cache.set_value(cache_key, is_supervisor, expires_in_sec=SUPERVISOR_CACHE_TTL)
 
     return is_supervisor
 
@@ -255,11 +256,6 @@ def get_org_members(
             ),
             frappe.ValidationError
         )
-
-    # T043: Build filters with optional status filter
-    filters = {"organization": organization}
-    if status:
-        filters["status"] = status
 
     # P2-001: Check if current user is a supervisor for this organization
     # Supervisors can see member emails; non-supervisors can only see their own
