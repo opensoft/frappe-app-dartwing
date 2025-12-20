@@ -147,8 +147,9 @@ class TestEquipment(FrappeTestCase):
                     org = frappe.get_doc("Organization", perm.for_value)
                     if org.org_name and org.org_name.startswith(self.TEST_PREFIX):
                         frappe.delete_doc("User Permission", up, force=True)
-            except Exception:
-                pass
+            except Exception as e:
+                # Ignore errors during cleanup (e.g., missing User Permission or Organization), as this is test teardown.
+                frappe.log_error(f"Error deleting User Permission {up} during test cleanup: {e}")
 
     def test_equipment_creation(self):
         """Test basic equipment creation (FR-001)."""
