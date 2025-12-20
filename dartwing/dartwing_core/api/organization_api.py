@@ -67,7 +67,7 @@ def _is_supervisor_cached(person: str, organization: str) -> bool:
     Returns:
         bool: True if person has active supervisor role
     """
-    cache = frappe.cache() if callable(getattr(frappe, "cache", None)) else frappe.cache
+    cache = frappe.cache()
     cache_key = f"supervisor_check:{frappe.local.site}:{person}:{organization}"
 
     # Try to get from cache first
@@ -276,33 +276,58 @@ def get_org_members(
 
     # T044-T047: Query Org Member with joins to Person and Role Template
     # P2-004: Use window function COUNT(*) OVER() to get total in single query
-    members = frappe.db.sql(
-        """
-        SELECT
-            om.name,
-            om.person,
-            om.member_name,
-            om.organization,
-            om.role,
-            om.status,
-            om.start_date,
-            om.end_date,
-            p.primary_email as person_email,
-            rt.is_supervisor,
-            COUNT(*) OVER() as total_count
-        FROM `tabOrg Member` om
-        LEFT JOIN `tabPerson` p ON om.person = p.name
-        LEFT JOIN `tabRole Template` rt ON om.role = rt.name
-        WHERE om.organization = %(organization)s
-        {status_filter}
-        ORDER BY om.start_date DESC
-        LIMIT %(limit)s OFFSET %(offset)s
-        """.format(
-            status_filter="AND om.status = %(status)s" if status else ""
-        ),
-        {"organization": organization, "status": status, "limit": limit, "offset": offset},
-        as_dict=True,
-    )
+    # V2-002: Use two separate query strings instead of .format() to avoid static analysis warnings
+    if status:
+        members = frappe.db.sql(
+            """
+            SELECT
+                om.name,
+                om.person,
+                om.member_name,
+                om.organization,
+                om.role,
+                om.status,
+                om.start_date,
+                om.end_date,
+                p.primary_email as person_email,
+                rt.is_supervisor,
+                COUNT(*) OVER() as total_count
+            FROM `tabOrg Member` om
+            LEFT JOIN `tabPerson` p ON om.person = p.name
+            LEFT JOIN `tabRole Template` rt ON om.role = rt.name
+            WHERE om.organization = %(organization)s
+            AND om.status = %(status)s
+            ORDER BY om.start_date DESC
+            LIMIT %(limit)s OFFSET %(offset)s
+            """,
+            {"organization": organization, "status": status, "limit": limit, "offset": offset},
+            as_dict=True,
+        )
+    else:
+        members = frappe.db.sql(
+            """
+            SELECT
+                om.name,
+                om.person,
+                om.member_name,
+                om.organization,
+                om.role,
+                om.status,
+                om.start_date,
+                om.end_date,
+                p.primary_email as person_email,
+                rt.is_supervisor,
+                COUNT(*) OVER() as total_count
+            FROM `tabOrg Member` om
+            LEFT JOIN `tabPerson` p ON om.person = p.name
+            LEFT JOIN `tabRole Template` rt ON om.role = rt.name
+            WHERE om.organization = %(organization)s
+            ORDER BY om.start_date DESC
+            LIMIT %(limit)s OFFSET %(offset)s
+            """,
+            {"organization": organization, "limit": limit, "offset": offset},
+            as_dict=True,
+        )
 
     # P2-004: Extract total_count from first row
     # Note: total_count comes from COUNT(*) OVER() window function in the SQL query above.

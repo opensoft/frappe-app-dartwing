@@ -14,6 +14,8 @@ This module tests the whitelisted API methods for organization data access:
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+logger = frappe.logger("dartwing_core.tests")
+
 
 class TestOrganizationAPI(FrappeTestCase):
     """Test cases for Organization API methods."""
@@ -142,8 +144,12 @@ class TestOrganizationAPI(FrappeTestCase):
         ):
             try:
                 frappe.delete_doc("Org Member", member.name, force=True)
-            except Exception:
+            except frappe.DoesNotExistError:
+                # V2-003: Record already deleted, safe to ignore
                 pass
+            except Exception as e:
+                # V2-003: Log unexpected errors but don't fail teardown
+                logger.warning(f"Failed to delete Org Member {member.name} in tearDown: {str(e)}")
         frappe.db.commit()
 
     # =========================================================================

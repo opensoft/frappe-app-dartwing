@@ -28,7 +28,7 @@ This project uses Frappe app structure:
 **Purpose**: Project initialization and API module structure
 
 - [x] T001 Create API module directory at dartwing/dartwing_core/api/
-- [x] T002 Create **init**.py in dartwing/dartwing_core/api/**init**.py
+- [x] T002 Create `__init__.py` in dartwing/dartwing_core/api/`__init__.py`
 - [x] T003 [P] Create test file at dartwing/tests/test_organization_api.py with test class skeleton
 
 ---
