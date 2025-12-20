@@ -217,6 +217,21 @@ def _delete_permission(user: str, allow: str, for_value: str) -> None:
     })
 
 
+def is_privileged_user(user: str | None = None) -> bool:
+    """Check if user has unrestricted access (P2-NEW-06).
+
+    Privileged users bypass permission checks. This centralizes the
+    Administrator/System Manager check pattern used throughout the codebase.
+
+    Args:
+        user: Frappe User email. Defaults to current session user.
+
+    Returns:
+        True if user is Administrator or has System Manager role.
+    """
+    if not user:
+        user = frappe.session.user
+    return user == "Administrator" or "System Manager" in frappe.get_roles(user)
 
 def _cleanup_orphaned_permissions(user: str, org_name: str, doc) -> None:
     """
