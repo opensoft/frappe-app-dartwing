@@ -106,7 +106,13 @@ class TestFullWorkflow(FrappeTestCase):
                 pass
 
     def _create_test_user(self, name_suffix):
-        """Helper to create a test Frappe User."""
+        """Helper to create a test Frappe User.
+
+        Creates user with Dartwing User role (not System Manager) to properly
+        test permission enforcement. System Manager role bypasses all User
+        Permission checks, which would defeat the purpose of testing Feature 5
+        (User Permission Propagation).
+        """
         email = f"{TEST_PREFIX}{name_suffix}@workflow.test"
         if not frappe.db.exists("User", email):
             user = frappe.get_doc({
@@ -116,7 +122,7 @@ class TestFullWorkflow(FrappeTestCase):
                 "last_name": f"Test {name_suffix}",
                 "enabled": 1,
                 "user_type": "System User",
-                "roles": [{"role": "System Manager"}]
+                "roles": [{"role": "Dartwing User"}]  # Standard member role
             })
             user.flags.ignore_permissions = True
             user.insert(ignore_permissions=True)
@@ -136,19 +142,33 @@ class TestFullWorkflow(FrappeTestCase):
         return person
 
     def _create_test_organization(self, name_suffix, org_type="Family"):
-        """Helper to create a test Organization with concrete type."""
-        # Create concrete type first which triggers Organization creation
-        concrete_doctype = org_type
-        name_field = f"{org_type.lower()}_name"
+        """Helper to create a test Organization with concrete type.
 
-        concrete = frappe.get_doc({
-            "doctype": concrete_doctype,
-            name_field: f"{TEST_PREFIX}{org_type} {name_suffix}"
+        Creates Organization first (not concrete type), which triggers the
+        after_insert hook to create the concrete type. This matches production
+        behavior and tests the bidirectional linking hooks critical to data integrity.
+        """
+        # Step 1: Create Organization with org_type
+        org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": f"{TEST_PREFIX}{org_type} {name_suffix}",
+            "org_type": org_type,
+            "status": "Active"
         })
-        concrete.insert(ignore_permissions=True)
-        concrete.reload()
+        org.insert(ignore_permissions=True)
 
-        org = frappe.get_doc("Organization", concrete.organization)
+        # Step 2: Reload to get hook-populated linked_doctype and linked_name
+        org.reload()
+
+        # Step 3: Fetch the concrete type created by hooks
+        if not org.linked_doctype or not org.linked_name:
+            raise frappe.ValidationError(
+                f"Organization hook failed to create concrete type '{org_type}' for {org.name}. "
+                f"Check Organization._create_concrete_type() method in after_insert hook"
+            )
+
+        concrete = frappe.get_doc(org.linked_doctype, org.linked_name)
+
         return org, concrete
 
     # =========================================================================

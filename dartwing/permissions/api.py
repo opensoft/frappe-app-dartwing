@@ -10,11 +10,13 @@ designed for use by Flutter clients and external integrations.
 API-first design per constitution: All logic via @frappe.whitelist()
 """
 
+from typing import Any
+
 import frappe
 from frappe import _
 
 
-def _parse_bool(value, default=False):
+def _parse_bool(value: Any, default: bool = False) -> bool:
     """
     Safely parse a boolean value from HTTP parameter (string or bool).
 
@@ -34,7 +36,7 @@ def _parse_bool(value, default=False):
     return default
 
 
-def _parse_int(value, default=100):
+def _parse_int(value: Any, default: int = 100) -> int:
     """
     Safely parse an integer value from HTTP parameter (string or int).
 
@@ -56,7 +58,7 @@ def _parse_int(value, default=100):
 
 
 @frappe.whitelist()
-def get_user_organizations():
+def get_user_organizations() -> list[dict[str, Any]]:
     """
     Get list of Organizations accessible by the current user.
 
@@ -116,7 +118,7 @@ def get_user_organizations():
 
 
 @frappe.whitelist()
-def check_organization_access(organization: str):
+def check_organization_access(organization: str) -> dict:
     """
     Check if current user has access to a specific Organization.
 
@@ -177,7 +179,7 @@ def check_organization_access(organization: str):
 
 
 @frappe.whitelist()
-def get_organization_members(organization: str, include_inactive=False):
+def get_organization_members(organization: str, include_inactive: bool | str = False) -> list[dict[str, Any]]:
     """
     Get members of an Organization.
 
@@ -186,7 +188,9 @@ def get_organization_members(organization: str, include_inactive=False):
 
     Args:
         organization: Organization name/ID
-        include_inactive: Whether to include inactive members (default: False)
+        include_inactive: Whether to include inactive members (default: False).
+            Accepts bool (Python calls) or str (HTTP parameters like "true"/"false").
+            The _parse_bool helper handles conversion.
 
     Returns:
         list[dict]: List of member summaries with keys:
@@ -271,8 +275,8 @@ def get_permission_audit_log(
     event_type: str = None,
     from_date: str = None,
     to_date: str = None,
-    limit=100
-):
+    limit: int | str = 100
+) -> dict[str, Any]:
     """
     Get permission audit log entries.
 
@@ -288,7 +292,9 @@ def get_permission_audit_log(
         event_type: Filter by event type - create, remove, skip (optional)
         from_date: Start date for log entries (optional)
         to_date: End date for log entries (optional)
-        limit: Maximum entries to return (default: 100)
+        limit: Maximum entries to return (default: 100).
+            Accepts int (Python calls) or str (HTTP parameters like "100").
+            The _parse_int helper handles conversion.
 
     Returns:
         dict: Log metadata with message, log_path, and filters_applied

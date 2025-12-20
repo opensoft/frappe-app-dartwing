@@ -46,7 +46,9 @@
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Display name of the company (synced from Organization)"
+   "fetch_from": "organization.org_name",
+   "read_only": 1,
+   "description": "Display name of the company (automatically synced from Organization)"
   },
   {
    "fieldname": "organization",
@@ -66,7 +68,9 @@
    "default": "Active",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Company status (synced from Organization)"
+   "fetch_from": "organization.status",
+   "read_only": 1,
+   "description": "Company status (automatically synced from Organization)"
   },
   {
    "fieldname": "column_break_basic",

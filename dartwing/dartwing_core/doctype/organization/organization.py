@@ -19,20 +19,19 @@ DOCTYPE_ASSOCIATION = "Association"
 DOCTYPE_NONPROFIT = "Nonprofit"
 
 # Mapping from org_type to concrete DocType
-# CR-006 FIX: Added Association for consistency with fixtures
+# Note: "Club" is not a root org_type - it's a subtype of Association
 ORG_TYPE_MAP = {
     "Family": "Family",
     "Company": "Company",
-    "Club": "Club",
     "Association": "Association",
     "Nonprofit": "Nonprofit",
 }
 
 # Mapping from org_type to field names for concrete type initialization
 # Each entry defines which fields to copy from Organization to the concrete type
+# Note: Company uses fetch_from mechanism instead of manual sync
 ORG_FIELD_MAP = {
     "Family": {"name_field": "family_name", "status_field": "status"},
-    "Company": {"name_field": "company_name", "status_field": "status"},
     "Association": {"name_field": "association_name", "status_field": "status"},
     "Nonprofit": {"name_field": "nonprofit_name", "status_field": "status"},
 }
