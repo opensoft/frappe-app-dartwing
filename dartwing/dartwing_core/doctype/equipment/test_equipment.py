@@ -107,8 +107,9 @@ class TestEquipment(FrappeTestCase):
                     org = frappe.get_doc("Organization", org_member.organization)
                     if org.org_name and org.org_name.startswith(self.TEST_PREFIX):
                         frappe.delete_doc("Org Member", om, force=True)
-            except Exception:
-                pass
+            except Exception as e:
+                # Ignore errors during cleanup (e.g., missing Org Member), as this is test teardown.
+                frappe.log_error(f"Error deleting Org Member {om} during test cleanup: {e}")
 
         # Clean up persons
         for person in frappe.get_all(
