@@ -25,8 +25,9 @@ class TestFullWorkflow(FrappeTestCase):
         """Set up test fixtures once for all tests."""
         super().setUpClass()
 
+        # P2-004 FIX: Added "Company" to required_doctypes (used in multi-org tests)
         # Skip all tests if required DocTypes don't exist
-        required_doctypes = ["Person", "Organization", "Org Member", "Family"]
+        required_doctypes = ["Person", "Organization", "Org Member", "Family", "Company"]
         for dt in required_doctypes:
             if not frappe.db.exists("DocType", dt):
                 import unittest
@@ -445,14 +446,17 @@ class TestFullWorkflow(FrappeTestCase):
         org_member.status = "Active"
         org_member.save(ignore_permissions=True)
 
-        # Check if permission was recreated
+        # P2-003 FIX: Add assertion for permission recreation
         perm_recreated = frappe.db.exists("User Permission", {
             "user": user_email,
             "allow": "Organization",
             "for_value": org.name
         })
-        # Note: This depends on the permission hooks implementation
-        # Some implementations only create on insert, not on status change
+        self.assertTrue(
+            perm_recreated,
+            "Permission should be recreated when Org Member status changes back to Active. "
+            "The on_update hook should handle status change from Inactive→Active."
+        )
 
     # =========================================================================
     # T033c: Edge Case - Concurrent Org Member Creation

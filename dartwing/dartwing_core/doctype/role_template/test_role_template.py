@@ -8,6 +8,55 @@ from frappe.tests.utils import FrappeTestCase
 class TestRoleTemplate(FrappeTestCase):
     """Test cases for Role Template DocType."""
 
+    @classmethod
+    def setUpClass(cls):
+        """Set up test fixtures once for all tests.
+
+        P2-007 FIX: Programmatically load Role Template fixtures if not present.
+        This prevents test failures on fresh installations and ensures test
+        independence from manual fixture loading.
+        """
+        super().setUpClass()
+
+        # Check if fixtures are already loaded
+        role_count = frappe.db.count("Role Template")
+        if role_count >= 14:
+            return  # Fixtures already loaded
+
+        frappe.logger().warning(
+            f"Only {role_count} Role Templates found, expected 14. "
+            "Loading test fixtures programmatically."
+        )
+
+        # Load test fixtures programmatically
+        fixtures = [
+            # Family roles (4)
+            {"role_name": "Parent", "applies_to_org_type": "Family", "is_supervisor": 1},
+            {"role_name": "Child", "applies_to_org_type": "Family", "is_supervisor": 0},
+            {"role_name": "Guardian", "applies_to_org_type": "Family", "is_supervisor": 1},
+            {"role_name": "Extended Family", "applies_to_org_type": "Family", "is_supervisor": 0},
+            # Company roles (4)
+            {"role_name": "Owner", "applies_to_org_type": "Company", "is_supervisor": 1, "default_hourly_rate": 150.00},
+            {"role_name": "Manager", "applies_to_org_type": "Company", "is_supervisor": 1, "default_hourly_rate": 100.00},
+            {"role_name": "Employee", "applies_to_org_type": "Company", "is_supervisor": 0, "default_hourly_rate": 50.00},
+            {"role_name": "Contractor", "applies_to_org_type": "Company", "is_supervisor": 0, "default_hourly_rate": 75.00},
+            # Association roles (3)
+            {"role_name": "President", "applies_to_org_type": "Association", "is_supervisor": 1},
+            {"role_name": "Member", "applies_to_org_type": "Association", "is_supervisor": 0},
+            {"role_name": "Secretary", "applies_to_org_type": "Association", "is_supervisor": 1},
+            # Nonprofit roles (3)
+            {"role_name": "Director", "applies_to_org_type": "Nonprofit", "is_supervisor": 1},
+            {"role_name": "Volunteer", "applies_to_org_type": "Nonprofit", "is_supervisor": 0},
+            {"role_name": "Board Member", "applies_to_org_type": "Nonprofit", "is_supervisor": 1},
+        ]
+
+        for fixture in fixtures:
+            if not frappe.db.exists("Role Template", {"role_name": fixture["role_name"]}):
+                doc = frappe.get_doc({"doctype": "Role Template", **fixture})
+                doc.insert(ignore_permissions=True)
+
+        frappe.db.commit()
+
     # =========================================================================
     # User Story 1: System Administrator Seeds Role Data (T008-T012)
     # =========================================================================

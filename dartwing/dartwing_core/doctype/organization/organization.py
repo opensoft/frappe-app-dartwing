@@ -20,20 +20,22 @@ DOCTYPE_NONPROFIT = "Nonprofit"
 
 # Mapping from org_type to concrete DocType
 # Note: "Club" is not a root org_type - it's a subtype of Association
+# P2-005 FIX: Use constants for dictionary keys (DRY principle, IDE refactoring support)
 ORG_TYPE_MAP = {
-    "Family": "Family",
-    "Company": "Company",
-    "Association": "Association",
-    "Nonprofit": "Nonprofit",
+    DOCTYPE_FAMILY: DOCTYPE_FAMILY,
+    DOCTYPE_COMPANY: DOCTYPE_COMPANY,
+    DOCTYPE_ASSOCIATION: DOCTYPE_ASSOCIATION,
+    DOCTYPE_NONPROFIT: DOCTYPE_NONPROFIT,
 }
 
 # Mapping from org_type to field names for concrete type initialization
 # Each entry defines which fields to copy from Organization to the concrete type
 # Note: Company uses fetch_from mechanism instead of manual sync
+# P2-005 FIX: Use constants for dictionary keys (DRY principle, IDE refactoring support)
 ORG_FIELD_MAP = {
-    "Family": {"name_field": "family_name", "status_field": "status"},
-    "Association": {"name_field": "association_name", "status_field": "status"},
-    "Nonprofit": {"name_field": "nonprofit_name", "status_field": "status"},
+    DOCTYPE_FAMILY: {"name_field": "family_name", "status_field": "status"},
+    DOCTYPE_ASSOCIATION: {"name_field": "association_name", "status_field": "status"},
+    DOCTYPE_NONPROFIT: {"name_field": "nonprofit_name", "status_field": "status"},
 }
 
 
