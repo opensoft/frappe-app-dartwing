@@ -122,19 +122,21 @@ permission_query_conditions = {
 	"Organization": "dartwing.permissions.organization.get_permission_query_conditions",
 	"Family": "dartwing.permissions.family.get_permission_query_conditions",
 	"Family Member": "dartwing.permissions.family.get_member_permission_query_conditions",
-	"Company": "dartwing.dartwing_company.permissions.get_permission_query_conditions_company",
 	"Company": "dartwing.permissions.company.get_permission_query_conditions",
 	"Association": "dartwing.permissions.association.get_permission_query_conditions",
 	"Nonprofit": "dartwing.permissions.nonprofit.get_permission_query_conditions",
+	# P2-02 FIX: Use consistent naming with _equipment suffix
+	"Equipment": "dartwing.permissions.equipment.get_permission_query_conditions_equipment",
 }
 
 has_permission = {
 	"Organization": "dartwing.permissions.organization.has_permission",
 	"Family": "dartwing.permissions.family.has_permission",
-	"Company": "dartwing.dartwing_company.permissions.has_permission_company",
 	"Company": "dartwing.permissions.company.has_permission",
 	"Association": "dartwing.permissions.association.has_permission",
 	"Nonprofit": "dartwing.permissions.nonprofit.has_permission",
+	# P2-02 FIX: Use consistent naming with _equipment suffix
+	"Equipment": "dartwing.permissions.equipment.has_permission_equipment",
 }
 
 # Fixtures
@@ -179,11 +181,23 @@ doc_events = {
 	},
 	"Org Member": {
 		"after_insert": "dartwing.permissions.helpers.create_user_permissions",
-		"on_trash": "dartwing.permissions.helpers.remove_user_permissions",
-		"on_update": "dartwing.permissions.helpers.handle_status_change",
+		# P1-04 FIX: Reorder on_trash - check equipment first, then remove permissions
+		"on_trash": [
+			"dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_assignments_on_member_removal",
+			"dartwing.permissions.helpers.remove_user_permissions"
+		],
+		# P1-03 FIX: Add equipment check on status change (deactivation)
+		# P2-NEW-03 FIX: Equipment check first to block deactivation before permission changes
+		"on_update": [
+			"dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_assignments_on_member_deactivation",
+			"dartwing.permissions.helpers.handle_status_change"
+		],
 	},
 	"Person": {
 		"on_trash": "dartwing.dartwing_core.doctype.org_member.org_member.handle_person_deletion"
+	},
+	"Organization": {
+		"on_trash": "dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_on_org_deletion"
 	}
 }
 

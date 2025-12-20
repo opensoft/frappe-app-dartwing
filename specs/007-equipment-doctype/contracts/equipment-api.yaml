@@ -1,0 +1,520 @@
+openapi: 3.0.3
+info:
+  title: Dartwing Equipment API
+  description: |
+    API endpoints for Equipment management in Dartwing.
+    Equipment is linked to Organization and uses Frappe's standard REST patterns.
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: Frappe API base path
+
+paths:
+  /resource/Equipment:
+    get:
+      summary: List Equipment
+      description: |
+        List equipment records. Results are automatically filtered by user's
+        Organization permissions via User Permission system.
+      operationId: listEquipment
+      tags:
+        - Equipment
+      parameters:
+        - name: filters
+          in: query
+          description: JSON-encoded filter conditions
+          schema:
+            type: string
+          example: '[["owner_organization","=","ORG-2025-00001"]]'
+        - name: fields
+          in: query
+          description: JSON array of fields to return
+          schema:
+            type: string
+          example: '["name","equipment_name","status","equipment_type"]'
+        - name: order_by
+          in: query
+          description: Sort order
+          schema:
+            type: string
+          example: 'modified desc'
+        - name: limit_start
+          in: query
+          description: Pagination offset
+          schema:
+            type: integer
+          example: 0
+        - name: limit_page_length
+          in: query
+          description: Number of records to return
+          schema:
+            type: integer
+          example: 20
+      responses:
+        '200':
+          description: List of equipment records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EquipmentSummary'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create Equipment
+      description: Create a new equipment record. User must be member of the specified organization.
+      operationId: createEquipment
+      tags:
+        - Equipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentCreate'
+      responses:
+        '200':
+          description: Equipment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Equipment'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /resource/Equipment/{name}:
+    get:
+      summary: Get Equipment
+      description: Retrieve a single equipment record by name.
+      operationId: getEquipment
+      tags:
+        - Equipment
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Equipment document name (e.g., EQ-00001)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Equipment record
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Equipment'
+        '404':
+          description: Equipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update Equipment
+      description: Update an existing equipment record.
+      operationId: updateEquipment
+      tags:
+        - Equipment
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentUpdate'
+      responses:
+        '200':
+          description: Equipment updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Equipment'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Equipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Equipment
+      description: Delete an equipment record. Requires System Manager role.
+      operationId: deleteEquipment
+      tags:
+        - Equipment
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Equipment deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'ok'
+        '403':
+          description: Permission denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Equipment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /method/dartwing.dartwing_core.doctype.equipment.equipment.get_org_members:
+    get:
+      summary: Get Organization Members for Assignment
+      description: |
+        Helper method to get Person records who are active members of an organization.
+        Used for populating the assigned_to field dropdown.
+      operationId: getOrgMembers
+      tags:
+        - Equipment
+      parameters:
+        - name: organization
+          in: query
+          required: true
+          description: Organization name to filter members
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of assignable persons
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        value:
+                          type: string
+                          description: Person name (document ID)
+                        description:
+                          type: string
+                          description: Person display name
+
+  /method/dartwing.dartwing_core.doctype.equipment.equipment.get_equipment_by_organization:
+    get:
+      summary: Get Equipment by Organization
+      description: Get all equipment for a specific organization with summary info.
+      operationId: getEquipmentByOrganization
+      tags:
+        - Equipment
+      parameters:
+        - name: organization
+          in: query
+          required: true
+          description: Organization name
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: Filter by status
+          schema:
+            type: string
+            enum: [Active, In Repair, Retired, Lost, Stolen]
+      responses:
+        '200':
+          description: Equipment list for organization
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EquipmentSummary'
+
+  /method/dartwing.dartwing_core.doctype.equipment.equipment.get_equipment_by_person:
+    get:
+      summary: Get Equipment Assigned to Person
+      description: Get all equipment currently assigned to a specific person.
+      operationId: getEquipmentByPerson
+      tags:
+        - Equipment
+      parameters:
+        - name: person
+          in: query
+          required: true
+          description: Person name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Equipment assigned to person
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EquipmentSummary'
+
+components:
+  schemas:
+    Equipment:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Document ID (e.g., EQ-00001)
+          example: EQ-00001
+        equipment_name:
+          type: string
+          description: Display name
+          example: Forklift #1
+        equipment_type:
+          type: string
+          enum: ['', Vehicle, Electronics, Furniture, Machinery, Tools, Other]
+          example: Machinery
+        serial_number:
+          type: string
+          description: Manufacturer serial number (globally unique)
+          example: FL-2024-123456
+        status:
+          type: string
+          enum: [Active, In Repair, Retired, Lost, Stolen]
+          default: Active
+          example: Active
+        owner_organization:
+          type: string
+          description: Link to Organization
+          example: ORG-2025-00001
+        assigned_to:
+          type: string
+          description: Link to Person
+          example: PER-00001
+        current_location:
+          type: string
+          description: Link to Address
+          example: ADDR-00001
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentDocument'
+        maintenance_schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentMaintenance'
+        creation:
+          type: string
+          format: date-time
+        modified:
+          type: string
+          format: date-time
+        owner:
+          type: string
+          description: Frappe user who created the record
+
+    EquipmentSummary:
+      type: object
+      properties:
+        name:
+          type: string
+          example: EQ-00001
+        equipment_name:
+          type: string
+          example: Forklift #1
+        equipment_type:
+          type: string
+          example: Machinery
+        status:
+          type: string
+          example: Active
+        owner_organization:
+          type: string
+          example: ORG-2025-00001
+        assigned_to:
+          type: string
+          example: PER-00001
+
+    EquipmentCreate:
+      type: object
+      required:
+        - equipment_name
+        - owner_organization
+      properties:
+        equipment_name:
+          type: string
+          example: Forklift #1
+        equipment_type:
+          type: string
+          enum: ['', Vehicle, Electronics, Furniture, Machinery, Tools, Other]
+        serial_number:
+          type: string
+        status:
+          type: string
+          enum: [Active, In Repair, Retired, Lost, Stolen]
+          default: Active
+        owner_organization:
+          type: string
+          example: ORG-2025-00001
+        assigned_to:
+          type: string
+        current_location:
+          type: string
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentDocument'
+        maintenance_schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentMaintenance'
+
+    EquipmentUpdate:
+      type: object
+      properties:
+        equipment_name:
+          type: string
+        equipment_type:
+          type: string
+        serial_number:
+          type: string
+        status:
+          type: string
+        assigned_to:
+          type: string
+        current_location:
+          type: string
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentDocument'
+        maintenance_schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquipmentMaintenance'
+
+    EquipmentDocument:
+      type: object
+      properties:
+        document_type:
+          type: string
+          enum: [Manual, Warranty, Receipt, Inspection Report, Other]
+          example: Manual
+        file:
+          type: string
+          description: File path or URL
+          example: /private/files/forklift-manual.pdf
+
+    EquipmentMaintenance:
+      type: object
+      required:
+        - task
+      properties:
+        task:
+          type: string
+          description: Description of maintenance task
+          example: Annual safety inspection
+        frequency:
+          type: string
+          enum: [Daily, Weekly, Monthly, Quarterly, Yearly]
+          example: Yearly
+        next_due:
+          type: string
+          format: date
+          example: '2025-12-01'
+
+    ErrorResponse:
+      type: object
+      properties:
+        exc_type:
+          type: string
+          example: ValidationError
+        exception:
+          type: string
+        _server_messages:
+          type: string
+          description: JSON-encoded error messages
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sid
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: 'Format: token api_key:api_secret'
+
+security:
+  - cookieAuth: []
+  - tokenAuth: []
+
+tags:
+  - name: Equipment
+    description: Equipment management endpoints

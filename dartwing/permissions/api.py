@@ -164,11 +164,10 @@ def check_organization_access(organization: str):
         has_access = True
     else:
         # Check User Permission
-        has_access = frappe.db.exists("User Permission", {
-            "user": user,
-            "allow": "Organization",
-            "for_value": organization,
-        })
+        has_access = frappe.db.exists(
+            "User Permission",
+            {"user": user, "allow": "Organization", "for_value": organization},
+        )
 
     if not has_access:
         return {"has_access": False}
