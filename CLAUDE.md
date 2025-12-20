@@ -33,6 +33,9 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 Auto-generated from all feature plans. Last updated: 2025-12-01
 
 ## Active Technologies
+- Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures (002-role-template-doctype)
+- MariaDB 10.6+ via Frappe ORM (002-role-template-doctype)
+- Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger (004-org-bidirectional-hooks)
 
 ### Core Stack
 - Python 3.11+ (Frappe 15.x backend)
@@ -61,6 +64,7 @@ Python 3.11+ (Frappe 15.x backend): Follow standard conventions
 
 ## Recent Changes
 - 007-equipment-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
+- 004-org-bidirectional-hooks: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger
 - 006-company-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
 
 - 005-user-permission-propagation: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.permissions

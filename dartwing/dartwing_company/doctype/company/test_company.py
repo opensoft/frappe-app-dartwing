@@ -180,9 +180,20 @@ class TestCompany(FrappeTestCase):
 
         company = frappe.get_doc("Company", org.linked_name)
 
-        # Test mixin properties
+        # Test mixin properties without logo
         self.assertEqual(company.org_name, f"{self.TEST_PREFIX}Mixin Company")
         self.assertEqual(company.org_status, "Active")
+        self.assertIsNone(company.logo)  # No logo set yet
+
+        # Set logo on Organization and test that it's accessible via Company
+        test_logo_path = "/files/test_logo.png"
+        org.logo = test_logo_path
+        org.save()
+
+        # Reload company and verify logo is accessible via mixin
+        company.reload()
+        company._clear_organization_cache()  # Clear cache to ensure fresh data
+        self.assertEqual(company.logo, test_logo_path)
 
         # Test get_organization_doc method
         org_doc = company.get_organization_doc()

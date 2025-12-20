@@ -51,7 +51,8 @@
   {
    "fieldname": "logo",
    "fieldtype": "Attach Image",
-   "label": "Logo"
+   "label": "Logo",
+   "description": "Organization logo image"
   },
   {
    "fieldname": "naming_series",
@@ -83,6 +84,11 @@
   }
  ],
  "index_web_pages_for_search": 1,
+ "indexes": [
+  {
+   "fields": ["linked_doctype", "linked_name"]
+  }
+ ],
  "links": [],
  "modified": "2025-11-29 00:00:00.000000",
  "modified_by": "Administrator",

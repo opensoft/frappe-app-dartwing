@@ -1,38 +1,26 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:family_name",
- "creation": "2025-01-17 02:45:00.000000",
+ "autoname": "field:nonprofit_name",
+ "creation": "2025-12-13 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "family_name",
-  "slug",
+  "nonprofit_name",
   "organization",
   "description",
-  "tags",
   "column_break_1",
-  "contact_email",
-  "contact_phone",
-  "status",
-  "created_date",
-  "section_break_members",
-  "members"
+  "tax_exempt_number",
+  "classification",
+  "status"
  ],
  "fields": [
   {
-   "fieldname": "family_name",
+   "fieldname": "nonprofit_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Family Name",
+   "label": "Nonprofit Name",
    "reqd": 1,
-   "unique": 0
-  },
-  {
-   "fieldname": "slug",
-   "fieldtype": "Data",
-   "label": "Slug",
-   "read_only": 1,
    "unique": 1
   },
   {
@@ -50,23 +38,19 @@
    "label": "Description"
   },
   {
-   "fieldname": "tags",
-   "fieldtype": "Data",
-   "label": "Tags"
-  },
-  {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "contact_email",
+   "fieldname": "tax_exempt_number",
    "fieldtype": "Data",
-   "label": "Primary Email"
+   "label": "Tax Exempt Number (501c3)"
   },
   {
-   "fieldname": "contact_phone",
-   "fieldtype": "Data",
-   "label": "Primary Phone"
+   "fieldname": "classification",
+   "fieldtype": "Select",
+   "label": "Nonprofit Classification",
+   "options": "501(c)(3) - Charitable\n501(c)(4) - Social Welfare\n501(c)(6) - Business League\nOther"
   },
   {
    "default": "Active",
@@ -74,32 +58,14 @@
    "fieldtype": "Select",
    "label": "Status",
    "options": "Active\nInactive\nDissolved"
-  },
-  {
-   "default": "Today",
-   "fieldname": "created_date",
-   "fieldtype": "Date",
-   "label": "Created Date",
-   "read_only": 1
-  },
-  {
-   "fieldname": "section_break_members",
-   "fieldtype": "Section Break",
-   "label": "Members"
-  },
-  {
-   "fieldname": "members",
-   "fieldtype": "Table",
-   "label": "Family Members",
-   "options": "Family Member"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-17 02:45:00.000000",
+ "modified": "2025-12-13 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Dartwing Core",
- "name": "Family",
+ "name": "Nonprofit",
  "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
@@ -112,18 +78,6 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Family Manager",
    "share": 1,
    "write": 1
   }
