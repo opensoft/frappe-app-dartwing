@@ -187,7 +187,9 @@ class TestOrganizationMixin(FrappeTestCase):
         # Get the family first
         family = frappe.get_doc("Family", self.family.name)
 
-        # Delete the Organization (without cascade to simulate orphan)
+        # Delete the Organization using raw SQL to bypass document lifecycle
+        # This simulates an edge case where Organization is deleted outside normal flow
+        # (e.g., data corruption, manual deletion). Tests that mixin handles orphaned records gracefully.
         frappe.db.delete("Organization", self.org.name)
 
         # Clear cache and reload
