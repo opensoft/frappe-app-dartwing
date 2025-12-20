@@ -232,29 +232,6 @@ class Organization(Document):
         self._delete_concrete_type()
 
     def _create_concrete_type(self):
-        """
-        Create the concrete type document and establish bidirectional link.
-
-        Implements FR-001 through FR-004, FR-011, FR-012, FR-013.
-
-        Security Model (Issue #13):
-        - Uses ignore_permissions=True because concrete types are implementation details
-        - Permissions are enforced at the Organization level, not on concrete types
-        - Users create/delete Organizations, not concrete types directly
-        - Concrete types are automatically managed as part of Organization lifecycle
-        - This design prevents permission bypass since Organization permissions are checked
-
-        Execution Flow:
-        1. Validate org_type mapping exists
-        2. Check if concrete type already created (idempotent)
-        3. Create new concrete type document with mapped fields
-        4. Set linked_doctype BEFORE insert (prevents race condition)
-        5. Insert concrete type with system privileges
-        6. Set linked_name AFTER insert (requires concrete.name)
-        7. Log success for audit trail
-        8. On error: log and re-raise to trigger transaction rollback
-        """
-    def create_concrete_type(self):
         """Create the concrete type document (e.g., Family, Company) and link it back."""
         concrete_doctype = ORG_TYPE_MAP.get(self.org_type)
 
@@ -339,12 +316,6 @@ class Organization(Document):
     def _delete_concrete_type(self):
         """
         Delete the linked concrete type document (cascade delete).
-            frappe.log_error(f"Error creating concrete type {concrete_doctype}: {str(e)}")
-            frappe.throw(
-                _("Failed to create {0} record. Please try again or contact support.").format(
-                    concrete_doctype
-                )
-            )
 
         Implements FR-005, FR-006, FR-012, FR-013.
 
@@ -380,7 +351,7 @@ class Organization(Document):
                     f"Cascade deleted {self.linked_doctype} {self.linked_name} "
                     f"for Organization {self.name}"
                 )
-            except frappe.LinkExistsError:
+            except frappe.LinkExistsError as e:
                 # Re-raise with clearer message about link constraints
                 logger.error(
                     f"Cannot delete {self.linked_doctype} {self.linked_name}: "

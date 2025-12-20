@@ -9,10 +9,10 @@ Run tests with:
 """
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 
 
-class TestFamily(IntegrationTestCase):
+class TestFamily(FrappeTestCase):
     """Test cases for Family DocType."""
 
     def setUp(self):
