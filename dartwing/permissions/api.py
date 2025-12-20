@@ -8,6 +8,16 @@ These endpoints provide helpers for querying permission state and are
 designed for use by Flutter clients and external integrations.
 
 API-first design per constitution: All logic via @frappe.whitelist()
+
+Note (P3-005): Newer API endpoints with enhanced features are available in
+`dartwing.dartwing_core.api.organization_api`:
+
+- get_user_organizations(): Returns membership-aware org list (roles, supervisor status)
+- get_org_members(): Paginated member list with status filtering and email privacy
+
+The endpoints in this module remain supported for backward compatibility.
+For new Flutter integrations requiring pagination or membership data, consider
+using the dartwing_core.api.organization_api module instead.
 """
 
 import frappe
