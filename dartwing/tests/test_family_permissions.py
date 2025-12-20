@@ -9,7 +9,7 @@ Run tests with:
 """
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 
 from dartwing.permissions.family import (
     get_user_organizations,
@@ -21,7 +21,7 @@ from dartwing.permissions.family import (
 )
 
 
-class TestFamilyPermissions(IntegrationTestCase):
+class TestFamilyPermissions(FrappeTestCase):
     """Test cases for Family permission system."""
 
     @classmethod

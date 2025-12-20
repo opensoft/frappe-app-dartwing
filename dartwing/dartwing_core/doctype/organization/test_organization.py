@@ -9,10 +9,10 @@ Run tests with:
 """
 
 import frappe
-from frappe.tests import IntegrationTestCase
+from frappe.tests.utils import FrappeTestCase
 
 
-class TestOrganization(IntegrationTestCase):
+class TestOrganization(FrappeTestCase):
     """Test cases for Organization DocType."""
 
     def setUp(self):
