@@ -100,31 +100,31 @@ Dartwing Core provides 25 foundational features organized into 8 capability doma
 
 | ID | Feature Name | Description (Customer Benefit) | Status | Tier | Domain |
 |----|--------------|-------------------------------|--------|------|--------|
-| C-01 | Multi-Tenant Organizations | Unlimited "Companies" and "Families" per account with full data isolation and <400ms context switching | Live | Free | Organization |
-| C-02 | One-Click Organization Creation | Any user creates a Company or Family in ≤3 seconds | Live | Free | Organization |
-| C-03 | Invite Members (Adults, Children, Guests) | Email invite + QR-code child invite + time-limited guest access + auto-join flow for new users | Live | Free | Organization |
-| C-04 | Offline-First Mobile Apps | Full native iOS/Android apps work 100% offline (forms, lists, signatures, camera) with background sync | Live | Free | Sync |
-| C-05 | Real-Time Collaboration | Live cursors, comments, @mentions, and presence across web + mobile via Socket.IO | Live | Free | Sync |
-| C-06 | Automatic Native UI Generation | Every Frappe DocType instantly becomes beautiful, native Flutter forms, lists, kanban, calendars — zero code | Live | Free | UI |
-| C-07 | Unified File Storage | One API works with Google Drive, SharePoint, OneDrive, Dropbox, or S3 + automatic virus scanning | Live | Free/Pro | Storage |
-| C-08 | Electronic Signature & Annotation | Legally-binding e-signature (draw/type/upload) + highlight, stamp, redact — reusable in every app | Live | Free | Documents |
-| C-09 | Global Full-Text + Metadata Search | Sub-second search across millions of documents, faxes, notes, appliances, etc. | Live | Pro | Search |
-| C-10 | Real-Time Notifications Engine | Push, SMS, email, in-app — rule-based (keywords, assignees, urgency) | Live | Free/Pro | Notifications |
-| C-11 | White-Label & Custom Domain | app.yourbrand.com, email@yourbrand.com, custom logo/color, remove all Dartwing branding | Live | Enterprise | Branding |
-| C-12 | Per-Organization Billing & Usage Metering | Meter fax pages, storage, API calls, seats → Stripe/Lemon Squeezy billing | Live | Pro | Billing |
-| C-13 | Compliance-Ready Mode (HIPAA/SOC2/GDPR) | One toggle enables signed BAA, Object Lock, encryption, audit trail, data residency | Live | Pro/Enterprise | Compliance |
-| C-14 | Plugin / Module System | Install DartwingFax, DartwingFamily, DartwingLegal, etc. as simple plugins on the same instance | Live | Free | Platform |
-| C-15 | 40+ Pre-Built Integrations Marketplace | Salesforce, QuickBooks, Google Workspace, Microsoft 365, Slack, Zapier, DocuSign, etc. — one-click connect | Live | Pro/Enterprise | Integrations |
-| C-16 | Background Job Engine | OCR, fax sending, PDF generation, AI tasks, reminders — guaranteed execution with progress UI | Live | Free | Platform |
-| C-17 | Role & Permission System (Row + Field Level) | Permissions scoped to Company/Family + department + location + custom roles | Live | Free | Security |
-| C-18 | Theme & Branding Engine | Per-organization colors, logos, fonts, dark mode — instantly applied everywhere | Live | Free | Branding |
-| C-19 | Navigation & Routing Framework | Dynamic sidebar, bottom nav, deep linking, role-based menus — same code works web + mobile | Live | Free | UI |
-| C-20 | Immutable 7-Year Audit Trail | Every action (create/edit/delete/upload) logged forever with S3 Object Lock | Live | Pro | Compliance |
-| C-21 | Data Residency Selection | Customer picks US / EU / Canada / Australia region at signup | Live | Enterprise | Compliance |
-| C-22 | Feature Flags Per Organization | Turn any feature on/off instantly for one Company/Family or globally | Live | Pro | Platform |
-| C-23 | Emergency Binder / Export Generator | One-tap beautiful PDF export of all critical data (used by Family → instantly reusable in Health/Legal) | Live | Free | Documents |
-| C-24 | Fax-over-IP Engine (Reusable Primitive) | Any app can call `DartwingFax.send("+15551234", pdf)` — no extra code | Live | Pro | Communications |
-| C-25 | Maintenance & Reminder Scheduler | Recurring tasks with push/email/SMS reminders and one-tap "Done" (started in Family → now used everywhere) | Live | Free | Tasks |
+| C-01 | Multi-Tenant Organizations | Unlimited "Companies" and "Families" per account with full data isolation and <400ms context switching | Implemented | Free | Organization |
+| C-02 | One-Click Organization Creation | Any user creates a Company or Family in ≤3 seconds | Implemented | Free | Organization |
+| C-03 | Invite Members (Adults, Children, Guests) | Email invite + QR-code child invite + time-limited guest access + auto-join flow for new users | Implemented | Free | Organization |
+| C-04 | Offline-First Mobile Apps | Full native iOS/Android apps work 100% offline (forms, lists, signatures, camera) with background sync | Planned | Free | Sync |
+| C-05 | Real-Time Collaboration | Live cursors, comments, @mentions, and presence across web + mobile via Socket.IO | Planned | Free | Sync |
+| C-06 | Automatic Native UI Generation | Every Frappe DocType instantly becomes beautiful, native Flutter forms, lists, kanban, calendars — zero code | Planned | Free | UI |
+| C-07 | Unified File Storage | One API works with Google Drive, SharePoint, OneDrive, Dropbox, or S3 + automatic virus scanning | Planned | Free/Pro | Storage |
+| C-08 | Electronic Signature & Annotation | Legally-binding e-signature (draw/type/upload) + highlight, stamp, redact — reusable in every app | Planned | Free | Documents |
+| C-09 | Global Full-Text + Metadata Search | Sub-second search across millions of documents, faxes, notes, appliances, etc. | Planned | Pro | Search |
+| C-10 | Real-Time Notifications Engine | Push, SMS, email, in-app — rule-based (keywords, assignees, urgency) | Planned | Free/Pro | Notifications |
+| C-11 | White-Label & Custom Domain | app.yourbrand.com, email@yourbrand.com, custom logo/color, remove all Dartwing branding | Planned | Enterprise | Branding |
+| C-12 | Per-Organization Billing & Usage Metering | Meter fax pages, storage, API calls, seats → Stripe/Lemon Squeezy billing | Planned | Pro | Billing |
+| C-13 | Compliance-Ready Mode (HIPAA/SOC2/GDPR) | One toggle enables signed BAA, Object Lock, encryption, audit trail, data residency | Planned | Pro/Enterprise | Compliance |
+| C-14 | Plugin / Module System | Install DartwingFax, DartwingFamily, DartwingLegal, etc. as simple plugins on the same instance | Planned | Free | Platform |
+| C-15 | 40+ Pre-Built Integrations Marketplace | Salesforce, QuickBooks, Google Workspace, Microsoft 365, Slack, Zapier, DocuSign, etc. — one-click connect | Planned | Pro/Enterprise | Integrations |
+| C-16 | Background Job Engine | OCR, fax sending, PDF generation, AI tasks, reminders — guaranteed execution with progress UI | Planned | Free | Platform |
+| C-17 | Role & Permission System (Row + Field Level) | Permissions scoped to Company/Family + department + location + custom roles | Implemented | Free | Security |
+| C-18 | Theme & Branding Engine | Per-organization colors, logos, fonts, dark mode — instantly applied everywhere | Planned | Free | Branding |
+| C-19 | Navigation & Routing Framework | Dynamic sidebar, bottom nav, deep linking, role-based menus — same code works web + mobile | Planned | Free | UI |
+| C-20 | Immutable 7-Year Audit Trail | Every action (create/edit/delete/upload) logged forever with S3 Object Lock | Planned | Pro | Compliance |
+| C-21 | Data Residency Selection | Customer picks US / EU / Canada / Australia region at signup | Planned | Enterprise | Compliance |
+| C-22 | Feature Flags Per Organization | Turn any feature on/off instantly for one Company/Family or globally | Planned | Pro | Platform |
+| C-23 | Emergency Binder / Export Generator | One-tap beautiful PDF export of all critical data (used by Family → instantly reusable in Health/Legal) | Planned | Free | Documents |
+| C-24 | Fax-over-IP Engine (Reusable Primitive) | Any app can call `DartwingFax.send("+15551234", pdf)` — no extra code | Planned | Pro | Communications |
+| C-25 | Maintenance & Reminder Scheduler | Recurring tasks with push/email/SMS reminders and one-tap "Done" (started in Family → now used everywhere) | Planned | Free | Tasks |
 
 ## 2.3 Features by Domain
 
