@@ -33,7 +33,7 @@ class Family(Document, OrganizationMixin):
 		if not self.created_date:
 			self.created_date = frappe.utils.today()
 
-	def _generate_unique_slug(self):
+	def _generate_unique_slug(self) -> str:
 		"""Generate a unique slug from the family name."""
 		base = frappe.utils.slug(self.family_name)
 		if not base:

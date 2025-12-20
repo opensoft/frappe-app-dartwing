@@ -30,7 +30,7 @@ class TestOrganizationMixin(FrappeTestCase):
 
     @classmethod
     def _cleanup_test_data(cls):
-        """Remove test Organization and Family records."""
+        """Remove test Organization, Family, and Company records."""
         # Delete test families first (due to foreign key)
         family_names = frappe.get_all(
             "Family",
@@ -39,14 +39,26 @@ class TestOrganizationMixin(FrappeTestCase):
         )
         for name in family_names:
             frappe.delete_doc("Family", name, force=True)
-        # Delete test organizations
-        org_names = frappe.get_all(
-            "Organization",
-            filters={"org_name": ["like", "Test Mixin%"]},
+
+        # Delete test companies (due to foreign key)
+        company_names = frappe.get_all(
+            "Company",
+            filters={"legal_name": ["like", "Test Mixin%"]},
             pluck="name",
         )
-        for name in org_names:
-            frappe.delete_doc("Organization", name, force=True)
+        for name in company_names:
+            frappe.delete_doc("Company", name, force=True)
+
+        # Delete test organizations (specific patterns to avoid interfering with other tests)
+        org_patterns = ["Test Mixin%", "Test Company%"]
+        for pattern in org_patterns:
+            org_names = frappe.get_all(
+                "Organization",
+                filters={"org_name": ["like", pattern]},
+                pluck="name",
+            )
+            for name in org_names:
+                frappe.delete_doc("Organization", name, force=True)
 
     def setUp(self):
         """Set up test data for each test."""
@@ -228,15 +240,22 @@ class TestOrganizationMixin(FrappeTestCase):
 
         for unicode_name in unicode_names:
             family.update_org_name(unicode_name)
-            # Verify it was saved correctly
+            # Verify it was saved correctly in database
             saved_name = frappe.db.get_value("Organization", self.org.name, "org_name")
             self.assertEqual(saved_name, unicode_name, f"Failed for: {unicode_name}")
+            # Verify mixin property returns correct unicode value
+            self.assertEqual(family.org_name, unicode_name, f"Mixin property failed for: {unicode_name}")
             # Clear cache for next iteration
             family._clear_organization_cache()
 
     # T022: Test update_org_name is SQL injection safe
     def test_update_org_name_sql_injection_safe(self):
-        """Verify update_org_name() is safe from SQL injection attempts."""
+        """Verify update_org_name() is safe from SQL injection attempts.
+
+        Note: SQL injection safety comes from Frappe's ORM using parameterized
+        queries. This test verifies the integration works correctly - malicious
+        strings are stored as literals without being executed as SQL.
+        """
         family = frappe.get_doc("Family", self.family.name)
 
         # Common SQL injection patterns - should be saved as literal strings
@@ -248,6 +267,9 @@ class TestOrganizationMixin(FrappeTestCase):
             "' UNION SELECT * FROM tabUser --",
         ]
 
+        # Get initial Organization count to verify no records created/deleted
+        initial_org_count = frappe.db.count("Organization")
+
         for injection in injection_attempts:
             family.update_org_name(injection)
             # Verify it was saved as literal string (not executed)
@@ -255,6 +277,10 @@ class TestOrganizationMixin(FrappeTestCase):
             self.assertEqual(saved_name, injection)
             # Verify Organization table still exists and has our record
             self.assertTrue(frappe.db.exists("Organization", self.org.name))
+            # Verify Organization count hasn't changed (no INSERT/DELETE executed)
+            current_count = frappe.db.count("Organization")
+            self.assertEqual(current_count, initial_org_count,
+                f"Organization count changed after injection: {injection}")
             family._clear_organization_cache()
 
     # T023: Test input trimming preserves internal whitespace
@@ -272,3 +298,66 @@ class TestOrganizationMixin(FrappeTestCase):
         family.update_org_name("Acme  Double  Space  Corp")
         saved_name = frappe.db.get_value("Organization", self.org.name, "org_name")
         self.assertEqual(saved_name, "Acme  Double  Space  Corp")
+
+    # T024: Test mixin properties work on Company doctype (User Story 3)
+    def test_mixin_properties_on_company(self):
+        """Verify OrganizationMixin works identically on Company doctype.
+
+        User Story 3: Consistent API Across All Concrete Types
+        Tests that org_name, logo, org_status, get_organization_doc(), and
+        update_org_name() work the same on Company as they do on Family.
+        """
+        # Create a Company-specific Organization
+        company_org = frappe.get_doc({
+            "doctype": "Organization",
+            "org_name": "Test Company Organization",
+            "org_type": "Company",
+            "status": "Active",
+            "logo": "/files/company-logo.png"
+        })
+        # Skip auto-creation of Company record and field validation for test setup
+        company_org.flags.skip_concrete_type = True  # Prevent auto-creation despite org_type='Company'
+        company_org.flags.ignore_validate = True      # Skip ORG_FIELD_MAP validation
+        company_org.insert(ignore_permissions=True)
+
+        try:
+            # Create a Company linked to the Organization
+            company = frappe.get_doc({
+                "doctype": "Company",
+                "legal_name": "Test Mixin Company LLC",
+                "organization": company_org.name,
+                "status": "Active"
+            })
+            company.insert(ignore_permissions=True)
+
+            # Test 1: org_name property returns Organization name
+            self.assertEqual(company.org_name, "Test Company Organization")
+
+            # Test 2: logo property returns Organization logo
+            self.assertEqual(company.logo, "/files/company-logo.png")
+
+            # Test 3: org_status property returns Organization status
+            self.assertEqual(company.org_status, "Active")
+
+            # Test 4: get_organization_doc() returns Organization document
+            org_doc = company.get_organization_doc()
+            self.assertIsNotNone(org_doc)
+            self.assertEqual(org_doc.name, company_org.name)
+            self.assertEqual(org_doc.org_name, "Test Company Organization")
+
+            # Test 5: update_org_name() updates Organization name
+            company.update_org_name("Updated Company Name")
+            company._clear_organization_cache()
+            self.assertEqual(company.org_name, "Updated Company Name")
+
+            # Verify database was updated
+            saved_name = frappe.db.get_value("Organization", company_org.name, "org_name")
+            self.assertEqual(saved_name, "Updated Company Name")
+
+            # Clean up Company
+            frappe.delete_doc("Company", company.name, force=True)
+
+        finally:
+            # Clean up Organization
+            if frappe.db.exists("Organization", company_org.name):
+                frappe.delete_doc("Organization", company_org.name, force=True)
