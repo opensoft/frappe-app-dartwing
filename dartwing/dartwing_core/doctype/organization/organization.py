@@ -429,9 +429,14 @@ def get_concrete_doc(organization: str) -> Optional[dict]:
         dict: The concrete type document as a dictionary, or None if not linked
 
     Raises:
+        ValidationError: If organization parameter is empty
         DoesNotExistError: If the Organization does not exist
         PermissionError: If user lacks read permission for the organization
     """
+    # V2-001: Validate required parameter early
+    if not organization:
+        frappe.throw(_("Organization parameter is required"), frappe.ValidationError)
+
     logger.info(f"API: get_concrete_doc - User '{frappe.session.user}' requested Organization '{organization}'")
 
     # T029: Add explicit permission check using frappe.has_permission
@@ -474,9 +479,14 @@ def get_organization_with_details(organization: str) -> dict:
         dict: Organization data with nested 'concrete_type' object
 
     Raises:
+        ValidationError: If organization parameter is empty
         DoesNotExistError: If the Organization does not exist
         PermissionError: If user lacks read permission for the organization
     """
+    # V2-001: Validate required parameter early
+    if not organization:
+        frappe.throw(_("Organization parameter is required"), frappe.ValidationError)
+
     logger.info(f"API: get_organization_with_details - User '{frappe.session.user}' requested '{organization}'")
 
     # T022: Add explicit permission check using frappe.has_permission
