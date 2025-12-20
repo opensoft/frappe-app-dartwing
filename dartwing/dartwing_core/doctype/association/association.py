@@ -18,9 +18,9 @@ class Association(Document, OrganizationMixin):
 	"""
 
 	def validate(self):
-		"""Validate required fields and defaults."""
+		"""Validate required fields."""
 		if not self.association_name:
 			frappe.throw(_("Association Name is required"))
 
-		if not self.status:
-			self.status = "Active"
+		# Note: status default is set in Association.json ("default": "Active")
+		# per Metadata-as-Data principle - no code default needed

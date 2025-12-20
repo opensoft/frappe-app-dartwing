@@ -211,3 +211,64 @@ class TestOrganizationMixin(FrappeTestCase):
             self.assertIn(expected_msg, str(context.exception))
         finally:
             frappe.delete_doc("Family", orphan_family.name, force=True)
+
+    # T021: Test update_org_name with unicode characters
+    def test_update_org_name_with_unicode_characters(self):
+        """Verify update_org_name() handles unicode characters correctly."""
+        family = frappe.get_doc("Family", self.family.name)
+
+        # Test various unicode characters
+        unicode_names = [
+            "日本語組織",  # Japanese
+            "Société Française",  # French with accents
+            "Компания России",  # Russian
+            "公司名称 🏢",  # Chinese with emoji
+            "Ñoño & Compañía",  # Spanish with ñ
+        ]
+
+        for unicode_name in unicode_names:
+            family.update_org_name(unicode_name)
+            # Verify it was saved correctly
+            saved_name = frappe.db.get_value("Organization", self.org.name, "org_name")
+            self.assertEqual(saved_name, unicode_name, f"Failed for: {unicode_name}")
+            # Clear cache for next iteration
+            family._clear_organization_cache()
+
+    # T022: Test update_org_name is SQL injection safe
+    def test_update_org_name_sql_injection_safe(self):
+        """Verify update_org_name() is safe from SQL injection attempts."""
+        family = frappe.get_doc("Family", self.family.name)
+
+        # Common SQL injection patterns - should be saved as literal strings
+        injection_attempts = [
+            "'; DROP TABLE tabOrganization; --",
+            "Robert'); DROP TABLE Students;--",
+            "1' OR '1'='1",
+            "1; DELETE FROM tabOrganization WHERE 1=1;--",
+            "' UNION SELECT * FROM tabUser --",
+        ]
+
+        for injection in injection_attempts:
+            family.update_org_name(injection)
+            # Verify it was saved as literal string (not executed)
+            saved_name = frappe.db.get_value("Organization", self.org.name, "org_name")
+            self.assertEqual(saved_name, injection)
+            # Verify Organization table still exists and has our record
+            self.assertTrue(frappe.db.exists("Organization", self.org.name))
+            family._clear_organization_cache()
+
+    # T023: Test input trimming preserves internal whitespace
+    def test_update_org_name_trims_only_edges(self):
+        """Verify update_org_name() trims edges but preserves internal whitespace."""
+        family = frappe.get_doc("Family", self.family.name)
+
+        # Leading/trailing whitespace should be stripped
+        family.update_org_name("  Acme Corporation  ")
+        saved_name = frappe.db.get_value("Organization", self.org.name, "org_name")
+        self.assertEqual(saved_name, "Acme Corporation")
+
+        # Internal whitespace should be preserved
+        family._clear_organization_cache()
+        family.update_org_name("Acme  Double  Space  Corp")
+        saved_name = frappe.db.get_value("Organization", self.org.name, "org_name")
+        self.assertEqual(saved_name, "Acme  Double  Space  Corp")

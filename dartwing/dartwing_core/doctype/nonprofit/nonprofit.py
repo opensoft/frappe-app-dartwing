@@ -18,9 +18,9 @@ class Nonprofit(Document, OrganizationMixin):
 	"""
 
 	def validate(self):
-		"""Validate required fields and defaults."""
+		"""Validate required fields."""
 		if not self.nonprofit_name:
 			frappe.throw(_("Nonprofit Name is required"))
 
-		if not self.status:
-			self.status = "Active"
+		# Note: status default is set in Nonprofit.json ("default": "Active")
+		# per Metadata-as-Data principle - no code default needed

@@ -18,12 +18,12 @@ class Family(Document, OrganizationMixin):
 	"""
 
 	def validate(self):
-		"""Validate required fields and defaults."""
+		"""Validate required fields and generate slug if needed."""
 		if not self.family_name:
 			frappe.throw(_("Family Name is required"))
 
-		if not self.status:
-			self.status = "Active"
+		# Note: status default is set in Family.json ("default": "Active")
+		# per Metadata-as-Data principle - no code default needed
 
 		if not self.slug:
 			self.slug = self._generate_unique_slug()

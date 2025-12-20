@@ -13,7 +13,8 @@ class Company(Document, OrganizationMixin):
     Company DocType - represents a business entity.
 
     Inherits from OrganizationMixin to provide access to parent Organization
-    properties (org_name, logo, org_status).
+    properties (org_name, logo, org_status) and methods (get_organization_doc,
+    update_org_name).
 
     Note: Audit logging is handled by Frappe's built-in track_changes feature
     (configured in company.json). No custom audit logging needed.
