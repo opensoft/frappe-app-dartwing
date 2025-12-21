@@ -13,7 +13,8 @@ class Company(Document, OrganizationMixin):
     Company DocType - represents a business entity.
 
     Inherits from OrganizationMixin to provide access to parent Organization
-    properties (org_name, logo, org_status).
+    properties (org_name, logo, org_status) and methods (get_organization_doc,
+    update_org_name).
 
     Note: Audit logging is handled by Frappe's built-in track_changes feature
     (configured in company.json). No custom audit logging needed.
@@ -27,14 +28,25 @@ class Company(Document, OrganizationMixin):
     # Frappe's track_changes: 1 in company.json handles audit logging via Version doctype
 
     def validate_ownership_percentage(self):
-        """Warn if total ownership percentage exceeds 100%."""
+        """Validate ownership percentages and warn if total exceeds 100%."""
         if not self.members_partners:
             return
 
+        # Validate no negative ownership
+        for mp in self.members_partners:
+            if mp.ownership_percent is not None and mp.ownership_percent < 0:
+                frappe.throw(
+                    _("Ownership percentage cannot be negative for {0}").format(
+                        mp.person or _("member")
+                    )
+                )
+
+        # Calculate total ownership
         total_ownership = sum(
             (mp.ownership_percent or 0) for mp in self.members_partners
         )
 
+        # Warn if exceeds 100%
         if total_ownership > 100:
             frappe.msgprint(
                 _("Total ownership percentage ({0}%) exceeds 100%").format(

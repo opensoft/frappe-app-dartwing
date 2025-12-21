@@ -125,6 +125,8 @@ permission_query_conditions = {
 	"Company": "dartwing.permissions.company.get_permission_query_conditions",
 	"Association": "dartwing.permissions.association.get_permission_query_conditions",
 	"Nonprofit": "dartwing.permissions.nonprofit.get_permission_query_conditions",
+	# P2-02 FIX: Use consistent naming with _equipment suffix
+	"Equipment": "dartwing.permissions.equipment.get_permission_query_conditions_equipment",
 }
 
 has_permission = {
@@ -133,6 +135,8 @@ has_permission = {
 	"Company": "dartwing.permissions.company.has_permission",
 	"Association": "dartwing.permissions.association.has_permission",
 	"Nonprofit": "dartwing.permissions.nonprofit.has_permission",
+	# P2-02 FIX: Use consistent naming with _equipment suffix
+	"Equipment": "dartwing.permissions.equipment.has_permission_equipment",
 }
 
 # Fixtures
@@ -182,6 +186,9 @@ doc_events = {
 	},
 	"Person": {
 		"on_trash": "dartwing.dartwing_core.doctype.org_member.org_member.handle_person_deletion"
+	},
+	"Organization": {
+		"on_trash": "dartwing.dartwing_core.doctype.equipment.equipment.check_equipment_on_org_deletion"
 	}
 }
 

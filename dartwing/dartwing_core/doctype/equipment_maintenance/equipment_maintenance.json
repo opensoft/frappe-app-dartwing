@@ -1,0 +1,46 @@
+{
+ "actions": [],
+ "creation": "2025-12-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "task",
+  "frequency",
+  "next_due"
+ ],
+ "fields": [
+  {
+   "fieldname": "task",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Task",
+   "reqd": 1
+  },
+  {
+   "fieldname": "frequency",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Frequency",
+   "options": "Daily\nWeekly\nMonthly\nQuarterly\nYearly"
+  },
+  {
+   "fieldname": "next_due",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Next Due"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-12-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Dartwing Core",
+ "name": "Equipment Maintenance",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

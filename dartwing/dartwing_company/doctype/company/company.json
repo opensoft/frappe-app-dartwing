@@ -8,6 +8,7 @@
  "field_order": [
   "naming_series",
   "company_name",
+  "status",
   "organization",
   "status",
   "column_break_basic",
@@ -46,9 +47,16 @@
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "fetch_from": "organization.org_name",
-   "read_only": 1,
-   "description": "Display name of the company (automatically synced from Organization)"
+   "description": "Display name for the company"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive\nDissolved",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
   },
   {
    "fieldname": "organization",
