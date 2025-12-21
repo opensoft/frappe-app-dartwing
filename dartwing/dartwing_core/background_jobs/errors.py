@@ -5,6 +5,11 @@ Provides error types to distinguish between transient (retryable) and
 permanent (fail immediately) errors.
 """
 
+# Error type constants for consistency across the system
+ERROR_TYPE_TRANSIENT = "Transient"
+ERROR_TYPE_PERMANENT = "Permanent"
+ERROR_TYPE_CIRCUIT_BREAKER = "Circuit Breaker Open"
+
 
 class JobError(Exception):
     """Base class for job errors with retry classification."""
@@ -130,6 +135,6 @@ def get_error_type(exception: Exception) -> str:
         exception: The exception to classify
 
     Returns:
-        "Transient" or "Permanent"
+        ERROR_TYPE_TRANSIENT or ERROR_TYPE_PERMANENT
     """
-    return "Transient" if classify_error(exception) else "Permanent"
+    return ERROR_TYPE_TRANSIENT if classify_error(exception) else ERROR_TYPE_PERMANENT

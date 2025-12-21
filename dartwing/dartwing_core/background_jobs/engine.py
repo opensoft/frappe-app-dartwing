@@ -12,6 +12,20 @@ from frappe import _
 from frappe.utils import now_datetime, add_to_date
 from typing import Optional, Iterator
 
+try:
+    import redis
+except ImportError:
+    redis = None
+
+from dartwing.dartwing_core.background_jobs.config import (
+    DEFAULT_TIMEOUT_SECONDS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_DEDUPLICATION_WINDOW_SECONDS,
+    DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
+    MAX_RATE_LIMIT_WINDOW_SECONDS,
+    DEDUPLICATION_LOCK_TIMEOUT_SECONDS,
+)
+
 
 def submit_job(
     job_type: str,
@@ -38,62 +52,36 @@ def submit_job(
         frappe.PermissionError: User lacks permission
         frappe.DuplicateEntryError: Duplicate job submission detected
     """
-    # Validate user can submit jobs for this organization
+    # Phase 1: Validation
     _validate_organization_access(organization)
-
-    # Get job type configuration
     job_type_doc = _get_job_type(job_type)
-
-    # Check rate limit before proceeding
     _check_rate_limit(job_type_doc)
+    _validate_job_type_permission(job_type_doc, job_type)
 
-    # Check for permission requirement
-    if job_type_doc.requires_permission:
-        if not frappe.has_permission(job_type_doc.requires_permission, "create"):
-            frappe.throw(_("You don't have permission to submit {0} jobs").format(job_type))
-
-    # Generate hash for duplicate detection
+    # Phase 2: Prepare job parameters
     job_hash = generate_job_hash(job_type, organization, parameters or {})
+    deduplication_window = _get_deduplication_window(job_type_doc)
 
-    deduplication_window_seconds = (
-        job_type_doc.deduplication_window
-        if job_type_doc.deduplication_window is not None
-        else 300
-    )
-
-    def create_and_enqueue() -> "frappe.Document":
-        job = frappe.new_doc("Background Job")
-        job.job_type = job_type
-        job.organization = organization
-        job.owner_user = frappe.session.user
-        job.status = "Pending"
-        job.priority = priority if priority is not None else (job_type_doc.default_priority or "Normal")
-        job.input_parameters = json.dumps(parameters) if parameters is not None else None
-        job.job_hash = job_hash
-        job.timeout_seconds = job_type_doc.default_timeout if job_type_doc.default_timeout is not None else 300
-        job.max_retries = job_type_doc.max_retries if job_type_doc.max_retries is not None else 5
-        job.depends_on = depends_on
-        job.created_at = now_datetime()
-
-        job.insert(ignore_permissions=True)
-        _enqueue_job(job)
-        return job
-
-    # Duplicate detection is disabled when deduplication_window_seconds is 0
-    if deduplication_window_seconds and deduplication_window_seconds > 0:
+    # Phase 3: Create job (with optional deduplication)
+    if deduplication_window > 0:
+        # Check redis availability early before entering context manager
+        # This fails fast with a clear error if redis is not installed
+        if not redis:
+            raise ImportError(
+                "Redis module is not available. The background job system requires redis for "
+                "distributed locking when deduplication is enabled. Please install redis: pip install redis"
+            )
         with _deduplication_lock(organization=organization, job_hash=job_hash):
-            existing = _check_duplicate(job_hash, deduplication_window_seconds)
-            if existing:
-                frappe.throw(
-                    _("Duplicate job detected. Existing job: {0} (status: {1})").format(existing.name, existing.status),
-                    exc=frappe.DuplicateEntryError,
-                )
-
-            job = create_and_enqueue()
+            _check_duplicate_and_throw(job_hash, deduplication_window)
+            return _create_job_record(
+                job_type, organization, parameters, priority,
+                depends_on, job_hash, job_type_doc
+            )
     else:
-        job = create_and_enqueue()
-
-    return job
+        return _create_job_record(
+            job_type, organization, parameters, priority,
+            depends_on, job_hash, job_type_doc
+        )
 
 
 def get_job_status(job_id: str) -> dict:
@@ -340,6 +328,7 @@ def get_job_history(job_id: str) -> dict:
                 "timestamp": str(log.timestamp) if log.timestamp else None,
                 "actor": log.actor,
                 "message": log.message,
+                "retry_attempt": log.retry_attempt,
             }
             for log in logs
         ],
@@ -347,6 +336,68 @@ def get_job_history(job_id: str) -> dict:
 
 
 # Internal helper functions
+
+
+def _validate_job_type_permission(job_type_doc: "frappe.Document", job_type: str) -> None:
+    """Validate user has permission for this job type if required."""
+    if job_type_doc.requires_permission:
+        if not frappe.has_permission(job_type_doc.requires_permission, "create"):
+            frappe.throw(_("You don't have permission to submit {0} jobs").format(job_type))
+
+
+def _get_deduplication_window(job_type_doc: "frappe.Document") -> int:
+    """Get deduplication window in seconds from job type config."""
+    if job_type_doc.deduplication_window is not None:
+        return job_type_doc.deduplication_window
+    return DEFAULT_DEDUPLICATION_WINDOW_SECONDS
+
+
+def _check_duplicate_and_throw(job_hash: str, window_seconds: int) -> None:
+    """Check for duplicate job and throw if found."""
+    existing = _check_duplicate(job_hash, window_seconds)
+    if existing:
+        frappe.throw(
+            _("Duplicate job detected. Existing job: {0} (status: {1})").format(
+                existing.name, existing.status
+            ),
+            exc=frappe.DuplicateEntryError,
+        )
+
+
+def _create_job_record(
+    job_type: str,
+    organization: str,
+    parameters: dict,
+    priority: str,
+    depends_on: str,
+    job_hash: str,
+    job_type_doc: "frappe.Document",
+) -> "frappe.Document":
+    """Create a new Background Job record and enqueue it for execution."""
+    job = frappe.new_doc("Background Job")
+    job.job_type = job_type
+    job.organization = organization
+    job.owner_user = frappe.session.user
+    job.status = "Pending"
+    job.priority = priority if priority is not None else (job_type_doc.default_priority or "Normal")
+    job.input_parameters = json.dumps(parameters) if parameters is not None else None
+    job.job_hash = job_hash
+    job.timeout_seconds = (
+        job_type_doc.default_timeout
+        if job_type_doc.default_timeout is not None
+        else DEFAULT_TIMEOUT_SECONDS
+    )
+    job.max_retries = (
+        job_type_doc.max_retries
+        if job_type_doc.max_retries is not None
+        else DEFAULT_MAX_RETRIES
+    )
+    job.depends_on = depends_on
+    job.created_at = now_datetime()
+
+    job.insert(ignore_permissions=True)
+    _enqueue_job(job)
+    return job
 
 
 def _is_system_manager() -> bool:
@@ -459,9 +510,11 @@ def _check_rate_limit(job_type_doc: "frappe.Document"):
     if _is_system_manager():
         return
 
-    window_seconds = job_type_doc.rate_limit_window if job_type_doc.rate_limit_window is not None else 60
+    window_seconds = job_type_doc.rate_limit_window if job_type_doc.rate_limit_window is not None else DEFAULT_RATE_LIMIT_WINDOW_SECONDS
     if window_seconds < 1:
         frappe.throw(_("Rate limit window must be at least 1 second"))
+    if window_seconds > MAX_RATE_LIMIT_WINDOW_SECONDS:
+        frappe.throw(_("Rate limit window cannot exceed 24 hours ({0} seconds)").format(MAX_RATE_LIMIT_WINDOW_SECONDS))
     cutoff = add_to_date(now_datetime(), seconds=-window_seconds)
 
     # Count recent jobs by this user for this job type
@@ -502,7 +555,7 @@ def _check_duplicate(job_hash: str, window_seconds: int) -> Optional["frappe.Doc
 
 
 @contextmanager
-def _deduplication_lock(organization: str, job_hash: str, timeout_seconds: int = 30) -> Iterator[None]:
+def _deduplication_lock(organization: str, job_hash: str, timeout_seconds: int = DEDUPLICATION_LOCK_TIMEOUT_SECONDS) -> Iterator[None]:
     """
     Serialize duplicate detection + insert across workers.
 
@@ -515,12 +568,34 @@ def _deduplication_lock(organization: str, job_hash: str, timeout_seconds: int =
         frappe.ValidationError: If Redis is unavailable
     """
     lock_key = f"dartwing_core:background_job:dedup:{organization}:{job_hash}"
+
+    # Define specific exceptions to catch for Redis connectivity issues
+    # Note: redis.ConnectionError is a subclass of redis.RedisError
+    # Only catch redis.RedisError to avoid catching unrelated built-in ConnectionError exceptions
+    # Redis availability is checked in submit_job() before calling this function
+    redis_exceptions = (redis.RedisError,)
+
     try:
         lock = frappe.cache().lock(lock_key, timeout=timeout_seconds)
         lock.acquire()
-    except Exception as e:
-        frappe.log_error(f"Redis lock acquisition failed: {e}", "Background Job Engine")
-        frappe.throw(_("Job submission temporarily unavailable. Please try again."))
+    except redis_exceptions as e:
+        # Log detailed context for debugging
+        import traceback  # Only used for error logging in this handler
+
+        error_details = (
+            f"Lock key: {lock_key}\n"
+            f"Organization: {organization}\n"
+            f"Job hash: {job_hash}\n"
+            f"Timeout: {timeout_seconds}s\n\n"
+            f"Error: {str(e)}\n\n"
+            f"Traceback:\n{traceback.format_exc()}"
+        )
+        frappe.log_error(error_details, "Redis Lock Acquisition Failed")
+        frappe.throw(
+            _("Unable to submit job due to cache service unavailability. "
+              "Please try again in a few moments or contact support if this persists."),
+            title=_("Cache Service Unavailable")
+        )
 
     try:
         yield
@@ -572,7 +647,7 @@ def _enqueue_job(job, is_retry: bool = False):
         "dartwing.dartwing_core.background_jobs.executor.execute_job",
         background_job_id=job.name,
         queue=queue,
-        timeout=job.timeout_seconds if job.timeout_seconds is not None else 300,
+        timeout=job.timeout_seconds if job.timeout_seconds is not None else DEFAULT_TIMEOUT_SECONDS,
         is_async=True,
         enqueue_after_commit=True,
     )

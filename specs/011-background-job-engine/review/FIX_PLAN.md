@@ -260,7 +260,54 @@ def generate_job_hash(job_type: str, organization: str, params: dict) -> str:
 
 ---
 
+### P3 Execution (2025-12-20)
+
+| Task | Issue ID | Status |
+|------|----------|--------|
+| Task 7 | P3-001: Refactor submit_job() complexity | ✅ COMPLETE |
+| Task 8 | P3-002: Add return type hints to public API | ✅ COMPLETE (already present) |
+| Task 9 | P3-003: Add rate limit window cap | ✅ COMPLETE |
+| Task 10 | P3-004: Add progress update throttling | ✅ COMPLETE |
+| Task 11 | P3-005: Extract magic numbers to config | ✅ COMPLETE |
+| Task 12 | P3-006: Include retry_attempt in job history | ✅ COMPLETE |
+
+### P3 Changes Made
+
+**config.py (NEW FILE - P3-005):**
+- Created centralized configuration module with all constants:
+  - `DEFAULT_TIMEOUT_SECONDS = 300`
+  - `DEFAULT_MAX_RETRIES = 5`
+  - `DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60`
+  - `MAX_RATE_LIMIT_WINDOW_SECONDS = 86400`
+  - `DEFAULT_DEDUPLICATION_WINDOW_SECONDS = 300`
+  - `DEPENDENCY_RETRY_DELAY_SECONDS = 30`
+  - `CLEANUP_BATCH_SIZE = 100`
+  - `DEFAULT_RETENTION_DAYS = 30`
+  - `DEDUPLICATION_LOCK_TIMEOUT_SECONDS = 30`
+  - `PROGRESS_THROTTLE_SECONDS = 1.0`
+
+**engine.py (P3-001, P3-003, P3-005, P3-006):**
+- Refactored `submit_job()` from ~90 lines to ~25 lines with clear phases
+- Extracted helpers: `_validate_job_type_permission()`, `_get_deduplication_window()`, `_check_duplicate_and_throw()`, `_create_job_record()`
+- Added `MAX_RATE_LIMIT_WINDOW_SECONDS` validation in `_check_rate_limit()`
+- Updated all functions to use config constants
+- Added `retry_attempt` to `get_job_history()` response
+
+**progress.py (P3-004, P3-005):**
+- Added progress throttling with `_last_broadcast` tracking in `JobContext`
+- Throttles Socket.IO broadcasts to max once per `PROGRESS_THROTTLE_SECONDS` (1 second)
+- Updated to use `PROGRESS_THROTTLE_SECONDS` from config
+
+**executor.py (P3-005):**
+- Updated to use `DEPENDENCY_RETRY_DELAY_SECONDS` from config
+
+**cleanup.py (P3-005):**
+- Updated to use `CLEANUP_BATCH_SIZE` and `DEFAULT_RETENTION_DAYS` from config
+
+---
+
 *Plan approved by user on 2025-12-16*
 *P1 execution completed on 2025-12-16*
 *P2 execution completed on 2025-12-16*
+*P3 execution completed on 2025-12-20*
 *Reference: MASTER_REVIEW.md v2.0*

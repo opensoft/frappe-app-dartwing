@@ -10,12 +10,22 @@ from frappe.utils import now_datetime, add_to_date
 from typing import Any, Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
+from dartwing.dartwing_core.background_jobs.config import (
+    DEFAULT_TIMEOUT_SECONDS,
+    DEPENDENCY_RETRY_DELAY_SECONDS,
+)
 from dartwing.dartwing_core.background_jobs.progress import JobContext, publish_job_status_changed
 from dartwing.dartwing_core.background_jobs.errors import (
     classify_error,
     get_error_type,
     TransientError,
     JobCanceledError,
+    ERROR_TYPE_CIRCUIT_BREAKER,
+)
+from dartwing.dartwing_core.background_jobs.circuit_breaker import (
+    check_circuit_breaker,
+    record_job_outcome,
+    CircuitBreakerOpen,
 )
 
 
@@ -60,6 +70,27 @@ def execute_job(background_job_id: str | None = None, job_id: str | None = None)
     if not _check_dependency(job):
         return
 
+    # Check circuit breaker
+    try:
+        check_circuit_breaker(job.job_type, job.organization)
+    except CircuitBreakerOpen as e:
+        # Circuit is open - don't execute, mark as failed
+        job.status = "Dead Letter"
+        job.error_message = str(e)
+        job.error_type = ERROR_TYPE_CIRCUIT_BREAKER
+        job.completed_at = now_datetime()
+        job.save(ignore_permissions=True)
+        frappe.db.commit()
+
+        publish_job_status_changed(
+            job_id=job.name,
+            organization=job.organization,
+            from_status="Queued",
+            to_status="Dead Letter",
+            error_message=job.error_message,
+        )
+        return
+
     # Transition to Running
     old_status = job.status
     job.status = "Running"
@@ -87,7 +118,7 @@ def execute_job(background_job_id: str | None = None, job_id: str | None = None)
         job_type=job.job_type,
         organization=job.organization,
         parameters=frappe.parse_json(job.input_parameters) if job.input_parameters else {},
-        timeout_seconds=job.timeout_seconds if job.timeout_seconds is not None else 300,
+        timeout_seconds=job.timeout_seconds if job.timeout_seconds is not None else DEFAULT_TIMEOUT_SECONDS,
     )
 
     # Execute with timeout
@@ -141,7 +172,7 @@ def _check_dependency(job) -> bool:
     # Parent still in progress (Pending/Queued/Running)
     # Schedule retry so scheduler picks this job up again after delay
     # This prevents orphaned jobs that would otherwise wait forever
-    job.next_retry_at = add_to_date(now_datetime(), seconds=30)
+    job.next_retry_at = add_to_date(now_datetime(), seconds=DEPENDENCY_RETRY_DELAY_SECONDS)
     job.save(ignore_permissions=True)
     frappe.db.commit()
     return False
@@ -210,6 +241,49 @@ def _handle_success(job, result: Any):
         output_reference=job.output_reference,
     )
 
+    # Record execution metrics
+    _record_job_metrics(job)
+
+    # Record successful outcome for circuit breaker
+    record_job_outcome(job.job_type, job.organization, success=True)
+
+
+def _call_timeout_handler(job):
+    """
+    Call the timeout handler for a job if configured.
+
+    The timeout handler can perform cleanup operations when a job times out,
+    such as releasing resources, canceling external API calls, etc.
+
+    Args:
+        job: Background Job document that timed out
+    """
+    try:
+        from dartwing.dartwing_core.doctype.job_type.job_type import get_timeout_handler
+
+        timeout_handler = get_timeout_handler(job.job_type)
+        if not timeout_handler:
+            return
+
+        # Create a minimal context with job information
+        context = JobContext(
+            job_id=job.name,
+            job_type=job.job_type,
+            organization=job.organization,
+            parameters=frappe.parse_json(job.input_parameters) if job.input_parameters else {},
+            timeout_seconds=job.timeout_seconds if job.timeout_seconds is not None else DEFAULT_TIMEOUT_SECONDS,
+        )
+
+        # Call timeout handler (best effort - don't fail if cleanup fails)
+        timeout_handler(context)
+
+    except Exception as e:
+        # Log but don't raise - timeout handler failures shouldn't prevent retry scheduling
+        frappe.log_error(
+            f"Timeout handler failed for job {job.name}: {str(e)}",
+            "Background Job Timeout Handler",
+        )
+
 
 def _handle_timeout(job, error: JobTimeoutError):
     """Handle job timeout."""
@@ -228,6 +302,15 @@ def _handle_timeout(job, error: JobTimeoutError):
         to_status="Timed Out",
         error_message=job.error_message,
     )
+
+    # Call timeout handler if configured
+    _call_timeout_handler(job)
+
+    # Record execution metrics
+    _record_job_metrics(job)
+
+    # Record failed outcome for circuit breaker
+    record_job_outcome(job.job_type, job.organization, success=False)
 
     # Schedule retry if retries remaining
     from dartwing.dartwing_core.background_jobs.retry import schedule_retry
@@ -260,6 +343,12 @@ def _handle_failure(job, error: Exception, is_handler_error: bool = False):
         error_message=job.error_message,
     )
 
+    # Record execution metrics
+    _record_job_metrics(job)
+
+    # Record failed outcome for circuit breaker
+    record_job_outcome(job.job_type, job.organization, success=False)
+
     # Schedule retry if transient failure
     if job.status == "Failed":
         from dartwing.dartwing_core.background_jobs.retry import schedule_retry
@@ -271,6 +360,39 @@ def _handle_failure(job, error: Exception, is_handler_error: bool = False):
         f"Job {job.name} failed: {error}",
         "Background Job Executor",
     )
+
+
+def _record_job_metrics(job):
+    """
+    Record execution metrics for monitoring and analytics.
+
+    Calculates execution time and records metrics for performance tracking.
+    This is best-effort and won't fail the job if metrics recording fails.
+
+    Args:
+        job: Background Job document with started_at and completed_at set
+    """
+    try:
+        if not job.started_at or not job.completed_at:
+            return
+
+        execution_time = (job.completed_at - job.started_at).total_seconds()
+
+        from dartwing.dartwing_core.background_jobs.metrics import record_execution_metrics
+
+        record_execution_metrics(
+            job_id=job.name,
+            execution_time_seconds=execution_time,
+            status=job.status,
+            # error_type is only set for failures (timeout/error), not for successful completions
+            error_type=getattr(job, 'error_type', None),
+        )
+    except Exception as e:
+        # Metrics recording is best-effort - don't fail the job
+        frappe.log_error(
+            f"Failed to record metrics for job {job.name}: {str(e)}",
+            "Background Job Metrics",
+        )
 
 
 def _handle_canceled(job) -> None:

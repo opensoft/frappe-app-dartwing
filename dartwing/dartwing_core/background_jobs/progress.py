@@ -5,11 +5,17 @@ Provides JobContext for handlers to update progress and Socket.IO integration
 for real-time updates to connected clients.
 """
 
+import time
+import threading
 import frappe
 from frappe.utils import now_datetime
 from dataclasses import dataclass, field
 from typing import Optional
 
+from dartwing.dartwing_core.background_jobs.config import (
+    DEFAULT_TIMEOUT_SECONDS,
+    PROGRESS_THROTTLE_SECONDS,
+)
 from dartwing.dartwing_core.background_jobs.errors import JobCanceledError
 
 
@@ -19,6 +25,19 @@ class JobContext:
     Context object passed to job handlers.
 
     Provides access to job parameters and methods to update progress.
+
+    Thread Safety:
+        JobContext instances now use a threading.Lock to protect access to the
+        _last_broadcast field during throttling checks. This prevents race
+        conditions when multiple threads call update_progress() concurrently.
+
+        While update_progress() is now thread-safe for the throttling mechanism,
+        be aware that:
+        - Database updates are still not atomic across threads
+        - Multiple threads updating progress rapidly may still cause race conditions
+          in the database layer
+
+        Best practice: Call update_progress() from a single thread when possible
 
     Usage:
         def my_job_handler(context: JobContext):
@@ -36,21 +55,28 @@ class JobContext:
     job_type: str
     organization: str
     parameters: dict = field(default_factory=dict)
-    timeout_seconds: int = 300
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     _canceled: bool = field(default=False, repr=False)
+    _last_broadcast: float = field(default=0.0, repr=False)
+    _broadcast_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
-    def update_progress(self, percent: int, message: Optional[str] = None) -> None:
+    def update_progress(self, percent: int, message: Optional[str] = None, force: bool = False) -> None:
         """
         Update job progress and broadcast to connected clients.
 
-        Note: Progress updates are buffered and use update_modified=False to avoid
-        unnecessary database overhead. Progress data is eventually consistent and
-        may not survive job crashes. For critical state that must persist across
+        Progress updates are throttled to max once per PROGRESS_THROTTLE_SECONDS
+        to prevent flooding Socket.IO with high-frequency updates. The database
+        is always updated, but broadcasts are rate-limited.
+
+        Note: Progress updates use update_modified=False to avoid unnecessary
+        database overhead. Progress data is eventually consistent and may not
+        survive job crashes. For critical state that must persist across
         failures, use checkpoints stored in input_parameters or external storage.
 
         Args:
             percent: Progress percentage (0-100)
             message: Optional status message describing current step
+            force: If True, bypass throttling and always broadcast (use for 100%)
 
         Raises:
             JobCanceledError: If job has been marked for cancellation
@@ -62,7 +88,7 @@ class JobContext:
         # Clamp percent to valid range
         percent = max(0, min(100, percent))
 
-        # Update database
+        # Update database (always)
         frappe.db.set_value(
             "Background Job",
             self.job_id,
@@ -70,14 +96,29 @@ class JobContext:
             update_modified=False,
         )
 
-        # Broadcast progress update via Socket.IO
-        publish_job_progress(
-            job_id=self.job_id,
-            organization=self.organization,
-            status="Running",
-            progress=percent,
-            progress_message=message,
-        )
+        # Throttle Socket.IO broadcasts to prevent flooding
+        # Always broadcast at 100% completion or if forced
+        # Use lock to prevent race conditions when checking/updating _last_broadcast
+        with self._broadcast_lock:
+            current_time = time.time()
+            should_broadcast = (
+                force
+                or percent == 100
+                or (current_time - self._last_broadcast) >= PROGRESS_THROTTLE_SECONDS
+            )
+
+            if should_broadcast:
+                self._last_broadcast = current_time
+
+        # Broadcast outside the lock to avoid holding it during I/O
+        if should_broadcast:
+            publish_job_progress(
+                job_id=self.job_id,
+                organization=self.organization,
+                status="Running",
+                progress=percent,
+                progress_message=message,
+            )
 
     def is_canceled(self) -> bool:
         """

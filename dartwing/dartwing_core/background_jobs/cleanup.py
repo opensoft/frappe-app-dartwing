@@ -7,8 +7,13 @@ Provides data retention cleanup for old job records.
 import frappe
 from frappe.utils import add_to_date, now_datetime
 
+from dartwing.dartwing_core.background_jobs.config import (
+    CLEANUP_BATCH_SIZE,
+    DEFAULT_RETENTION_DAYS,
+)
 
-def cleanup_old_jobs(retention_days: int = 30, batch_size: int = 100):
+
+def cleanup_old_jobs(retention_days: int = DEFAULT_RETENTION_DAYS, batch_size: int = CLEANUP_BATCH_SIZE):
     """
     Delete completed/failed jobs older than retention period.
 

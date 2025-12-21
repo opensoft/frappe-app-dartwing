@@ -11,8 +11,23 @@ from frappe.model.document import Document
 
 
 class JobType(Document):
+    """
+    Job Type configuration.
+
+    Optional Circuit Breaker Fields (for preventing cascading failures):
+        - enable_circuit_breaker (bool): Enable circuit breaker pattern
+        - circuit_breaker_failure_threshold (float): Failure rate to open circuit (0.0-1.0)
+        - circuit_breaker_min_samples (int): Minimum jobs before opening circuit
+        - circuit_breaker_window_minutes (int): Time window for failure rate calculation
+        - circuit_breaker_cooldown_minutes (int): Wait time before testing recovery
+
+    Optional Timeout Handler Field:
+        - timeout_handler_method (str): Python path to cleanup function for timeouts
+    """
+
     def validate(self):
         self.validate_handler_method()
+        self.validate_timeout_handler_method()
         self.validate_timeout()
         self.validate_max_retries()
         self.validate_rate_limit()
@@ -71,6 +86,52 @@ class JobType(Document):
         if not callable(handler):
             frappe.throw(
                 _("Handler '{0}' is not callable").format(self.handler_method)
+            )
+
+    def validate_timeout_handler_method(self):
+        """Ensure timeout handler method path is valid if provided."""
+        if not self.timeout_handler_method:
+            return
+
+        parts = self.timeout_handler_method.split(".")
+        if len(parts) < 2:
+            frappe.throw(
+                _("Timeout handler method must be a dotted Python path (e.g., module.function)")
+            )
+
+        for part in parts:
+            if not part.isidentifier():
+                frappe.throw(
+                    _("Invalid timeout handler method path: '{0}' is not a valid identifier").format(part)
+                )
+
+        # Always validate import to catch errors early, even for disabled Job Types
+        # This prevents saving invalid handlers that would fail at runtime if enabled later
+        self._validate_timeout_handler_import()
+
+    def _validate_timeout_handler_import(self):
+        """Verify timeout handler module exists and function is callable."""
+        # Note: Path format already validated in validate_timeout_handler_method()
+        module_path, func_name = self.timeout_handler_method.rsplit(".", 1)
+
+        try:
+            module = frappe.get_module(module_path)
+        except ImportError as e:
+            frappe.throw(
+                _("Cannot import timeout handler module '{0}': {1}").format(module_path, str(e))
+            )
+
+        if not hasattr(module, func_name):
+            frappe.throw(
+                _("Timeout handler function '{0}' not found in module '{1}'").format(
+                    func_name, module_path
+                )
+            )
+
+        handler = getattr(module, func_name)
+        if not callable(handler):
+            frappe.throw(
+                _("Timeout handler '{0}' is not callable").format(self.timeout_handler_method)
             )
 
     def validate_timeout(self):
@@ -148,6 +209,41 @@ def get_handler(job_type: str):
     if "." not in handler_path:
         frappe.throw(
             _("Invalid handler method format for Job Type '{0}': '{1}'. "
+              "Expected format: 'module.function'").format(job_type, handler_path)
+        )
+
+    module_path, func_name = handler_path.rsplit(".", 1)
+
+    module = frappe.get_module(module_path)
+    return getattr(module, func_name)
+
+
+def get_timeout_handler(job_type: str):
+    """
+    Get the timeout handler function for a job type, if configured.
+
+    Args:
+        job_type: Job type name
+
+    Returns:
+        callable or None: The timeout handler function, or None if not configured
+
+    Raises:
+        frappe.DoesNotExistError: If job type not found
+        ImportError: If timeout handler module not found
+        AttributeError: If timeout handler function not found
+        frappe.ValidationError: If timeout_handler_method format is invalid
+    """
+    job_type_doc = frappe.get_doc("Job Type", job_type)
+
+    if not job_type_doc.timeout_handler_method:
+        return None
+
+    handler_path = job_type_doc.timeout_handler_method
+
+    if "." not in handler_path:
+        frappe.throw(
+            _("Invalid timeout handler method format for Job Type '{0}': '{1}'. "
               "Expected format: 'module.function'").format(job_type, handler_path)
         )
 
