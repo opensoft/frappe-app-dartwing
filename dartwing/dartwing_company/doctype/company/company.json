@@ -10,6 +10,7 @@
   "company_name",
   "status",
   "organization",
+  "status",
   "column_break_basic",
   "section_legal_information",
   "legal_name",
@@ -66,6 +67,18 @@
    "read_only": 1,
    "in_standard_filter": 1,
    "description": "Parent organization for multi-tenant isolation"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "fetch_from": "organization.status",
+   "read_only": 1,
+   "description": "Company status (automatically synced from Organization)"
   },
   {
    "fieldname": "column_break_basic",

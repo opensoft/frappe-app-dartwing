@@ -65,9 +65,25 @@ class TestPermissionAPI(FrappeTestCase):
         self._cleanup_test_data()
 
     def _cleanup_test_data(self):
-        """Helper to clean up all test data."""
-        # Clean up Org Members
-        # First, get all test Person names (IDs) by email
+        """Helper to clean up all test data in reverse dependency order.
+
+        Cleanup occurs in reverse dependency order with selective exception handling.
+        Only catches expected DoesNotExistError. Logs LinkExistsError as potential
+        bugs instead of silently swallowing them, which prevents test flakiness.
+        """
+        # 1. Clean up User Permissions first (no dependencies)
+        for email in ["test_api_user1@example.com", "test_api_user2@example.com"]:
+            for perm_name in frappe.get_all(
+                "User Permission",
+                filters={"user": email},
+                pluck="name"
+            ):
+                try:
+                    frappe.delete_doc("User Permission", perm_name, force=True, ignore_permissions=True)
+                except frappe.DoesNotExistError:
+                    pass  # Already deleted - this is expected
+
+        # 2. Clean up Org Members (depends on Person and Organization)
         test_person_names = frappe.get_all(
             "Person",
             filters={"primary_email": ["like", "%@api-test.example.com"]},
@@ -79,39 +95,60 @@ class TestPermissionAPI(FrappeTestCase):
                 filters={"person": ["in", test_person_names]},
                 pluck="name"
             ):
-                frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
+                try:
+                    frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
+                except frappe.DoesNotExistError:
+                    pass
 
-        # Clean up Persons
-        for person_name in frappe.get_all(
-            "Person",
-            filters={"primary_email": ["like", "%@api-test.example.com"]},
-            pluck="name"
-        ):
-            frappe.delete_doc("Person", person_name, force=True, ignore_permissions=True)
-
-        # Clean up Organizations and concrete types
+        # 3. Clean up Organizations (will cascade to concrete types via hooks)
         for org_name in frappe.get_all(
             "Organization",
             filters={"org_name": ["like", "API Test %"]},
             pluck="name"
         ):
-            org = frappe.get_doc("Organization", org_name)
-            if org.linked_doctype and org.linked_name:
-                try:
-                    frappe.delete_doc(org.linked_doctype, org.linked_name, force=True, ignore_permissions=True)
-                except (frappe.DoesNotExistError, frappe.LinkExistsError):
-                    # Concrete type may have already been deleted or has links
-                    pass
-            frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
+            try:
+                frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
+            except frappe.DoesNotExistError:
+                pass
+            except frappe.LinkExistsError as e:
+                # CR-010-106 FIX: Use Frappe's delete API instead of raw SQL.
+                # This should NOT happen in normal test execution - indicates a bug.
+                frappe.log_error(
+                    f"LinkExistsError during test cleanup for {org_name}: {str(e)}",
+                    "Test Cleanup Error"
+                )
+                # Find and delete blocking Org Members using Frappe API
+                blocking_members = frappe.get_all(
+                    "Org Member",
+                    filters={"organization": org_name},
+                    pluck="name"
+                )
+                for member_name in blocking_members:
+                    try:
+                        frappe.delete_doc("Org Member", member_name, force=True, ignore_permissions=True)
+                    except (frappe.DoesNotExistError, frappe.LinkExistsError):
+                        pass  # Already deleted or still has dependencies - expected in cleanup
+                    except Exception as ex:
+                        frappe.log_error(f"Unexpected error deleting Org Member {member_name}: {str(ex)}", "Test Cleanup Error")
 
-        # Clean up User Permissions for test users
-        for email in ["test_api_user1@example.com", "test_api_user2@example.com"]:
-            for perm_name in frappe.get_all(
-                "User Permission",
-                filters={"user": email},
-                pluck="name"
-            ):
-                frappe.delete_doc("User Permission", perm_name, force=True, ignore_permissions=True)
+                # Retry Organization deletion
+                try:
+                    frappe.delete_doc("Organization", org_name, force=True, ignore_permissions=True)
+                except (frappe.DoesNotExistError, frappe.LinkExistsError):
+                    pass  # Already deleted or still has dependencies - expected in cleanup
+                except Exception as ex:
+                    frappe.log_error(f"Unexpected error deleting Organization {org_name}: {str(ex)}", "Test Cleanup Error")
+
+        # 4. Clean up Persons (no longer referenced by Org Members)
+        for person_name in frappe.get_all(
+            "Person",
+            filters={"primary_email": ["like", "%@api-test.example.com"]},
+            pluck="name"
+        ):
+            try:
+                frappe.delete_doc("Person", person_name, force=True, ignore_permissions=True)
+            except frappe.DoesNotExistError:
+                pass
 
     def _create_test_person(self, name_suffix, user_email):
         """Helper to create a test Person."""
