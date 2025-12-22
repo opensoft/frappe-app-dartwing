@@ -107,8 +107,6 @@ class TestJobRetry(FrappeTestCase):
         job.insert(ignore_permissions=True)
         frappe.db.commit()
 
-        initial_status = job.status
-
         # Process retry queue
         process_retry_queue()
 
