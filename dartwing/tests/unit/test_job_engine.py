@@ -8,7 +8,6 @@ import unittest
 import json
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from unittest.mock import patch, MagicMock
 
 
 class TestJobHashGeneration(FrappeTestCase):
