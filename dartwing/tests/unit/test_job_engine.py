@@ -6,8 +6,8 @@ Tests job submission, hash generation, and duplicate detection.
 
 import unittest
 import frappe
+import json
 from frappe.tests.utils import FrappeTestCase
-from unittest.mock import patch, MagicMock
 
 
 class TestJobHashGeneration(FrappeTestCase):

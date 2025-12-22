@@ -1,0 +1,68 @@
+fix(dartwing_core): Resolve P1-Critical issues per MASTER_REVIEW.md
+
+This commit addresses all 8 P1-Critical blockers identified in the
+comprehensive code review (MASTER_REVIEW.md) for the Basic Test Suite
+feature branch (010-basic-test-suite).
+
+ARCHITECTURAL ALIGNMENT FIXES:
+
+✅ P1-007: Remove "Club" from ORG_TYPE_MAP
+- Removed "Club" as root organization type (belongs under Association)
+- Aligns with PRD Section 3.4: Association covers clubs via subtype
+
+✅ P1-003: Implement fetch_from for Company synced fields
+- Added fetch_from="organization.org_name" to company_name field
+- Added fetch_from="organization.status" to status field
+- Removed Company from ORG_FIELD_MAP (no longer needs manual sync)
+- Prevents data drift, enforces Single Source of Truth (constitution.md)
+
+✅ P1-001: Fix test helper to use Organization-first creation flow
+- Rewrote _create_test_organization() in test_full_workflow.py
+- Changed from concrete-first to Organization-first flow
+- Now matches production behavior per dartwing_core_arch.md Section 3.2
+- Tests bidirectional linking hooks critical to data integrity
+
+✅ P1-004: Remove OrganizationMixin tests (Feature 8 scope creep)
+- Deleted test_organization_mixin.py (327 lines)
+- Feature 8 should be separate branch per dartwing_core_features_priority.md
+- Prevents false test coverage for unimplemented features
+
+✅ P1-005: Change test users to Dartwing User role
+- Changed from System Manager to Dartwing User in test_full_workflow.py
+- System Manager bypassed all permission checks, defeating test purpose
+- Now properly validates User Permission enforcement (Feature 5)
+
+✅ P1-008: Refactor test cleanup to surface bugs
+- Rewrote _cleanup_test_data() in test_permission_api.py
+- Cleanup in reverse dependency order (prevents LinkExistsError cascades)
+- Selective exception handling (logs real bugs instead of swallowing them)
+- Prevents test flakiness per SC-005 requirement
+
+✅ P1-002: Verified hooks.py (NO issues found - already clean)
+✅ P1-006: Verified organization.py structure (NO issues found - valid)
+
+FILES MODIFIED:
+- dartwing/dartwing_core/doctype/organization/organization.py
+- dartwing/dartwing_company/doctype/company/company.json
+- dartwing/tests/integration/test_full_workflow.py
+- dartwing/tests/test_permission_api.py
+- specs/010-basic-test-suite/FIX_PLAN.md (new)
+- specs/010-basic-test-suite/COMPLETION_REPORT.md (new)
+
+FILES DELETED:
+- dartwing/dartwing_core/mixins/test_organization_mixin.py
+
+ARCHITECTURAL COMPLIANCE:
+✓ dartwing_core_arch.md Section 3.2 (Organization-first lifecycle)
+✓ dartwing_core_arch.md Section 8.2.2 (Role hierarchy)
+✓ dartwing_core_prd.md Section 3.4 (Organization types)
+✓ constitution.md Section 1 (Single Source of Truth)
+✓ constitution.md Section 5 (Role-based access control)
+✓ dartwing_core_features_priority.md (Feature sequencing)
+
+NEXT STEPS:
+- Run full test suite: bench --site <site> run-tests --app dartwing
+- Verify zero flakiness (run 3 times)
+- Test Organization creation flow manually
+- Verify Company field sync from Organization
+- Address P2-Medium issues in follow-up commits
