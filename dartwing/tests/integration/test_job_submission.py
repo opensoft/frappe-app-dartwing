@@ -141,7 +141,7 @@ class TestJobSubmission(FrappeTestCase):
         from dartwing.dartwing_core.background_jobs import submit_job
 
         # First submission should succeed
-        job1 = submit_job(
+        submit_job(
             job_type="test_job",
             organization=self.test_org,
             parameters={"unique_key": "same_value"},
