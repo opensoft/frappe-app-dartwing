@@ -5,7 +5,6 @@ Tests job submission, hash generation, and duplicate detection.
 """
 
 import unittest
-import json
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from unittest.mock import patch, MagicMock
