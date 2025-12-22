@@ -5,7 +5,6 @@ Unit tests for job metrics calculations.
 import unittest
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from unittest.mock import patch, MagicMock
 
 
 class TestMetricsCalculations(FrappeTestCase):
