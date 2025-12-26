@@ -36,6 +36,8 @@ Auto-generated from all feature plans. Last updated: 2025-12-01
 - Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures (002-role-template-doctype)
 - MariaDB 10.6+ via Frappe ORM (002-role-template-doctype)
 - Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger (004-org-bidirectional-hooks)
+- Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.background_jobs, Redis/RQ, Socket.IO (011-background-job-engine)
+- MariaDB 10.6+ via Frappe ORM (job metadata persistence) (011-background-job-engine)
 - Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.tests.utils, pytest (via bench) (010-basic-test-suite)
 - MariaDB 10.6+ via Frappe ORM (test database) (010-basic-test-suite)
 
@@ -65,13 +67,13 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 Python 3.11+ (Frappe 15.x backend): Follow standard conventions
 
 ## Recent Changes
+- 011-background-job-engine: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.background_jobs, Redis/RQ, Socket.IO
 - 010-basic-test-suite: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.tests.utils, pytest (via bench)
 - 009-api-helpers: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.permissions
 - 007-equipment-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
-- 004-org-bidirectional-hooks: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger
 - 006-company-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
-
 - 005-user-permission-propagation: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.permissions
+- 004-org-bidirectional-hooks: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.utils.logger
 
 
 <!-- MANUAL ADDITIONS START -->
