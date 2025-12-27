@@ -99,9 +99,8 @@ class TestOrganization(IntegrationTestCase):
 
         # Try to change org_type (should fail due to set_only_once)
         org.org_type = "Company"
-        # Note: set_only_once prevents value change, not throws error
-        # The value should remain "Family"
-        org.save()
+        with self.assertRaises(frappe.exceptions.CannotChangeConstantError):
+            org.save()
         org.reload()
         self.assertEqual(org.org_type, "Family")
 

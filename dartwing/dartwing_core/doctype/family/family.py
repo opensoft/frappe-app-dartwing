@@ -4,6 +4,10 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from dartwing.dartwing_core.doctype.family_member.family_member import (
+	calculate_age,
+	get_age_category,
+)
 
 
 class Family(Document):
@@ -19,6 +23,42 @@ class Family(Document):
 
 		if not self.slug:
 			self.slug = self._generate_unique_slug()
+
+		self._sync_member_fields()
+
+	def _sync_member_fields(self):
+		"""Update computed fields for family members."""
+		for member in self.members or []:
+			if hasattr(member, "calculate_age_fields"):
+				member.calculate_age_fields()
+			else:
+				self._set_member_age_fields(member)
+
+			if hasattr(member, "auto_split_name"):
+				member.auto_split_name()
+			else:
+				self._set_member_name_fields(member)
+
+	def _set_member_age_fields(self, member):
+		if not member.date_of_birth:
+			member.age = None
+			member.age_category = None
+			member.is_minor = 0
+			member.is_coppa_protected = 0
+			return
+
+		age = calculate_age(member.date_of_birth)
+		member.age = age
+		member.age_category = get_age_category(age)
+		member.is_minor = 1 if age is not None and age < 18 else 0
+		member.is_coppa_protected = 1 if age is not None and age < 13 else 0
+
+	def _set_member_name_fields(self, member):
+		if member.full_name and not (member.first_name or member.last_name):
+			parts = member.full_name.strip().split(" ", 1)
+			member.first_name = parts[0]
+			if len(parts) > 1:
+				member.last_name = parts[1]
 
 	def before_insert(self):
 		"""Set created_date if missing."""

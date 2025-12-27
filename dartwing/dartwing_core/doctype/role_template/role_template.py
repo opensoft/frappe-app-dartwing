@@ -15,7 +15,16 @@ class RoleTemplate(Document):
 
     def validate(self):
         """Validate role template before save."""
+        self.validate_org_type()
         self.validate_hourly_rate()
+
+    def validate_org_type(self):
+        """Ensure organization type is provided."""
+        if not self.applies_to_org_type or not str(self.applies_to_org_type).strip():
+            frappe.throw(
+                "Organization type is required.",
+                frappe.MandatoryError,
+            )
 
     def validate_hourly_rate(self):
         """Validate hourly rate field.
