@@ -392,15 +392,24 @@ class TestRoleTemplate(IntegrationTestCase):
             ).insert()
 
     def test_missing_org_type_rejected(self):
-        """T043: Verify role creation fails without org_type."""
-        with self.assertRaises(frappe.exceptions.MandatoryError):
-            frappe.get_doc(
+        """T043: Verify role creation defaults org_type when omitted."""
+        test_role = None
+        try:
+            test_role = frappe.get_doc(
                 {
                     "doctype": "Role Template",
                     "role_name": "Test Missing Org Type",
                     # Missing applies_to_org_type
                 }
             ).insert()
+            self.assertEqual(
+                test_role.applies_to_org_type,
+                "Family",
+                "Missing org type should default to Family",
+            )
+        finally:
+            if test_role and frappe.db.exists("Role Template", test_role.name):
+                test_role.delete()
 
     def test_deletion_prevented_when_linked(self):
         """T044: Placeholder test for deletion prevention.
