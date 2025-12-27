@@ -12060,7 +12060,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install frappe-bench
-          bench init --frappe-branch version-15 frappe-bench
+          bench init --frappe-branch version-16 frappe-bench
           cd frappe-bench
           bench get-app dartwing_family $GITHUB_WORKSPACE
           bench setup requirements

@@ -22,10 +22,10 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 Auto-generated from all feature plans. Last updated: 2025-12-01
 
 ## Active Technologies
-- Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures (002-role-template-doctype)
+- Python 3.11+ (Frappe 16.x backend) + Frappe Framework 16.x, frappe.model.document, frappe.fixtures (002-role-template-doctype)
 - MariaDB 10.6+ via Frappe ORM (002-role-template-doctype)
 
-- Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.background_jobs (001-person-doctype)
+- Python 3.11+ (Frappe 16.x backend) + Frappe Framework 16.x, frappe.model.document, frappe.background_jobs (001-person-doctype)
 
 ## Project Structure
 
@@ -40,12 +40,12 @@ cd src [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNOLO
 
 ## Code Style
 
-Python 3.11+ (Frappe 15.x backend): Follow standard conventions
+Python 3.11+ (Frappe 16.x backend): Follow standard conventions
 
 ## Recent Changes
-- 002-role-template-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.fixtures
+- 002-role-template-doctype: Added Python 3.11+ (Frappe 16.x backend) + Frappe Framework 16.x, frappe.model.document, frappe.fixtures
 
-- 001-person-doctype: Added Python 3.11+ (Frappe 15.x backend) + Frappe Framework 15.x, frappe.model.document, frappe.background_jobs
+- 001-person-doctype: Added Python 3.11+ (Frappe 16.x backend) + Frappe Framework 16.x, frappe.model.document, frappe.background_jobs
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

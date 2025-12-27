@@ -403,7 +403,7 @@ Acknowledgment logged for compliance
 
 | Layer                | Technology                  | Purpose                |
 | -------------------- | --------------------------- | ---------------------- |
-| **Framework**        | Frappe 15.x                 | Application platform   |
+| **Framework**        | Frappe 16.x                 | Application platform   |
 | **Language**         | Python 3.11+                | Backend logic          |
 | **Database**         | MariaDB 10.11+              | Metadata storage       |
 | **Cache/Queue**      | Redis 7.x                   | Caching, job queues    |

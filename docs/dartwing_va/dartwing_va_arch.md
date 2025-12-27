@@ -269,7 +269,7 @@ Deep integration with Frappe Framework as the foundation.
 
 | Layer            | Technology          | Purpose                         |
 | ---------------- | ------------------- | ------------------------------- |
-| **Framework**    | Frappe 15.x         | Application framework, ORM, API |
+| **Framework**    | Frappe 16.x         | Application framework, ORM, API |
 | **Language**     | Python 3.11+        | Backend logic, AI orchestration |
 | **Database**     | MariaDB 10.6+       | Primary data store              |
 | **Cache**        | Redis 7.x           | Session, cache, pub/sub         |

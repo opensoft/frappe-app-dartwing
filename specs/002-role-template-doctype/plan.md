@@ -9,8 +9,8 @@ Create a Role Template DocType that defines organization-type-specific roles (Fa
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (Frappe 15.x backend)
-**Primary Dependencies**: Frappe Framework 15.x, frappe.model.document, frappe.fixtures
+**Language/Version**: Python 3.11+ (Frappe 16.x backend)
+**Primary Dependencies**: Frappe Framework 16.x, frappe.model.document, frappe.fixtures
 **Storage**: MariaDB 10.6+ via Frappe ORM
 **Testing**: pytest with frappe test runner (`bench --site [site] run-tests`)
 **Target Platform**: Frappe/ERPNext server (Linux)
@@ -26,7 +26,7 @@ Create a Role Template DocType that defines organization-type-specific roles (Fa
 | Principle | Status | Notes |
 |-----------|--------|-------|
 | 1. Single Source of Truth | ✅ PASS | Role Template is a single DocType for all org types; uses `applies_to_org_type` field |
-| 2. Technology Stack | ✅ PASS | Using Frappe 15.x with Python 3.11+, MariaDB |
+| 2. Technology Stack | ✅ PASS | Using Frappe 16.x with Python 3.11+, MariaDB |
 | 3. Architecture Patterns | ✅ PASS | Standard Frappe doctype system for data models |
 | 4. Cross-Platform Requirements | ✅ PASS | DocType accessible via REST API for Flutter clients |
 | 5. Security & Compliance | ✅ PASS | Role-based access control; System Manager for write, all users for read |

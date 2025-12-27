@@ -1448,7 +1448,7 @@ has_permission = {
 | ------------------ | ---------- | ------- |
 | Frontend Framework | Flutter    | 3.24+   |
 | Frontend Language  | Dart       | 3.5+    |
-| Backend Framework  | Frappe     | 15.x    |
+| Backend Framework  | Frappe     | 16.x    |
 | Backend Language   | Python     | 3.11+   |
 | Database           | MariaDB    | 10.6+   |
 | Identity Provider  | Keycloak   | 24.x    |

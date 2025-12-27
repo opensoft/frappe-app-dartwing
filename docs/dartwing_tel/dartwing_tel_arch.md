@@ -155,7 +155,7 @@ The primary integration path is the Dart SDK for Flutter apps. The SDK provides:
 | -------------------- | ---------------- | -------- | --------------------------------- |
 | **Frontend**         | Flutter          | 3.24+    | Cross-platform native apps        |
 | **Frontend Lang**    | Dart             | 3.5+     | Type-safe client code             |
-| **API Gateway**      | Frappe           | 15.x     | REST API, permissions, DocTypes   |
+| **API Gateway**      | Frappe           | 16.x     | REST API, permissions, DocTypes   |
 | **Backend Lang**     | Python           | 3.11+    | Business logic, integrations      |
 | **Microservices**    | .NET Core        | 8.0      | Real-time voice, media processing |
 | **SIP Proxy**        | Kamailio         | 5.7+     | SIP routing, load balancing       |

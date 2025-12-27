@@ -15,8 +15,8 @@ Key capabilities:
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+ (Frappe 15.x backend)
-**Primary Dependencies**: Frappe Framework 15.x, frappe.model.document, frappe.background_jobs
+**Language/Version**: Python 3.11+ (Frappe 16.x backend)
+**Primary Dependencies**: Frappe Framework 16.x, frappe.model.document, frappe.background_jobs
 **Storage**: MariaDB 10.6+ (via Frappe ORM)
 **Testing**: pytest with frappe.tests.utils
 **Target Platform**: Frappe Server (Linux), accessible via REST API from Flutter clients

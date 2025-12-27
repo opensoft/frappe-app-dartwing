@@ -5,7 +5,7 @@
 
 ## Overview
 
-This document consolidates research findings for implementing the Person DocType in Frappe Framework 15.x. All NEEDS CLARIFICATION items from the Technical Context have been resolved.
+This document consolidates research findings for implementing the Person DocType in Frappe Framework 16.x. All NEEDS CLARIFICATION items from the Technical Context have been resolved.
 
 ---
 

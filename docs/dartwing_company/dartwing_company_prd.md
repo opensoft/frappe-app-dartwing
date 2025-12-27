@@ -2857,7 +2857,7 @@ doc_events = {
 
 | Component         | Technology            | Purpose                  |
 | ----------------- | --------------------- | ------------------------ |
-| **Framework**     | Frappe 15.x           | Application foundation   |
+| **Framework**     | Frappe 16.x           | Application foundation   |
 | **Database**      | MariaDB 10.11+        | Primary data store       |
 | **Cache**         | Redis 7.x             | Caching, queues, pub/sub |
 | **Search**        | OpenSearch 2.x        | Full-text, vector search |

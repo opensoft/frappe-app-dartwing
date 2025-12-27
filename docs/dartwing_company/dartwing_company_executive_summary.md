@@ -211,7 +211,7 @@ Single system replacing:
 
 | Component   | Technology                          |
 | ----------- | ----------------------------------- |
-| Framework   | Frappe 15.x                         |
+| Framework   | Frappe 16.x                         |
 | Database    | MariaDB 10.11+                      |
 | Cache/Queue | Redis 7.x                           |
 | Search      | OpenSearch 2.x (full-text + vector) |

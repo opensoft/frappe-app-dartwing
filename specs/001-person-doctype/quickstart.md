@@ -9,7 +9,7 @@ The Person DocType is the foundational identity layer for Dartwing. It links ind
 
 ## Prerequisites
 
-- Frappe 15.x installed and running
+- Frappe 16.x installed and running
 - MariaDB 10.6+
 - Redis (for background jobs)
 - Organization DocType exists (from dartwing_core)

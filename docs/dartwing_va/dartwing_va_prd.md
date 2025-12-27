@@ -7650,12 +7650,12 @@ ws.send(JSON.stringify({
 
 | Requirement      | Version |
 | ---------------- | ------- |
-| Frappe Framework | 15.x    |
-| ERPNext          | 15.x    |
-| HRMS             | 15.x    |
+| Frappe Framework | 16.x    |
+| ERPNext          | 16.x    |
+| HRMS             | 16.x    |
 | Frappe CRM       | 1.x     |
 | Frappe Drive     | 1.x     |
-| Frappe Health    | 15.x    |
+| Frappe Health    | 16.x    |
 | dartwing_fone    | 1.x     |
 | dartwing_company | 1.x     |
 | dartwing_core    | 1.x     |
@@ -8313,7 +8313,7 @@ _Next: Section 11 - Implementation Roadmap_
 | OpenAI GPT-4o availability  | OpenAI   | Medium | Multi-provider support   |
 | dartwing_fone readiness     | Internal | Low    | Existing production      |
 | dartwing_company completion | Internal | Medium | Parallel development     |
-| Frappe 15.x stability       | Frappe   | Low    | Active community         |
+| Frappe 16.x stability       | Frappe   | Low    | Active community         |
 | Google Gems availability    | Google   | Medium | Alternative local models |
 
 ### Assumptions

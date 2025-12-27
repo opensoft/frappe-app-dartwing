@@ -246,7 +246,7 @@ All features work across ALL organizations:
 
 | Component      | Technology                          |
 | -------------- | ----------------------------------- |
-| Framework      | Frappe 15.x                         |
+| Framework      | Frappe 16.x                         |
 | Database       | MariaDB 10.11+                      |
 | Cache/Queue    | Redis 7.x                           |
 | Mobile         | Flutter (Dartwing Flutter)          |

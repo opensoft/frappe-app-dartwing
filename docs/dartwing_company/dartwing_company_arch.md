@@ -89,7 +89,7 @@ Dartwing Company is an **AI-First Operations Platform** built as an intelligent 
 ```python
 # pyproject.toml / setup.py
 install_requires = [
-    "frappe>=15.0.0",
+    "frappe>=16.0.0",
     "erpnext>=15.0.0",        # Optional but recommended
     "hrms>=15.0.0",           # Optional - for HR features
     "crm>=15.0.0",            # Optional - for CRM overlay

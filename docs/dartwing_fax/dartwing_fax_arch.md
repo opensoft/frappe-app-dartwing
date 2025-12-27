@@ -54,7 +54,7 @@ This document defines the technical architecture for `dartwing_fax`, an enterpri
 
 | Component   | Technology        |
 | ----------- | ----------------- |
-| Framework   | Frappe 15.x       |
+| Framework   | Frappe 16.x       |
 | Language    | Python 3.11+      |
 | Database    | MariaDB 10.11+    |
 | Cache/Queue | Redis 7.x         |
